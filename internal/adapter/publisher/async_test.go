@@ -90,7 +90,7 @@ func TestAsyncPublisher_Publish(t *testing.T) {
 			hadError := false
 
 			for i := 0; i < tt.eventCount; i++ {
-				err := pub.Publish(ctx, event.EventCheckAccess, event.EventCheckAccessData{
+				err := pub.Publish(ctx, event.EventAccessCheck, event.EventAccessCheckData{
 					SubjectId:   "uid-from-user-service",
 					SubjectType: "user",
 					Resource:    "user",
@@ -134,7 +134,7 @@ func TestAsyncPublisher_BatchAccumulator(t *testing.T) {
 
 	// Publish fewer events than batch size
 	for i := 0; i < 3; i++ {
-		err := pub.Publish(ctx, event.EventCheckAccess, event.EventCheckAccessData{
+		err := pub.Publish(ctx, event.EventAccessCheck, event.EventAccessCheckData{
 			SubjectId:   "uid-from-user-service",
 			SubjectType: "user",
 			Resource:    "user",
@@ -172,7 +172,7 @@ func TestAsyncPublisher_Close(t *testing.T) {
 
 	// Publish enough events to trigger a batch
 	for i := 0; i < 10; i++ {
-		err := pub.Publish(ctx, event.EventCheckAccess, event.EventCheckAccessData{
+		err := pub.Publish(ctx, event.EventAccessCheck, event.EventAccessCheckData{
 			SubjectId:   "uid-from-user-service",
 			SubjectType: "user",
 			Resource:    "user",

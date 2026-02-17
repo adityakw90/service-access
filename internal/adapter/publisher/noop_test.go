@@ -13,7 +13,7 @@ func TestNoOpPublisher(t *testing.T) {
 	ctx := context.Background()
 
 	// Should not return error
-	err := pub.Publish(ctx, event.EventCheckAccess, event.EventCheckAccessData{
+	err := pub.Publish(ctx, event.EventAccessCheck, event.EventAccessCheckData{
 		SubjectId:   "uid-from-user-service",
 		SubjectType: "user",
 		Resource:    "user",

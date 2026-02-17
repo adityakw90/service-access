@@ -18,7 +18,7 @@ func TestRabbitMQPublisher_Publish(t *testing.T) {
 	}{
 		{
 			name:      "Check access event",
-			eventType: event.EventCheckAccess,
+			eventType: event.EventAccessCheck,
 			eventData: map[string]interface{}{
 				"subject_id":   "test-uid",
 				"subject_type": "user",
@@ -31,7 +31,7 @@ func TestRabbitMQPublisher_Publish(t *testing.T) {
 		},
 		{
 			name:      "Check access failed event",
-			eventType: event.EventCheckAccessFailed,
+			eventType: event.EventAccessCheckFailed,
 			eventData: map[string]interface{}{
 				"subject_id":   "test-uid",
 				"subject_type": "user",
@@ -111,13 +111,13 @@ func TestRabbitMQRoutingKey(t *testing.T) {
 	}{
 		{
 			name:        "Check access event routing key",
-			eventType:   event.EventCheckAccess,
+			eventType:   event.EventAccessCheck,
 			prefix:      "access.service.",
 			expectedKey: "access.service.access.check",
 		},
 		{
 			name:        "Check access failed event routing key",
-			eventType:   event.EventCheckAccessFailed,
+			eventType:   event.EventAccessCheckFailed,
 			prefix:      "access.service.",
 			expectedKey: "access.service.access.check_failed",
 		},
@@ -142,7 +142,7 @@ func TestToCloudEventData_RabbitMQ(t *testing.T) {
 	}{
 		{
 			name:      "Check access event",
-			eventType: event.EventCheckAccess,
+			eventType: event.EventAccessCheck,
 			eventData: map[string]interface{}{
 				"subject_id":   "user-123",
 				"subject_type": "user",
@@ -154,7 +154,7 @@ func TestToCloudEventData_RabbitMQ(t *testing.T) {
 		},
 		{
 			name:      "Check access failed event",
-			eventType: event.EventCheckAccessFailed,
+			eventType: event.EventAccessCheckFailed,
 			eventData: map[string]interface{}{
 				"subject_id":   "user-123",
 				"subject_type": "user",

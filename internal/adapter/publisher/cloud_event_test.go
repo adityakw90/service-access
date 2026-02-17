@@ -18,8 +18,8 @@ func TestToCloudEventData(t *testing.T) {
 	}{
 		{
 			name:      "Login event with simple data",
-			eventType: event.EventCheckAccess,
-			eventData: event.EventCheckAccessData{
+			eventType: event.EventAccessCheck,
+			eventData: event.EventAccessCheckData{
 				SubjectId:   "uid-from-user-service",
 				SubjectType: "user",
 				Resource:    "user",
@@ -27,12 +27,12 @@ func TestToCloudEventData(t *testing.T) {
 				Reason:      "user not have any permission",
 			},
 			source:   "service-access",
-			wantType: "auth.check_access",
+			wantType: "access.check",
 		},
 		{
 			name:      "Failed login event with simple data",
-			eventType: event.EventCheckAccessFailed,
-			eventData: event.EventCheckAccessFailedData{
+			eventType: event.EventAccessCheckFailed,
+			eventData: event.EventAccessCheckFailedData{
 				SubjectId:   "uid-from-user-service",
 				SubjectType: "user",
 				Resource:    "user",
@@ -40,7 +40,7 @@ func TestToCloudEventData(t *testing.T) {
 				Reason:      "user not have any permission",
 			},
 			source:   "service-access",
-			wantType: "auth.login_failed",
+			wantType: "access.check_failed",
 		},
 	}
 
@@ -89,7 +89,7 @@ func TestToCloudEvent(t *testing.T) {
 	}{
 		{
 			name: "Check access event data",
-			event: event.EventCheckAccessData{
+			event: event.EventAccessCheckData{
 				SubjectId:   "uid-from-user-service",
 				SubjectType: "user",
 				Resource:    "user",
@@ -102,7 +102,7 @@ func TestToCloudEvent(t *testing.T) {
 		},
 		{
 			name: "Check access failed event data",
-			event: event.EventCheckAccessFailedData{
+			event: event.EventAccessCheckFailedData{
 				SubjectId:   "uid-from-user-service",
 				SubjectType: "user",
 				Resource:    "user",

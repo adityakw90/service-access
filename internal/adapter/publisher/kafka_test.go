@@ -25,7 +25,7 @@ func TestKafkaPublisher_Publish(t *testing.T) {
 	}{
 		{
 			name:      "Check access event",
-			eventType: event.EventCheckAccess,
+			eventType: event.EventAccessCheck,
 			eventData: map[string]interface{}{
 				"subject_id":   "test-uid",
 				"subject_type": "user",
@@ -38,7 +38,7 @@ func TestKafkaPublisher_Publish(t *testing.T) {
 		},
 		{
 			name:      "Check access failed event",
-			eventType: event.EventCheckAccessFailed,
+			eventType: event.EventAccessCheckFailed,
 			eventData: map[string]interface{}{
 				"subject_id":   "test-uid",
 				"subject_type": "user",
@@ -110,7 +110,7 @@ func TestToCloudEventData_Kafka(t *testing.T) {
 	}{
 		{
 			name:      "Check access event",
-			eventType: event.EventCheckAccess,
+			eventType: event.EventAccessCheck,
 			eventData: map[string]interface{}{
 				"subject_id":   "user-123",
 				"subject_type": "user",
@@ -122,7 +122,7 @@ func TestToCloudEventData_Kafka(t *testing.T) {
 		},
 		{
 			name:      "Check access failed event",
-			eventType: event.EventCheckAccessFailed,
+			eventType: event.EventAccessCheckFailed,
 			eventData: map[string]interface{}{
 				"subject_id":   "user-123",
 				"subject_type": "user",
