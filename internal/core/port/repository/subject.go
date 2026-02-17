@@ -1,0 +1,19 @@
+package repository
+
+import (
+	"context"
+
+	"github.com/adityakw90/service-access/internal/core/domain/model"
+	"github.com/adityakw90/service-access/internal/core/domain/param"
+)
+
+// SubjectRepository defines the interface for subject repository.
+type SubjectRepository interface {
+	// Manage
+	Create(ctx context.Context, subject *model.SubjectRole) (*model.SubjectRole, error) // Create creates a subject role.
+	Update(ctx context.Context, subject *model.SubjectRole) error                       // Update updates a subject role.
+	Delete(ctx context.Context, id int64) error                                         // Delete deletes a subject role.
+
+	// Retrieve
+	List(ctx context.Context, pagination *param.PaginationParam, filter *param.SubjectListFilterParam) (model.SubjectRoles, error) // List returns the list of subject roles.
+}

@@ -1,10 +1,11 @@
 package param
 
 type SubjectListFilterParam struct {
-	SubjectIDs   *string
-	SubjectTypes *string
-	RoleUIDs     *string
-	Query        *string
+	SubjectID   *string
+	SubjectType *string
+	RoleID      *int64
+	RoleUID     *string
+	Query       *string
 }
 
 type SubjectListParam struct {

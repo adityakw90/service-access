@@ -16,6 +16,7 @@ type PermissionUpdateParam struct {
 
 // PermissionListFilterParam represents the parameters for filtering permissions.
 type PermissionListFilterParam struct {
+	IDs      []int64
 	UIDs     []string
 	Resource *string
 	Action   *string
@@ -26,4 +27,9 @@ type PermissionListFilterParam struct {
 type PermissionListParam struct {
 	Pagination *PaginationParam
 	Filter     *PermissionListFilterParam
+}
+
+type PermissionMapResourceAction struct {
+	Resource string
+	Action   string
 }

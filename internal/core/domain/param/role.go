@@ -16,7 +16,9 @@ type RoleUpdateParam struct {
 
 // ListRolesParam represents the parameters for listing roles.
 type RoleListFilterParam struct {
+	IDs      []int64
 	UIDs     []string
+	GroupID  *int64
 	GroupUID *string
 	Name     *string
 	Query    *string
@@ -30,7 +32,9 @@ type RoleListParam struct {
 
 // RolePermissionListFilterParam represents the parameters for filtering role permissions.
 type RolePermissionListFilterParam struct {
+	IDs            []int64
 	UIDs           []string
+	PermissionIDs  []int64
 	PermissionUIDs []string
 	Resource       *string
 	Action         *string

@@ -14,6 +14,7 @@ type GroupUpdateParam struct {
 
 // GroupListFilterParam represents the parameters for filtering groups.
 type GroupListFilterParam struct {
+	IDs   []int64
 	UIDs  []string
 	Name  *string
 	Query *string
@@ -26,7 +27,9 @@ type GroupListParam struct {
 }
 
 type GroupPermissionListFilterParam struct {
+	IDs            []int64
 	UIDs           []string
+	PermissionIDs  []int64
 	PermissionUIDs []string
 	Resource       *string
 	Action         *string
@@ -37,4 +40,9 @@ type GroupPermissionListFilterParam struct {
 type GroupPermissionListParam struct {
 	Pagination *PaginationParam
 	Filter     *GroupPermissionListFilterParam
+}
+
+type GroupPermissionMapGroupIDPermissionID struct {
+	GroupID      int64
+	PermissionID int64
 }
