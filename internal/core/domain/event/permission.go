@@ -3,7 +3,6 @@ package event
 import "time"
 
 type EventPermissionCreateData struct {
-	ID          int64
 	UID         string
 	Resource    string
 	Action      string
@@ -12,7 +11,6 @@ type EventPermissionCreateData struct {
 }
 
 type EventPermissionUpdateData struct {
-	ID          int64
 	UID         string
 	Resource    string
 	Action      string
@@ -21,6 +19,5 @@ type EventPermissionUpdateData struct {
 }
 
 type EventPermissionDeleteData struct {
-	ID  int64
 	UID string
 }

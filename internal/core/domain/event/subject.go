@@ -1,15 +1,17 @@
 package event
 
+import "time"
+
 type EventSubjectAssignData struct {
 	SubjectID   string
 	SubjectType string
-	RoleID      int64
 	RoleUID     string
+	AssignedAt  time.Time
 }
 
 type EventSubjectRevokeData struct {
 	SubjectID   string
 	SubjectType string
-	RoleID      int64
 	RoleUID     string
+	RevokedAt   time.Time
 }
