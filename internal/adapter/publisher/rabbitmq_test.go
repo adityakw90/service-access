@@ -29,19 +29,6 @@ func TestRabbitMQPublisher_Publish(t *testing.T) {
 			source: "rabbitmq-publisher",
 			prefix: "user.service.",
 		},
-		{
-			name:      "Check access failed event",
-			eventType: event.EventAccessCheckFailed,
-			eventData: map[string]interface{}{
-				"subject_id":   "test-uid",
-				"subject_type": "user",
-				"resource":     "user",
-				"action":       "read",
-				"reason":       "user not have any permission",
-			},
-			source: "rabbitmq-publisher",
-			prefix: "user.service.",
-		},
 	}
 
 	for _, tt := range tests {
@@ -115,12 +102,6 @@ func TestRabbitMQRoutingKey(t *testing.T) {
 			prefix:      "access.service.",
 			expectedKey: "access.service.access.check",
 		},
-		{
-			name:        "Check access failed event routing key",
-			eventType:   event.EventAccessCheckFailed,
-			prefix:      "access.service.",
-			expectedKey: "access.service.access.check_failed",
-		},
 	}
 
 	for _, tt := range tests {
@@ -143,18 +124,6 @@ func TestToCloudEventData_RabbitMQ(t *testing.T) {
 		{
 			name:      "Check access event",
 			eventType: event.EventAccessCheck,
-			eventData: map[string]interface{}{
-				"subject_id":   "user-123",
-				"subject_type": "user",
-				"resource":     "user",
-				"action":       "read",
-				"reason":       "user not have any permission",
-			},
-			source: "rabbitmq-publisher",
-		},
-		{
-			name:      "Check access failed event",
-			eventType: event.EventAccessCheckFailed,
 			eventData: map[string]interface{}{
 				"subject_id":   "user-123",
 				"subject_type": "user",

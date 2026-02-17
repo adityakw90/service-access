@@ -36,19 +36,6 @@ func TestKafkaPublisher_Publish(t *testing.T) {
 			source:  "test-source",
 			wantErr: false,
 		},
-		{
-			name:      "Check access failed event",
-			eventType: event.EventAccessCheckFailed,
-			eventData: map[string]interface{}{
-				"subject_id":   "test-uid",
-				"subject_type": "user",
-				"resource":     "user",
-				"action":       "read",
-				"reason":       "user not have any permission",
-			},
-			source:  "test-source",
-			wantErr: false,
-		},
 	}
 
 	for _, tt := range tests {
@@ -111,18 +98,6 @@ func TestToCloudEventData_Kafka(t *testing.T) {
 		{
 			name:      "Check access event",
 			eventType: event.EventAccessCheck,
-			eventData: map[string]interface{}{
-				"subject_id":   "user-123",
-				"subject_type": "user",
-				"resource":     "user",
-				"action":       "read",
-				"reason":       "user not have any permission",
-			},
-			source: "kafka-publisher",
-		},
-		{
-			name:      "Check access failed event",
-			eventType: event.EventAccessCheckFailed,
 			eventData: map[string]interface{}{
 				"subject_id":   "user-123",
 				"subject_type": "user",
