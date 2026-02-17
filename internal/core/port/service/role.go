@@ -21,6 +21,6 @@ type RoleService interface {
 	// permission
 	ListPermission(ctx context.Context, roleUID string, pagination *param.PaginationParam, filter *param.RolePermissionListFilterParam) (*model.RolePermissions, error)
 	UpdatePermission(ctx context.Context, roleUID string, permissionUID []string) error
-	AddPermission(ctx context.Context, roleUID string, permissionUID string) error
-	RemovePermission(ctx context.Context, roleUID string, permissionUID string) error
+	AssignPermission(ctx context.Context, roleUID string, permissionUID string) error
+	RevokePermission(ctx context.Context, roleUID string, permissionUID string) error
 }
