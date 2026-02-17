@@ -31,3 +31,9 @@ type GroupPermission struct {
 	PermissionDescription string
 	CreatedAt             time.Time
 }
+
+// GroupPermissions contains the list of group permissions and metadata for pagination.
+type GroupPermissions struct {
+	Items []GroupPermission
+	Meta  Meta
+}

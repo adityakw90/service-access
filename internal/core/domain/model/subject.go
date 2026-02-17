@@ -10,3 +10,8 @@ type SubjectRole struct {
 	RoleUID     string
 	AssignedAt  time.Time
 }
+
+type SubjectRoles struct {
+	Items []SubjectRole
+	Meta  Meta
+}

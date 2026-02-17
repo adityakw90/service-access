@@ -32,3 +32,9 @@ type RolePermission struct {
 	PermissionDescription string
 	CreatedAt             time.Time
 }
+
+// RolePermissions contains the list of role permissions and metadata for pagination.
+type RolePermissions struct {
+	Items []RolePermission
+	Meta  Meta
+}
