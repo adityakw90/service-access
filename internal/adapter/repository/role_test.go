@@ -15,41 +15,44 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAdapter_GroupRepository_Create(t *testing.T) {
+func TestAdapter_RoleRepository_Create(t *testing.T) {
 	tests := []struct {
-		name              string
-		data              map[string]any
-		mockPgExpectation func(mockPool *pgxmock.ExpectedQuery)
-		wantErr           bool
-		errMsg            string
+		name    string
+		data    map[string]any
+		wantErr bool
+		errMsg  string
 	}{
 		{
-			name: "Happy Path - Create valid group",
+			name: "Happy Path - Create valid role",
 			data: map[string]any{
-				"uid":         "group-uid-001",
-				"name":        "group-name-001",
-				"description": "group-description-001",
-			},
-			mockPgExpectation: func(expectedQuery *pgxmock.ExpectedQuery) {
-				rows := pgxmock.NewRows([]string{"id", "created_at", "updated_at"}).AddRow(int64(1), time.Time{}, time.Time{})
-				expectedQuery.WillReturnRows(rows)
+				"uid":         "role-uid-001",
+				"group_id":    int64(1),
+				"name":        "role-name-001",
+				"description": "description-001",
 			},
 			wantErr: false,
 		},
 		{
-			name: "Error - Unique constraint violation on name",
+			name: "Error - Unique constraint violation on (group_id, name)",
 			data: map[string]any{
-				"uid":         "group-uid-002",
-				"name":        "existing-group",
-				"description": "group-description-002",
-			},
-			mockPgExpectation: func(expectedQuery *pgxmock.ExpectedQuery) {
-				expectedQuery.WillReturnError(&pgconn.PgError{
-					ConstraintName: "uq_group_name",
-				})
+				"uid":         "role-uid-002",
+				"group_id":    int64(1),
+				"name":        "existing-role",
+				"description": "description-002",
 			},
 			wantErr: true,
-			errMsg:  "already exists",
+			errMsg:  "already exists in group",
+		},
+		{
+			name: "Error - Foreign key violation on group_id",
+			data: map[string]any{
+				"uid":         "role-uid-003",
+				"group_id":    int64(999),
+				"name":        "role-name-003",
+				"description": "description-003",
+			},
+			wantErr: true,
+			errMsg:  "not found",
 		},
 	}
 
@@ -59,23 +62,46 @@ func TestAdapter_GroupRepository_Create(t *testing.T) {
 			require.NoError(t, err)
 			defer mockPool.Close()
 
-			repo := NewGroupRepository(mockPool)
-			group := &model.Group{
+			repo := NewRoleRepository(mockPool)
+			role := &model.Role{
 				UID:         tt.data["uid"].(string),
+				GroupID:     tt.data["group_id"].(int64),
 				Name:        tt.data["name"].(string),
 				Description: tt.data["description"].(string),
 			}
 
-			if tt.mockPgExpectation != nil {
-				tt.mockPgExpectation(
-					mockPool.ExpectQuery(`
-							INSERT INTO "group" \(uid, name, description\)
-							VALUES \(\$1, \$2, \$3\)
-							RETURNING id, created_at, updated_at
-						`).
-						WithArgs(group.UID, group.Name, group.Description))
+			if tt.wantErr && tt.errMsg == "already exists in group" {
+				mockPool.ExpectQuery(`
+					INSERT INTO role \(uid, group_id, name, description\)
+					VALUES \(\$1, \$2, \$3, \$4\)
+					RETURNING id, created_at, updated_at
+				`).
+					WithArgs(role.UID, role.GroupID, role.Name, role.Description).
+					WillReturnError(&pgconn.PgError{
+						ConstraintName: "uq_role_group_name",
+					})
+			} else if tt.wantErr && tt.errMsg == "not found" {
+				mockPool.ExpectQuery(`
+					INSERT INTO role \(uid, group_id, name, description\)
+					VALUES \(\$1, \$2, \$3, \$4\)
+					RETURNING id, created_at, updated_at
+				`).
+					WithArgs(role.UID, role.GroupID, role.Name, role.Description).
+					WillReturnError(&pgconn.PgError{
+						ConstraintName: "fk_role_group",
+					})
+			} else {
+				rows := pgxmock.NewRows([]string{"id", "created_at", "updated_at"}).AddRow(int64(1), time.Time{}, time.Time{})
+				mockPool.ExpectQuery(`
+					INSERT INTO role \(uid, group_id, name, description\)
+					VALUES \(\$1, \$2, \$3, \$4\)
+					RETURNING id, created_at, updated_at
+				`).
+					WithArgs(role.UID, role.GroupID, role.Name, role.Description).
+					WillReturnRows(rows)
 			}
-			err = repo.Create(context.Background(), group)
+
+			err = repo.Create(context.Background(), role)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -86,16 +112,16 @@ func TestAdapter_GroupRepository_Create(t *testing.T) {
 			}
 
 			assert.NoError(t, err)
-			assert.Equal(t, tt.data["uid"], group.UID)
-			assert.Equal(t, tt.data["name"], group.Name)
-			assert.Equal(t, tt.data["description"], group.Description)
-			assert.Equal(t, int64(1), group.ID)
+			assert.Equal(t, tt.data["uid"], role.UID)
+			assert.Equal(t, tt.data["group_id"], role.GroupID)
+			assert.Equal(t, tt.data["name"], role.Name)
+			assert.Equal(t, int64(1), role.ID)
 			assert.NoError(t, mockPool.ExpectationsWereMet())
 		})
 	}
 }
 
-func TestAdapter_GroupRepository_Update(t *testing.T) {
+func TestAdapter_RoleRepository_Update(t *testing.T) {
 	tests := []struct {
 		name    string
 		data    map[string]any
@@ -103,11 +129,12 @@ func TestAdapter_GroupRepository_Update(t *testing.T) {
 		errMsg  string
 	}{
 		{
-			name: "Happy Path - Update existing group",
+			name: "Happy Path - Update existing role",
 			data: map[string]any{
 				"id":          int64(1),
-				"uid":         "group-uid-001",
-				"name":        "updated-group",
+				"uid":         "role-uid-001",
+				"group_id":    int64(1),
+				"name":        "updated-role",
 				"description": "updated-description",
 			},
 			wantErr: false,
@@ -116,12 +143,13 @@ func TestAdapter_GroupRepository_Update(t *testing.T) {
 			name: "Error - Unique constraint violation",
 			data: map[string]any{
 				"id":          int64(1),
-				"uid":         "group-uid-002",
-				"name":        "existing-group",
+				"uid":         "role-uid-002",
+				"group_id":    int64(1),
+				"name":        "existing-role",
 				"description": "description-002",
 			},
 			wantErr: true,
-			errMsg:  "already exists",
+			errMsg:  "already exists in group",
 		},
 	}
 
@@ -131,35 +159,36 @@ func TestAdapter_GroupRepository_Update(t *testing.T) {
 			require.NoError(t, err)
 			defer mockPool.Close()
 
-			repo := NewGroupRepository(mockPool)
-			group := &model.Group{
+			repo := NewRoleRepository(mockPool)
+			role := &model.Role{
 				ID:          tt.data["id"].(int64),
 				UID:         tt.data["uid"].(string),
+				GroupID:     tt.data["group_id"].(int64),
 				Name:        tt.data["name"].(string),
 				Description: tt.data["description"].(string),
 			}
 
-			if tt.wantErr && tt.errMsg == "already exists" {
+			if tt.wantErr && tt.errMsg == "already exists in group" {
 				mockPool.ExpectExec(`
-					UPDATE "group"
+					UPDATE role
 					SET name = \$2, description = \$3, updated_at = NOW\(\)
 					WHERE id = \$1
 				`).
-					WithArgs(group.ID, group.Name, group.Description).
+					WithArgs(role.ID, role.Name, role.Description).
 					WillReturnError(&pgconn.PgError{
-						ConstraintName: "uq_group_name",
+						ConstraintName: "uq_role_group_name",
 					})
 			} else {
 				mockPool.ExpectExec(`
-					UPDATE "group"
+					UPDATE role
 					SET name = \$2, description = \$3, updated_at = NOW\(\)
 					WHERE id = \$1
 				`).
-					WithArgs(group.ID, group.Name, group.Description).
+					WithArgs(role.ID, role.Name, role.Description).
 					WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 			}
 
-			err = repo.Update(context.Background(), group)
+			err = repo.Update(context.Background(), role)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -175,7 +204,7 @@ func TestAdapter_GroupRepository_Update(t *testing.T) {
 	}
 }
 
-func TestAdapter_GroupRepository_Delete(t *testing.T) {
+func TestAdapter_RoleRepository_Delete(t *testing.T) {
 	tests := []struct {
 		name    string
 		data    map[string]any
@@ -183,14 +212,14 @@ func TestAdapter_GroupRepository_Delete(t *testing.T) {
 		errMsg  string
 	}{
 		{
-			name: "Happy Path - Delete existing group",
+			name: "Happy Path - Delete existing role",
 			data: map[string]any{
 				"id": int64(1),
 			},
 			wantErr: false,
 		},
 		{
-			name: "Error - Group not found",
+			name: "Error - Role not found",
 			data: map[string]any{
 				"id": int64(999),
 			},
@@ -205,15 +234,15 @@ func TestAdapter_GroupRepository_Delete(t *testing.T) {
 			require.NoError(t, err)
 			defer mockPool.Close()
 
-			repo := NewGroupRepository(mockPool)
+			repo := NewRoleRepository(mockPool)
 			id := tt.data["id"].(int64)
 
 			if tt.wantErr {
-				mockPool.ExpectExec(`DELETE FROM "group" WHERE id = \$1`).
+				mockPool.ExpectExec(`DELETE FROM role WHERE id = \$1`).
 					WithArgs(id).
 					WillReturnResult(pgxmock.NewResult("DELETE", 0))
 			} else {
-				mockPool.ExpectExec(`DELETE FROM "group" WHERE id = \$1`).
+				mockPool.ExpectExec(`DELETE FROM role WHERE id = \$1`).
 					WithArgs(id).
 					WillReturnResult(pgxmock.NewResult("DELETE", 1))
 			}
@@ -234,7 +263,7 @@ func TestAdapter_GroupRepository_Delete(t *testing.T) {
 	}
 }
 
-func TestAdapter_GroupRepository_GetByID(t *testing.T) {
+func TestAdapter_RoleRepository_GetByID(t *testing.T) {
 	tests := []struct {
 		name    string
 		data    map[string]any
@@ -242,16 +271,18 @@ func TestAdapter_GroupRepository_GetByID(t *testing.T) {
 		errMsg  string
 	}{
 		{
-			name: "Happy Path - Get existing group",
+			name: "Happy Path - Get existing role",
 			data: map[string]any{
-				"id":   int64(1),
-				"uid":  "group-uid-001",
-				"name": "group-name-001",
+				"id":        int64(1),
+				"uid":       "role-uid-001",
+				"group_id":  int64(1),
+				"group_uid": "group-uid-001",
+				"name":      "role-name-001",
 			},
 			wantErr: false,
 		},
 		{
-			name: "Error - Group not found",
+			name: "Error - Role not found",
 			data: map[string]any{
 				"id": int64(999),
 			},
@@ -266,34 +297,36 @@ func TestAdapter_GroupRepository_GetByID(t *testing.T) {
 			require.NoError(t, err)
 			defer mockPool.Close()
 
-			repo := NewGroupRepository(mockPool)
+			repo := NewRoleRepository(mockPool)
 			id := tt.data["id"].(int64)
 
 			if tt.wantErr {
 				mockPool.ExpectQuery(`
-					SELECT id, uid, name, description, created_at, updated_at
-					FROM "group"
-					WHERE id = \$1
+					SELECT r\.id, r\.uid, r\.group_id, g\.uid as group_uid, r\.name, r\.description, r\.created_at, r\.updated_at
+					FROM role r
+					JOIN "group" g ON r\.group_id = g\.id
+					WHERE r\.id = \$1
 				`).
 					WithArgs(id).
 					WillReturnError(pgx.ErrNoRows)
 			} else {
-				rows := pgxmock.NewRows([]string{"id", "uid", "name", "description", "created_at", "updated_at"}).
-					AddRow(tt.data["id"], tt.data["uid"], tt.data["name"], "description", time.Time{}, time.Time{})
+				rows := pgxmock.NewRows([]string{"id", "uid", "group_id", "group_uid", "name", "description", "created_at", "updated_at"}).
+					AddRow(tt.data["id"], tt.data["uid"], tt.data["group_id"], tt.data["group_uid"], tt.data["name"], "description", time.Time{}, time.Time{})
 				mockPool.ExpectQuery(`
-					SELECT id, uid, name, description, created_at, updated_at
-					FROM "group"
-					WHERE id = \$1
+					SELECT r\.id, r\.uid, r\.group_id, g\.uid as group_uid, r\.name, r\.description, r\.created_at, r\.updated_at
+					FROM role r
+					JOIN "group" g ON r\.group_id = g\.id
+					WHERE r\.id = \$1
 				`).
 					WithArgs(id).
 					WillReturnRows(rows)
 			}
 
-			group, err := repo.GetByID(context.Background(), id)
+			role, err := repo.GetByID(context.Background(), id)
 
 			if tt.wantErr {
 				assert.Error(t, err)
-				assert.Nil(t, group)
+				assert.Nil(t, role)
 				if tt.errMsg != "" {
 					assert.Contains(t, err.Error(), tt.errMsg)
 				}
@@ -301,25 +334,25 @@ func TestAdapter_GroupRepository_GetByID(t *testing.T) {
 			}
 
 			assert.NoError(t, err)
-			assert.NotNil(t, group)
-			assert.Equal(t, tt.data["id"], group.ID)
-			assert.Equal(t, tt.data["uid"], group.UID)
+			assert.NotNil(t, role)
+			assert.Equal(t, tt.data["id"], role.ID)
+			assert.Equal(t, tt.data["uid"], role.UID)
 			assert.NoError(t, mockPool.ExpectationsWereMet())
 		})
 	}
 }
 
-func TestAdapter_GroupRepository_List(t *testing.T) {
+func TestAdapter_RoleRepository_List(t *testing.T) {
 	tests := []struct {
 		name       string
 		pagination *param.PaginationParam
-		filter     *param.GroupListFilterParam
+		filter     *param.RoleListFilterParam
 		wantErr    bool
 		wantCount  int
 		wantTotal  int64
 	}{
 		{
-			name: "Happy Path - List all groups",
+			name: "Happy Path - List all roles",
 			pagination: &param.PaginationParam{
 				Page:  func() *int { i := 1; return &i }(),
 				Limit: func() *int { i := 10; return &i }(),
@@ -330,13 +363,13 @@ func TestAdapter_GroupRepository_List(t *testing.T) {
 			wantTotal: 2,
 		},
 		{
-			name: "Happy Path - List with Name filter",
+			name: "Happy Path - List with GroupID filter",
 			pagination: &param.PaginationParam{
 				Page:  func() *int { i := 1; return &i }(),
 				Limit: func() *int { i := 10; return &i }(),
 			},
-			filter: &param.GroupListFilterParam{
-				Name: func() *string { s := "group-001"; return &s }(),
+			filter: &param.RoleListFilterParam{
+				GroupID: func() *int64 { i := int64(1); return &i }(),
 			},
 			wantErr:   false,
 			wantCount: 1,
@@ -361,7 +394,7 @@ func TestAdapter_GroupRepository_List(t *testing.T) {
 			require.NoError(t, err)
 			defer mockPool.Close()
 
-			repo := NewGroupRepository(mockPool)
+			repo := NewRoleRepository(mockPool)
 
 			// Calculate expected arguments based on filter
 			filterArgCount := 0
@@ -370,6 +403,12 @@ func TestAdapter_GroupRepository_List(t *testing.T) {
 					filterArgCount += 1
 				}
 				if len(tt.filter.UIDs) > 0 {
+					filterArgCount += 1
+				}
+				if tt.filter.GroupID != nil {
+					filterArgCount += 1
+				}
+				if tt.filter.GroupUID != nil {
 					filterArgCount += 1
 				}
 				if tt.filter.Name != nil {
@@ -394,17 +433,17 @@ func TestAdapter_GroupRepository_List(t *testing.T) {
 			}
 
 			// Set up data query expectations
-			dataRows := pgxmock.NewRows([]string{"id", "uid", "name", "description", "created_at", "updated_at"})
+			dataRows := pgxmock.NewRows([]string{"id", "uid", "group_id", "group_uid", "name", "description", "created_at", "updated_at"})
 			for i := 0; i < tt.wantCount; i++ {
-				dataRows.AddRow(int64(i+1), fmt.Sprintf("uid-%d", i+1), fmt.Sprintf("group-%d", i+1), "description", time.Time{}, time.Time{})
+				dataRows.AddRow(int64(i+1), fmt.Sprintf("uid-%d", i+1), int64(1), "group-uid", fmt.Sprintf("role-%d", i+1), "description", time.Time{}, time.Time{})
 			}
-			mockPool.ExpectQuery(`SELECT id, uid, name, description, created_at, updated_at FROM "group" WHERE 1=1`).
+			mockPool.ExpectQuery(`SELECT r\.id, r\.uid, r\.group_id, g\.uid as group_uid, r\.name, r\.description, r\.created_at, r\.updated_at FROM role r JOIN "group" g ON r\.group_id = g\.id WHERE 1=1`).
 				WithArgs(dataAnyArgs...).
 				WillReturnRows(dataRows)
 
 			// Set up count expectations
 			countRows := pgxmock.NewRows([]string{"count"}).AddRow(tt.wantTotal)
-			mockPool.ExpectQuery(`SELECT COUNT\(\*\) FROM "group" WHERE 1=1`).
+			mockPool.ExpectQuery(`SELECT COUNT\(\*\) FROM role r JOIN "group" g ON r\.group_id = g\.id WHERE 1=1`).
 				WithArgs(countAnyArgs...).
 				WillReturnRows(countRows)
 
@@ -423,19 +462,19 @@ func TestAdapter_GroupRepository_List(t *testing.T) {
 	}
 }
 
-func TestAdapter_GroupRepository_ListPermission(t *testing.T) {
+func TestAdapter_RoleRepository_ListPermission(t *testing.T) {
 	tests := []struct {
 		name       string
-		groupID    int64
+		roleID     int64
 		pagination *param.PaginationParam
-		filter     *param.GroupPermissionListFilterParam
+		filter     *param.RolePermissionListFilterParam
 		wantErr    bool
 		wantCount  int
 		wantTotal  int64
 	}{
 		{
 			name:       "Happy Path - List all permissions",
-			groupID:    1,
+			roleID:     1,
 			pagination: &param.PaginationParam{Page: func() *int { i := 1; return &i }(), Limit: func() *int { i := 10; return &i }()},
 			filter:     nil,
 			wantErr:    false,
@@ -444,7 +483,7 @@ func TestAdapter_GroupRepository_ListPermission(t *testing.T) {
 		},
 		{
 			name:       "Happy Path - Empty list",
-			groupID:    1,
+			roleID:     1,
 			pagination: &param.PaginationParam{Page: func() *int { i := 1; return &i }(), Limit: func() *int { i := 10; return &i }()},
 			filter:     nil,
 			wantErr:    false,
@@ -459,10 +498,10 @@ func TestAdapter_GroupRepository_ListPermission(t *testing.T) {
 			require.NoError(t, err)
 			defer mockPool.Close()
 
-			repo := NewGroupRepository(mockPool)
+			repo := NewRoleRepository(mockPool)
 
 			// Calculate expected arguments based on filter
-			filterArgCount := 1 // groupID is always first
+			filterArgCount := 1 // roleID is always first
 			if tt.filter != nil {
 				if len(tt.filter.IDs) > 0 {
 					filterArgCount += 1
@@ -501,21 +540,21 @@ func TestAdapter_GroupRepository_ListPermission(t *testing.T) {
 			}
 
 			// Set up data query expectations
-			dataRows := pgxmock.NewRows([]string{"id", "uid", "group_id", "group_uid", "permission_id", "permission_uid", "resource", "action", "description", "created_at"})
+			dataRows := pgxmock.NewRows([]string{"role_id", "role_uid", "permission_id", "permission_uid", "resource", "action", "description", "created_at"})
 			for i := 0; i < tt.wantCount; i++ {
-				dataRows.AddRow(int64(1), "gp-uid", int64(1), "group-uid", int64(i+1), fmt.Sprintf("perm-uid-%d", i+1), fmt.Sprintf("resource-%d", i+1), fmt.Sprintf("action-%d", i+1), "description", time.Time{})
+				dataRows.AddRow(int64(1), "role-uid", int64(i+1), fmt.Sprintf("perm-uid-%d", i+1), fmt.Sprintf("resource-%d", i+1), fmt.Sprintf("action-%d", i+1), "description", time.Time{})
 			}
-			mockPool.ExpectQuery(`SELECT gp\.id, gp\.uid, gp\.group_id, g\.uid as group_uid, gp\.permission_id, p\.uid as permission_uid, p\.resource, p\.action, p\.description, gp\.created_at FROM group_permission gp JOIN "group" g ON gp\.group_id = g\.id JOIN permission p ON gp\.permission_id = p\.id WHERE gp\.group_id = \$1`).
+			mockPool.ExpectQuery(`SELECT rp\.role_id, r\.uid as role_uid, rp\.permission_id, p\.uid as permission_uid, p\.resource, p\.action, p\.description, rp\.created_at FROM role_permission rp JOIN role r ON rp\.role_id = r\.id JOIN permission p ON rp\.permission_id = p\.id WHERE rp\.role_id = \$1`).
 				WithArgs(dataAnyArgs...).
 				WillReturnRows(dataRows)
 
 			// Set up count expectations
 			countRows := pgxmock.NewRows([]string{"count"}).AddRow(tt.wantTotal)
-			mockPool.ExpectQuery(`SELECT COUNT\(\*\) FROM group_permission gp JOIN permission p ON gp\.permission_id = p\.id WHERE gp\.group_id = \$1`).
+			mockPool.ExpectQuery(`SELECT COUNT\(\*\) FROM role_permission rp JOIN permission p ON rp\.permission_id = p\.id WHERE rp\.role_id = \$1`).
 				WithArgs(countAnyArgs...).
 				WillReturnRows(countRows)
 
-			result, err := repo.ListPermission(context.Background(), tt.groupID, tt.pagination, tt.filter)
+			result, err := repo.ListPermission(context.Background(), tt.roleID, tt.pagination, tt.filter)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -530,33 +569,33 @@ func TestAdapter_GroupRepository_ListPermission(t *testing.T) {
 	}
 }
 
-func TestAdapter_GroupRepository_AddPermission(t *testing.T) {
+func TestAdapter_RoleRepository_AddPermission(t *testing.T) {
 	tests := []struct {
-		name         string
-		groupID      int64
-		permissionID int64
-		wantErr      bool
-		errMsg       string
+		name            string
+		roleID          int64
+		groupPermissionID int64
+		wantErr         bool
+		errMsg          string
 	}{
 		{
-			name:         "Happy Path - Add permission to group",
-			groupID:      1,
-			permissionID: 1,
-			wantErr:      false,
+			name:              "Happy Path - Add permission to role",
+			roleID:            1,
+			groupPermissionID: 1,
+			wantErr:           false,
 		},
 		{
-			name:         "Error - Group not found (foreign key)",
-			groupID:      999,
-			permissionID: 1,
-			wantErr:      true,
-			errMsg:       "not found",
+			name:              "Error - Role not found (foreign key)",
+			roleID:            999,
+			groupPermissionID: 1,
+			wantErr:           true,
+			errMsg:            "not found",
 		},
 		{
-			name:         "Error - Permission not found (foreign key)",
-			groupID:      1,
-			permissionID: 999,
-			wantErr:      true,
-			errMsg:       "not found",
+			name:              "Error - Permission not found (foreign key)",
+			roleID:            1,
+			groupPermissionID: 999,
+			wantErr:           true,
+			errMsg:            "not found",
 		},
 	}
 
@@ -566,39 +605,39 @@ func TestAdapter_GroupRepository_AddPermission(t *testing.T) {
 			require.NoError(t, err)
 			defer mockPool.Close()
 
-			repo := NewGroupRepository(mockPool)
+			repo := NewRoleRepository(mockPool)
 
-			if tt.wantErr && tt.groupID == 999 {
+			if tt.wantErr && tt.roleID == 999 {
 				mockPool.ExpectExec(`
-					INSERT INTO group_permission \(uid, group_id, permission_id\)
-					VALUES \(\$1, \$2, \$3\)
-					ON CONFLICT \(group_id, permission_id\) DO NOTHING
+					INSERT INTO role_permission \(role_id, permission_id\)
+					VALUES \(\$1, \$2\)
+					ON CONFLICT \(role_id, permission_id\) DO NOTHING
 				`).
-					WithArgs(pgxmock.AnyArg(), tt.groupID, tt.permissionID).
+					WithArgs(tt.roleID, tt.groupPermissionID).
 					WillReturnError(&pgconn.PgError{
-						ConstraintName: "fk_group_permission_group",
+						ConstraintName: "fk_role_permission_role",
 					})
-			} else if tt.wantErr && tt.permissionID == 999 {
+			} else if tt.wantErr && tt.groupPermissionID == 999 {
 				mockPool.ExpectExec(`
-					INSERT INTO group_permission \(uid, group_id, permission_id\)
-					VALUES \(\$1, \$2, \$3\)
-					ON CONFLICT \(group_id, permission_id\) DO NOTHING
+					INSERT INTO role_permission \(role_id, permission_id\)
+					VALUES \(\$1, \$2\)
+					ON CONFLICT \(role_id, permission_id\) DO NOTHING
 				`).
-					WithArgs(pgxmock.AnyArg(), tt.groupID, tt.permissionID).
+					WithArgs(tt.roleID, tt.groupPermissionID).
 					WillReturnError(&pgconn.PgError{
-						ConstraintName: "fk_group_permission_permission",
+						ConstraintName: "fk_role_permission_permission",
 					})
 			} else {
 				mockPool.ExpectExec(`
-					INSERT INTO group_permission \(uid, group_id, permission_id\)
-					VALUES \(\$1, \$2, \$3\)
-					ON CONFLICT \(group_id, permission_id\) DO NOTHING
+					INSERT INTO role_permission \(role_id, permission_id\)
+					VALUES \(\$1, \$2\)
+					ON CONFLICT \(role_id, permission_id\) DO NOTHING
 				`).
-					WithArgs(pgxmock.AnyArg(), tt.groupID, tt.permissionID).
+					WithArgs(tt.roleID, tt.groupPermissionID).
 					WillReturnResult(pgxmock.NewResult("INSERT", 1))
 			}
 
-			err = repo.AddPermission(context.Background(), tt.groupID, tt.permissionID)
+			err = repo.AddPermission(context.Background(), tt.roleID, tt.groupPermissionID)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -614,26 +653,26 @@ func TestAdapter_GroupRepository_AddPermission(t *testing.T) {
 	}
 }
 
-func TestAdapter_GroupRepository_RemovePermission(t *testing.T) {
+func TestAdapter_RoleRepository_RemovePermission(t *testing.T) {
 	tests := []struct {
-		name         string
-		groupID      int64
-		permissionID int64
-		wantErr      bool
-		errMsg       string
+		name              string
+		roleID            int64
+		groupPermissionID int64
+		wantErr           bool
+		errMsg            string
 	}{
 		{
-			name:         "Happy Path - Remove permission from group",
-			groupID:      1,
-			permissionID: 1,
-			wantErr:      false,
+			name:              "Happy Path - Remove permission from role",
+			roleID:            1,
+			groupPermissionID: 1,
+			wantErr:           false,
 		},
 		{
-			name:         "Error - Permission not found in group",
-			groupID:      1,
-			permissionID: 999,
-			wantErr:      true,
-			errMsg:       "not found in group",
+			name:              "Error - Permission not found in role",
+			roleID:            1,
+			groupPermissionID: 999,
+			wantErr:           true,
+			errMsg:            "not found in role",
 		},
 	}
 
@@ -643,19 +682,19 @@ func TestAdapter_GroupRepository_RemovePermission(t *testing.T) {
 			require.NoError(t, err)
 			defer mockPool.Close()
 
-			repo := NewGroupRepository(mockPool)
+			repo := NewRoleRepository(mockPool)
 
 			if tt.wantErr {
-				mockPool.ExpectExec(`DELETE FROM group_permission WHERE group_id = \$1 AND permission_id = \$2`).
-					WithArgs(tt.groupID, tt.permissionID).
+				mockPool.ExpectExec(`DELETE FROM role_permission WHERE role_id = \$1 AND permission_id = \$2`).
+					WithArgs(tt.roleID, tt.groupPermissionID).
 					WillReturnResult(pgxmock.NewResult("DELETE", 0))
 			} else {
-				mockPool.ExpectExec(`DELETE FROM group_permission WHERE group_id = \$1 AND permission_id = \$2`).
-					WithArgs(tt.groupID, tt.permissionID).
+				mockPool.ExpectExec(`DELETE FROM role_permission WHERE role_id = \$1 AND permission_id = \$2`).
+					WithArgs(tt.roleID, tt.groupPermissionID).
 					WillReturnResult(pgxmock.NewResult("DELETE", 1))
 			}
 
-			err = repo.RemovePermission(context.Background(), tt.groupID, tt.permissionID)
+			err = repo.RemovePermission(context.Background(), tt.roleID, tt.groupPermissionID)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -671,31 +710,31 @@ func TestAdapter_GroupRepository_RemovePermission(t *testing.T) {
 	}
 }
 
-func TestAdapter_GroupRepository_ReplacePermission(t *testing.T) {
+func TestAdapter_RoleRepository_ReplacePermission(t *testing.T) {
 	tests := []struct {
-		name          string
-		groupID       int64
-		permissionIDs []int64
-		wantErr       bool
-		errMsg        string
+		name               string
+		roleID             int64
+		groupPermissionIDs []int64
+		wantErr            bool
+		errMsg             string
 	}{
 		{
-			name:          "Happy Path - Replace permissions",
-			groupID:       1,
-			permissionIDs: []int64{1, 2, 3},
-			wantErr:       false,
+			name:               "Happy Path - Replace permissions",
+			roleID:             1,
+			groupPermissionIDs: []int64{1, 2, 3},
+			wantErr:            false,
 		},
 		{
-			name:          "Happy Path - Replace with empty permissions",
-			groupID:       1,
-			permissionIDs: []int64{},
-			wantErr:       false,
+			name:               "Happy Path - Replace with empty permissions",
+			roleID:             1,
+			groupPermissionIDs: []int64{},
+			wantErr:            false,
 		},
 		{
-			name:          "Happy Path - Replace with single permission",
-			groupID:       1,
-			permissionIDs: []int64{1},
-			wantErr:       false,
+			name:               "Happy Path - Replace with single permission",
+			roleID:             1,
+			groupPermissionIDs: []int64{1},
+			wantErr:            false,
 		},
 	}
 
@@ -706,21 +745,21 @@ func TestAdapter_GroupRepository_ReplacePermission(t *testing.T) {
 			require.NoError(t, err)
 			defer mockDB.Close(context.Background())
 
-			repo := NewGroupRepository(mockDB)
+			repo := NewRoleRepository(mockDB)
 
 			// Mock delete
-			mockDB.ExpectExec(`DELETE FROM group_permission WHERE group_id = \$1`).
-				WithArgs(tt.groupID).
+			mockDB.ExpectExec(`DELETE FROM role_permission WHERE role_id = \$1`).
+				WithArgs(tt.roleID).
 				WillReturnResult(pgxmock.NewResult("DELETE", 0))
 
 			// Mock inserts for each permission
-			for _, permID := range tt.permissionIDs {
-				mockDB.ExpectExec(`INSERT INTO group_permission \(uid, group_id, permission_id\) VALUES \(\$1, \$2, \$3\)`).
-					WithArgs(pgxmock.AnyArg(), tt.groupID, permID).
+			for _, permID := range tt.groupPermissionIDs {
+				mockDB.ExpectExec(`INSERT INTO role_permission \(role_id, permission_id\) VALUES \(\$1, \$2\)`).
+					WithArgs(tt.roleID, permID).
 					WillReturnResult(pgxmock.NewResult("INSERT", 1))
 			}
 
-			err = repo.ReplacePermission(context.Background(), tt.groupID, tt.permissionIDs)
+			err = repo.ReplacePermission(context.Background(), tt.roleID, tt.groupPermissionIDs)
 
 			if tt.wantErr {
 				assert.Error(t, err)
