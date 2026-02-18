@@ -6,14 +6,13 @@ import (
 
 	portrepository "github.com/adityakw90/service-access/internal/core/port/repository"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type unitOfWork struct {
-	db *pgxpool.Pool
+	db PostgrePool
 }
 
-func NewUnitOfWork(db *pgxpool.Pool) portrepository.UnitOfWork {
+func NewUnitOfWork(db PostgrePool) portrepository.UnitOfWork {
 	return &unitOfWork{db: db}
 }
 
