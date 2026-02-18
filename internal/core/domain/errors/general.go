@@ -12,6 +12,5 @@ var (
 	ErrInvalidArgument         = NewCustomError(10008, "invalid argument", nil)
 	ErrValidation              = NewCustomError(10009, "validation error", nil)
 	ErrPermissionDenied        = NewCustomError(10010, "permission denied", nil)
-	ErrResourceConflict        = NewCustomError(10011, "resource conflict", nil)
-	ErrGroupPermissionNotFound = NewCustomError(20004, "group_permission not found", nil)
+	ErrResourceConflict = NewCustomError(10011, "resource conflict", nil)
 )
