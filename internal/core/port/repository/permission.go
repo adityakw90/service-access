@@ -10,7 +10,7 @@ import (
 // PermissionRepository defines the interface for permission repository.
 type PermissionRepository interface {
 	// Manage
-	Create(ctx context.Context, permission *model.Permission) (*model.Permission, error)
+	Create(ctx context.Context, permission *model.Permission) error
 	Update(ctx context.Context, permission *model.Permission) error
 	Delete(ctx context.Context, id int64) error
 

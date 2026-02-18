@@ -10,9 +10,9 @@ import (
 // RoleRepository defines the interface for role repository.
 type RoleRepository interface {
 	// Manage
-	Create(ctx context.Context, role *model.Role) (*model.Role, error) // Create creates a role.
-	Update(ctx context.Context, role *model.Role) error                // Update updates a role.
-	Delete(ctx context.Context, id int64) error                        // Delete deletes a role.
+	Create(ctx context.Context, role *model.Role) error // Create creates a role.
+	Update(ctx context.Context, role *model.Role) error // Update updates a role.
+	Delete(ctx context.Context, id int64) error         // Delete deletes a role.
 
 	// Retrieve
 	GetByID(ctx context.Context, id int64) (*model.Role, error)                                                          // GetByID returns a role by ID.

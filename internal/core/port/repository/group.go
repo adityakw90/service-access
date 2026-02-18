@@ -10,9 +10,9 @@ import (
 // GroupRepository defines the interface for group repository.
 type GroupRepository interface {
 	// Manage
-	Create(ctx context.Context, group *model.Group) (*model.Group, error) // Create creates a group.
-	Update(ctx context.Context, group *model.Group) error                 // Update updates a group.
-	Delete(ctx context.Context, id int64) error                           // Delete deletes a group.
+	Create(ctx context.Context, group *model.Group) error // Create creates a group.
+	Update(ctx context.Context, group *model.Group) error // Update updates a group.
+	Delete(ctx context.Context, id int64) error           // Delete deletes a group.
 
 	// Retrieve
 	GetByID(ctx context.Context, id int64) (*model.Group, error)                                                           // GetByID returns a group by ID.
