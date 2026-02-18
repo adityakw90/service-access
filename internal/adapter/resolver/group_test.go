@@ -142,6 +142,9 @@ func TestGroupResolverUIDsByIDs(t *testing.T) {
 				mockPool.ExpectQuery(`SELECT id, uid FROM "group" WHERE id=\$1`).
 					WithArgs(int64(200)).
 					WillReturnRows(rows2)
+
+				// Allow expectations to be satisfied in any order
+				mockPool.MatchExpectationsInOrder(false)
 			},
 			want:    map[int64]string{100: "group-uid-1", 200: "group-uid-2"},
 			wantErr: false,
