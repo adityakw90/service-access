@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"strings"
 	"time"
 
 	monitoring "github.com/adityakw90/go-monitoring"
@@ -139,15 +140,140 @@ func (r *permissionResolver) UIDsByIDs(ctx context.Context, ids []int64) (map[in
 }
 
 func (r *permissionResolver) IDsByResourceActions(ctx context.Context, resourceActions []param.PermissionMapResourceAction) (map[param.PermissionMapResourceAction]int64, error) {
-	// pending, still deciding to set this as cacheable
-	// because resource action can be changed
-	return nil, nil
+	newCtx, resvSpan := r.tracer.StartSpan(ctx, "permissionResolver.IDsByResourceActions")
+	defer resvSpan.End()
+
+	// Handle empty input - return empty map
+	if len(resourceActions) == 0 {
+		resvSpan.AddEvent("success", trace.WithAttributes(
+			attribute.Int("count", 0),
+		))
+		return map[param.PermissionMapResourceAction]int64{}, nil
+	}
+
+	// Build dynamic IN clause for (resource, action) tuples
+	// PostgreSQL syntax: WHERE (resource, action) IN (($1, $2), ($3, $4), ...)
+	args := make([]interface{}, 0, len(resourceActions)*2)
+	placeholders := make([]string, 0, len(resourceActions))
+	argIdx := 1
+	for _, ra := range resourceActions {
+		args = append(args, ra.Resource, ra.Action)
+		placeholders = append(placeholders, "($"+strconv.Itoa(argIdx)+", $"+strconv.Itoa(argIdx+1)+")")
+		argIdx += 2
+	}
+
+	inClause := "(" + strings.Join(placeholders, ", ") + ")"
+	query := `SELECT id, resource, action FROM "permission" WHERE (resource, action) IN ` + inClause
+
+	rows, err := r.db.Query(newCtx, query, args...)
+	if err != nil {
+		r.logger.Error("error", map[string]interface{}{
+			"error.message": err.Error(),
+		})
+		resvSpan.AddEvent("Error", trace.WithAttributes(
+			attribute.String("error.message", err.Error()),
+		))
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[param.PermissionMapResourceAction]int64, len(resourceActions))
+	foundCount := 0
+	for rows.Next() {
+		var id int64
+		var resource, action string
+		if err := rows.Scan(&id, &resource, &action); err != nil {
+			r.logger.Error("error", map[string]interface{}{
+				"error.message": err.Error(),
+			})
+			resvSpan.AddEvent("Error", trace.WithAttributes(
+				attribute.String("error.message", err.Error()),
+			))
+			return nil, err
+		}
+		key := param.PermissionMapResourceAction{Resource: resource, Action: action}
+		result[key] = id
+		foundCount++
+	}
+
+	// Check if all requested permissions were found
+	if foundCount != len(resourceActions) {
+		r.logger.Debug("Failed", map[string]interface{}{
+			"error.message": domainerrors.ErrPermissionNotFound.Error(),
+		})
+		resvSpan.AddEvent("Error", trace.WithAttributes(
+			attribute.String("error.message", domainerrors.ErrPermissionNotFound.Error()),
+		))
+		return nil, domainerrors.ErrPermissionNotFound
+	}
+
+	resvSpan.AddEvent("success", trace.WithAttributes(
+		attribute.Int("count", foundCount),
+	))
+
+	return result, nil
 }
 
 func (r *permissionResolver) ResourceActionsByIDs(ctx context.Context, ids []int64) (map[int64]param.PermissionMapResourceAction, error) {
-	// pending, still deciding to set this as cacheable
-	// because resource action can be changed
-	return nil, nil
+	newCtx, resvSpan := r.tracer.StartSpan(ctx, "permissionResolver.ResourceActionsByIDs")
+	defer resvSpan.End()
+
+	// Handle empty input - return empty map
+	if len(ids) == 0 {
+		resvSpan.AddEvent("success", trace.WithAttributes(
+			attribute.Int("count", 0),
+		))
+		return map[int64]param.PermissionMapResourceAction{}, nil
+	}
+
+	query := `SELECT id, resource, action FROM "permission" WHERE id = ANY($1)`
+
+	rows, err := r.db.Query(newCtx, query, ids)
+	if err != nil {
+		r.logger.Error("error", map[string]interface{}{
+			"error.message": err.Error(),
+		})
+		resvSpan.AddEvent("Error", trace.WithAttributes(
+			attribute.String("error.message", err.Error()),
+		))
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[int64]param.PermissionMapResourceAction, len(ids))
+	foundCount := 0
+	for rows.Next() {
+		var id int64
+		var resource, action string
+		if err := rows.Scan(&id, &resource, &action); err != nil {
+			r.logger.Error("error", map[string]interface{}{
+				"error.message": err.Error(),
+			})
+			resvSpan.AddEvent("Error", trace.WithAttributes(
+				attribute.String("error.message", err.Error()),
+			))
+			return nil, err
+		}
+		result[id] = param.PermissionMapResourceAction{Resource: resource, Action: action}
+		foundCount++
+	}
+
+	// Check if all requested permissions were found
+	if foundCount != len(ids) {
+		r.logger.Debug("Failed", map[string]interface{}{
+			"error.message": domainerrors.ErrPermissionNotFound.Error(),
+		})
+		resvSpan.AddEvent("Error", trace.WithAttributes(
+			attribute.String("error.message", domainerrors.ErrPermissionNotFound.Error()),
+		))
+		return nil, domainerrors.ErrPermissionNotFound
+	}
+
+	resvSpan.AddEvent("success", trace.WithAttributes(
+		attribute.Int("count", foundCount),
+	))
+
+	return result, nil
 }
 
 func (r *permissionResolver) fetchIDFromDB(ctx context.Context, uid string) (*permissionIdentity, error) {
