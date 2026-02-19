@@ -212,13 +212,14 @@ func (s *groupService) RevokePermission(ctx context.Context, groupUID string, pe
 }
 
 func (s *groupService) UpdatePermission(ctx context.Context, groupUID string, permissionUIDs []string) error {
-	var events []event.Event
+	var group *model.Group
 
 	err := s.uow.Do(ctx, func(r repository.Repositories) error {
+		var errUoW error
 		// Get group
-		group, err := r.Group().GetByUID(ctx, groupUID)
-		if err != nil {
-			return fmt.Errorf("failed to get group: %w", err)
+		group, errUoW = r.Group().GetByUID(ctx, groupUID)
+		if errUoW != nil {
+			return fmt.Errorf("failed to get group: %w", errUoW)
 		}
 
 		// Get all permission IDs
@@ -235,8 +236,6 @@ func (s *groupService) UpdatePermission(ctx context.Context, groupUID string, pe
 		if err := r.Group().ReplacePermission(ctx, group.ID, permissionIDs); err != nil {
 			return fmt.Errorf("failed to replace permissions: %w", err)
 		}
-
-		events = []event.Event{event.NewEventGroupPermissionsUpdated(group)}
 		return nil
 	})
 
@@ -244,7 +243,10 @@ func (s *groupService) UpdatePermission(ctx context.Context, groupUID string, pe
 		return err
 	}
 
-	s.publisher.Publish(ctx, events)
+	s.publisher.Publish(ctx, event.EventGroupUpdatePermission, &event.EventGroupUpdatePermissionData{
+		GroupUID: group.UID,
+		UIDs:     permissionUIDs,
+	})
 	return nil
 }
 
