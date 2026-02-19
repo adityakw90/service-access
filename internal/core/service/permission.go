@@ -7,20 +7,21 @@ import (
 	"github.com/adityakw90/service-access/internal/core/domain/event"
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
+	portEvent "github.com/adityakw90/service-access/internal/core/port/event"
 	"github.com/adityakw90/service-access/internal/core/port/repository"
 	"github.com/adityakw90/service-access/internal/core/port/service"
 )
 
 type permissionService struct {
-	uow      repository.UnitOfWork
-	repos    repository.RepositoryProvider
-	publisher event.Publisher
+	uow       repository.UnitOfWork
+	repos     repository.RepositoryProvider
+	publisher portEvent.EventPublisher
 }
 
-func NewPermissionService(uow repository.UnitOfWork, repos repository.RepositoryProvider, publisher event.Publisher) service.PermissionService {
+func NewPermissionService(uow repository.UnitOfWork, repos repository.RepositoryProvider, publisher portEvent.EventPublisher) service.PermissionService {
 	return &permissionService{
-		uow:      uow,
-		repos:    repos,
+		uow:       uow,
+		repos:     repos,
 		publisher: publisher,
 	}
 }
