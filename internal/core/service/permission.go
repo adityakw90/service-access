@@ -115,21 +115,20 @@ func (s *permissionService) Update(ctx context.Context, uid string, p param.Perm
 }
 
 func (s *permissionService) Delete(ctx context.Context, uid string) error {
-	var events []event.Event
+	var permission *model.Permission
 
 	err := s.uow.Do(ctx, func(r repository.Repositories) error {
 		repo := r.Permission()
 
-		permission, err := repo.GetByUID(ctx, uid)
-		if err != nil {
-			return fmt.Errorf("failed to get permission: %w", err)
+		var errUoW error
+		permission, errUoW = repo.GetByUID(ctx, uid)
+		if errUoW != nil {
+			return fmt.Errorf("failed to get permission: %w", errUoW)
 		}
 
 		if err := repo.Delete(ctx, permission.ID); err != nil {
 			return fmt.Errorf("failed to delete permission: %w", err)
 		}
-
-		events = []event.Event{event.NewEventPermissionDeleted(permission)}
 		return nil
 	})
 
@@ -137,6 +136,8 @@ func (s *permissionService) Delete(ctx context.Context, uid string) error {
 		return err
 	}
 
-	s.publisher.Publish(ctx, events)
+	s.publisher.Publish(ctx, event.EventPermissionDelete, &event.EventPermissionDeleteData{
+		UID: permission.UID,
+	})
 	return nil
 }
