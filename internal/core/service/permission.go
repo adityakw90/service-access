@@ -73,14 +73,15 @@ func (s *permissionService) List(ctx context.Context, pagination *param.Paginati
 }
 
 func (s *permissionService) Update(ctx context.Context, uid string, p param.PermissionUpdateParam) error {
-	var events []event.Event
+	var permission *model.Permission
 
 	err := s.uow.Do(ctx, func(r repository.Repositories) error {
 		repo := r.Permission()
 
-		permission, err := repo.GetByUID(ctx, uid)
-		if err != nil {
-			return fmt.Errorf("failed to get permission: %w", err)
+		var errUoW error
+		permission, errUoW = repo.GetByUID(ctx, uid)
+		if errUoW != nil {
+			return fmt.Errorf("failed to get permission: %w", errUoW)
 		}
 
 		if p.Resource != nil {
@@ -96,8 +97,6 @@ func (s *permissionService) Update(ctx context.Context, uid string, p param.Perm
 		if err := repo.Update(ctx, permission); err != nil {
 			return fmt.Errorf("failed to update permission: %w", err)
 		}
-
-		events = []event.Event{event.NewEventPermissionUpdated(permission)}
 		return nil
 	})
 
@@ -105,7 +104,13 @@ func (s *permissionService) Update(ctx context.Context, uid string, p param.Perm
 		return err
 	}
 
-	s.publisher.Publish(ctx, events)
+	s.publisher.Publish(ctx, event.EventPermissionUpdate, &event.EventPermissionUpdateData{
+		UID:         permission.UID,
+		Resource:    permission.Resource,
+		Action:      permission.Action,
+		Description: permission.Description,
+		UpdatedAt:   permission.UpdatedAt,
+	})
 	return nil
 }
 
