@@ -35,16 +35,18 @@ func (s *subjectService) List(ctx context.Context, pagination *param.PaginationP
 }
 
 func (s *subjectService) Assign(ctx context.Context, subjectID string, subjectType string, roleUID string) error {
-	var events []event.Event
+	var role *model.Role
+	var subjectRole *model.SubjectRole
 
 	err := s.uow.Do(ctx, func(r repository.Repositories) error {
-		role, err := r.Role().GetByUID(ctx, roleUID)
-		if err != nil {
-			return fmt.Errorf("failed to get role: %w", err)
+		var errUoW error
+		role, errUoW = r.Role().GetByUID(ctx, roleUID)
+		if errUoW != nil {
+			return fmt.Errorf("failed to get role: %w", errUoW)
 		}
 
 		// Create subject-role assignment
-		subjectRole := &model.SubjectRole{
+		subjectRole = &model.SubjectRole{
 			SubjectID:   subjectID,
 			SubjectType: subjectType,
 			RoleID:      role.ID,
@@ -53,8 +55,6 @@ func (s *subjectService) Assign(ctx context.Context, subjectID string, subjectTy
 		if err := r.Subject().Create(ctx, subjectRole); err != nil {
 			return fmt.Errorf("failed to assign role: %w", err)
 		}
-
-		events = []event.Event{event.NewEventSubjectAssigned(subjectRole, role)}
 		return nil
 	})
 
@@ -62,7 +62,12 @@ func (s *subjectService) Assign(ctx context.Context, subjectID string, subjectTy
 		return err
 	}
 
-	s.publisher.Publish(ctx, events)
+	s.publisher.Publish(ctx, event.EventSubjectAssign, &event.EventSubjectAssignData{
+		SubjectID:   subjectID,
+		SubjectType: subjectType,
+		RoleUID:     role.UID,
+		AssignedAt:  subjectRole.AssignedAt,
+	})
 	return nil
 }
 
