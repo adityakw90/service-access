@@ -111,21 +111,20 @@ func (s *roleService) Update(ctx context.Context, uid string, p param.RoleUpdate
 }
 
 func (s *roleService) Delete(ctx context.Context, uid string) error {
-	var events []event.Event
+	var role *model.Role
 
 	err := s.uow.Do(ctx, func(r repository.Repositories) error {
 		repo := r.Role()
 
-		role, err := repo.GetByUID(ctx, uid)
-		if err != nil {
-			return fmt.Errorf("failed to get role: %w", err)
+		var errUoW error
+		role, errUoW = repo.GetByUID(ctx, uid)
+		if errUoW != nil {
+			return fmt.Errorf("failed to get role: %w", errUoW)
 		}
 
 		if err := repo.Delete(ctx, role.ID); err != nil {
 			return fmt.Errorf("failed to delete role: %w", err)
 		}
-
-		events = []event.Event{event.NewEventRoleDeleted(role)}
 		return nil
 	})
 
@@ -133,7 +132,9 @@ func (s *roleService) Delete(ctx context.Context, uid string) error {
 		return err
 	}
 
-	s.publisher.Publish(ctx, events)
+	s.publisher.Publish(ctx, event.EventRoleDelete, &event.EventRoleDeleteData{
+		UID: role.UID,
+	})
 	return nil
 }
 
