@@ -28,7 +28,6 @@ func NewRoleService(uow repository.UnitOfWork, repos repository.RepositoryProvid
 
 func (s *roleService) Create(ctx context.Context, p param.RoleCreateParam) (*model.Role, error) {
 	var result *model.Role
-	var events []event.Event
 
 	err := s.uow.Do(ctx, func(r repository.Repositories) error {
 		role := &model.Role{
@@ -40,7 +39,6 @@ func (s *roleService) Create(ctx context.Context, p param.RoleCreateParam) (*mod
 			return fmt.Errorf("failed to create role: %w", err)
 		}
 		result = role
-		events = []event.Event{event.NewEventRoleCreated(role)}
 		return nil
 	})
 
@@ -48,7 +46,13 @@ func (s *roleService) Create(ctx context.Context, p param.RoleCreateParam) (*mod
 		return nil, err
 	}
 
-	s.publisher.Publish(ctx, events)
+	s.publisher.Publish(ctx, event.EventRoleCreate, &event.EventRoleCreateData{
+		UID:         result.UID,
+		GroupUID:    result.GroupUID,
+		Name:        result.Name,
+		Description: result.Description,
+		CreatedAt:   result.CreatedAt,
+	})
 	return result, nil
 }
 
