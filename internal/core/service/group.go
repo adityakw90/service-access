@@ -176,27 +176,27 @@ func (s *groupService) AssignPermission(ctx context.Context, groupUID string, pe
 }
 
 func (s *groupService) RevokePermission(ctx context.Context, groupUID string, permissionUID string) error {
-	var events []event.Event
+	var group *model.Group
+	var permission *model.Permission
 
 	err := s.uow.Do(ctx, func(r repository.Repositories) error {
+		var errUoW error
 		// Get group
-		group, err := r.Group().GetByUID(ctx, groupUID)
-		if err != nil {
-			return fmt.Errorf("failed to get group: %w", err)
+		group, errUoW = r.Group().GetByUID(ctx, groupUID)
+		if errUoW != nil {
+			return fmt.Errorf("failed to get group: %w", errUoW)
 		}
 
 		// Get permission
-		permission, err := r.Permission().GetByUID(ctx, permissionUID)
-		if err != nil {
-			return fmt.Errorf("failed to get permission: %w", err)
+		permission, errUoW = r.Permission().GetByUID(ctx, permissionUID)
+		if errUoW != nil {
+			return fmt.Errorf("failed to get permission: %w", errUoW)
 		}
 
 		// Revoke
 		if err := r.Group().RemovePermission(ctx, group.ID, permission.ID); err != nil {
 			return fmt.Errorf("failed to revoke permission: %w", err)
 		}
-
-		events = []event.Event{event.NewEventPermissionRevokedFromGroup(group, permission)}
 		return nil
 	})
 
@@ -204,7 +204,10 @@ func (s *groupService) RevokePermission(ctx context.Context, groupUID string, pe
 		return err
 	}
 
-	s.publisher.Publish(ctx, events)
+	s.publisher.Publish(ctx, event.EventGroupRevokePermission, &event.EventGroupRevokePermissionData{
+		GroupUID:      group.UID,
+		PermissionUID: permission.UID,
+	})
 	return nil
 }
 
