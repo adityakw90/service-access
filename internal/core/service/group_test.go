@@ -118,11 +118,20 @@ func (m *mockRepositories) Subject() repository.SubjectRepository {
 
 // mockPublisher is a simple mock for event.Publisher
 type mockPublisher struct {
-	publishedEvents []event.Event
+	publishedEvents []publishedEvent
 }
 
-func (m *mockPublisher) Publish(ctx context.Context, events []event.Event) error {
-	m.publishedEvents = append(m.publishedEvents, events...)
+type publishedEvent struct {
+	eventType event.EventType
+	eventData any
+}
+
+func (m *mockPublisher) Publish(ctx context.Context, eventType event.EventType, eventData any) error {
+	m.publishedEvents = append(m.publishedEvents, publishedEvent{eventType: eventType, eventData: eventData})
+	return nil
+}
+
+func (m *mockPublisher) Close() error {
 	return nil
 }
 
