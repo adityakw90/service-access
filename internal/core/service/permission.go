@@ -28,7 +28,6 @@ func NewPermissionService(uow repository.UnitOfWork, repos repository.Repository
 
 func (s *permissionService) Create(ctx context.Context, p param.PermissionCreateParam) (*model.Permission, error) {
 	var result *model.Permission
-	var events []event.Event
 
 	err := s.uow.Do(ctx, func(r repository.Repositories) error {
 		permission := &model.Permission{
@@ -40,7 +39,6 @@ func (s *permissionService) Create(ctx context.Context, p param.PermissionCreate
 			return fmt.Errorf("failed to create permission: %w", err)
 		}
 		result = permission
-		events = []event.Event{event.NewEventPermissionCreated(permission)}
 		return nil
 	})
 
@@ -48,7 +46,13 @@ func (s *permissionService) Create(ctx context.Context, p param.PermissionCreate
 		return nil, err
 	}
 
-	s.publisher.Publish(ctx, events)
+	s.publisher.Publish(ctx, event.EventPermissionCreate, &event.EventPermissionCreateData{
+		UID:         result.UID,
+		Resource:    result.Resource,
+		Action:      result.Action,
+		Description: result.Description,
+		CreatedAt:   result.CreatedAt,
+	})
 	return result, nil
 }
 
