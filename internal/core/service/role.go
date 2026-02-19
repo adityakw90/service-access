@@ -173,25 +173,25 @@ func (s *roleService) AssignPermission(ctx context.Context, roleUID string, perm
 }
 
 func (s *roleService) RevokePermission(ctx context.Context, roleUID string, permissionUID string) error {
-	var events []event.Event
+	var role *model.Role
+	var groupPerm *model.GroupPermission
 
 	err := s.uow.Do(ctx, func(r repository.Repositories) error {
-		role, err := r.Role().GetByUID(ctx, roleUID)
-		if err != nil {
-			return fmt.Errorf("failed to get role: %w", err)
+		var errUoW error
+		role, errUoW = r.Role().GetByUID(ctx, roleUID)
+		if errUoW != nil {
+			return fmt.Errorf("failed to get role: %w", errUoW)
 		}
 
 		// Get the group permission for this role's group and the permission UID
-		groupPerm, err := r.Group().GetPermissionByGroupIDAndPermissionUID(ctx, role.GroupID, permissionUID)
-		if err != nil {
-			return fmt.Errorf("failed to get group permission: %w", err)
+		groupPerm, errUoW = r.Group().GetPermissionByGroupIDAndPermissionUID(ctx, role.GroupID, permissionUID)
+		if errUoW != nil {
+			return fmt.Errorf("failed to get group permission: %w", errUoW)
 		}
 
 		if err := r.Role().RemovePermission(ctx, role.ID, groupPerm.ID); err != nil {
 			return fmt.Errorf("failed to revoke permission: %w", err)
 		}
-
-		events = []event.Event{event.NewEventRolePermissionRevoked(role, groupPerm)}
 		return nil
 	})
 
@@ -199,7 +199,10 @@ func (s *roleService) RevokePermission(ctx context.Context, roleUID string, perm
 		return err
 	}
 
-	s.publisher.Publish(ctx, events)
+	s.publisher.Publish(ctx, event.EventRoleRevokePermission, &event.EventRoleRevokePermissionData{
+		RoleUID:            role.UID,
+		GroupPermissionUID: groupPerm.UID,
+	})
 	return nil
 }
 
