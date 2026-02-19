@@ -16,5 +16,6 @@ type PermissionRepository interface {
 
 	// Retrieve
 	GetByID(ctx context.Context, id int64) (*model.Permission, error)
+	GetByUID(ctx context.Context, uid string) (*model.Permission, error)
 	List(ctx context.Context, pagination *param.PaginationParam, filter *param.PermissionListFilterParam) (model.Permissions, error)
 }

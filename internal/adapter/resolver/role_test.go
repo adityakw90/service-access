@@ -142,6 +142,9 @@ func TestRoleResolverUIDsByIDs(t *testing.T) {
 				mockPool.ExpectQuery(`SELECT id, uid FROM "role" WHERE id=\$1`).
 					WithArgs(int64(200)).
 					WillReturnRows(rows2)
+
+				// Allow expectations to be satisfied in any order
+				mockPool.MatchExpectationsInOrder(false)
 			},
 			want:    map[int64]string{100: "role-uid-1", 200: "role-uid-2"},
 			wantErr: false,

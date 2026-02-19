@@ -16,6 +16,7 @@ type RoleRepository interface {
 
 	// Retrieve
 	GetByID(ctx context.Context, id int64) (*model.Role, error)                                                          // GetByID returns a role by ID.
+	GetByUID(ctx context.Context, uid string) (*model.Role, error)                                                      // GetByUID returns a role by UID.
 	List(ctx context.Context, pagination *param.PaginationParam, filter *param.RoleListFilterParam) (model.Roles, error) // List returns the list of roles.
 
 	// Permission

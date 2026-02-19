@@ -16,4 +16,5 @@ type SubjectRepository interface {
 
 	// Retrieve
 	List(ctx context.Context, pagination *param.PaginationParam, filter *param.SubjectListFilterParam) (model.SubjectRoles, error) // List returns the list of subject roles.
+	GetRoles(ctx context.Context, subjectID string, subjectType string) ([]model.SubjectRole, error)                               // GetRoles returns roles for a subject.
 }

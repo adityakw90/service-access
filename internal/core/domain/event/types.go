@@ -1,5 +1,21 @@
 package event
 
+// Event represents a domain event.
+type Event interface {
+	// Type returns the event type.
+	Type() EventType
+
+	// Data returns the event data.
+	Data() any
+}
+
+// Publisher publishes domain events.
+// This is a simplified interface used by the service layer.
+// type Publisher interface {
+// 	Publish(ctx context.Context, events []Event) error
+// }
+// Use interface from port/event
+
 // EventType defines the type of access domain event.
 type EventType string
 
@@ -32,3 +48,27 @@ const (
 	EventPermissionUpdate EventType = "permission.update"
 	EventPermissionDelete EventType = "permission.delete"
 )
+
+// baseEvent implements the Event interface.
+type baseEvent struct {
+	eventType EventType
+	data      any
+}
+
+// Type returns the event type.
+func (e *baseEvent) Type() EventType {
+	return e.eventType
+}
+
+// Data returns the event data.
+func (e *baseEvent) Data() any {
+	return e.data
+}
+
+// newEvent creates a new base event.
+func newEvent(eventType EventType, data any) Event {
+	return &baseEvent{
+		eventType: eventType,
+		data:      data,
+	}
+}

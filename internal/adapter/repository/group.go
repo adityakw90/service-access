@@ -97,6 +97,27 @@ func (r *groupRepository) GetByID(ctx context.Context, id int64) (*model.Group, 
 	return &g, nil
 }
 
+func (r *groupRepository) GetByUID(ctx context.Context, uid string) (*model.Group, error) {
+	const sql = `
+		SELECT id, uid, name, description, created_at, updated_at
+		FROM "group"
+		WHERE uid = $1
+	`
+
+	var g model.Group
+	err := r.db.QueryRow(ctx, sql, uid).Scan(
+		&g.ID, &g.UID, &g.Name, &g.Description, &g.CreatedAt, &g.UpdatedAt,
+	)
+	if err != nil {
+		if stderrors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("group with uid %s not found", uid)
+		}
+		return nil, fmt.Errorf("failed to get group: %w", err)
+	}
+
+	return &g, nil
+}
+
 func (r *groupRepository) List(ctx context.Context, pagination *param.PaginationParam, filter *param.GroupListFilterParam) (model.Groups, error) {
 	baseSQL := `
 		SELECT id, uid, name, description, created_at, updated_at
@@ -379,6 +400,60 @@ func (r *groupRepository) ListPermission(ctx context.Context, groupID int64, pag
 			Limit: limit,
 		},
 	}, nil
+}
+
+func (r *groupRepository) GetPermissionByID(ctx context.Context, groupPermissionID int64) (*model.GroupPermission, error) {
+	const sql = `
+		SELECT gp.id, gp.uid, gp.group_id, g.uid as group_uid,
+		       gp.permission_id, p.uid as permission_uid, p.resource, p.action, p.description,
+		       gp.created_at
+		FROM group_permission gp
+		JOIN "group" g ON gp.group_id = g.id
+		JOIN permission p ON gp.permission_id = p.id
+		WHERE gp.id = $1
+	`
+
+	var gp model.GroupPermission
+	err := r.db.QueryRow(ctx, sql, groupPermissionID).Scan(
+		&gp.ID, &gp.UID, &gp.GroupID, &gp.GroupUID,
+		&gp.PermissionID, &gp.PermissionUID, &gp.PermissionResource, &gp.PermissionAction, &gp.PermissionDescription,
+		&gp.CreatedAt,
+	)
+	if err != nil {
+		if stderrors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("group permission with id %d not found", groupPermissionID)
+		}
+		return nil, fmt.Errorf("failed to get group permission: %w", err)
+	}
+
+	return &gp, nil
+}
+
+func (r *groupRepository) GetPermissionByGroupIDAndPermissionUID(ctx context.Context, groupID int64, permissionUID string) (*model.GroupPermission, error) {
+	const sql = `
+		SELECT gp.id, gp.uid, gp.group_id, g.uid as group_uid,
+		       gp.permission_id, p.uid as permission_uid, p.resource, p.action, p.description,
+		       gp.created_at
+		FROM group_permission gp
+		JOIN "group" g ON gp.group_id = g.id
+		JOIN permission p ON gp.permission_id = p.id
+		WHERE gp.group_id = $1 AND p.uid = $2
+	`
+
+	var gp model.GroupPermission
+	err := r.db.QueryRow(ctx, sql, groupID, permissionUID).Scan(
+		&gp.ID, &gp.UID, &gp.GroupID, &gp.GroupUID,
+		&gp.PermissionID, &gp.PermissionUID, &gp.PermissionResource, &gp.PermissionAction, &gp.PermissionDescription,
+		&gp.CreatedAt,
+	)
+	if err != nil {
+		if stderrors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("group permission for group %d and permission uid %s not found", groupID, permissionUID)
+		}
+		return nil, fmt.Errorf("failed to get group permission: %w", err)
+	}
+
+	return &gp, nil
 }
 
 func (r *groupRepository) AddPermission(ctx context.Context, groupID int64, permissionID int64) error {

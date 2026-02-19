@@ -98,6 +98,27 @@ func (r *permissionRepository) GetByID(ctx context.Context, id int64) (*model.Pe
 	return &p, nil
 }
 
+func (r *permissionRepository) GetByUID(ctx context.Context, uid string) (*model.Permission, error) {
+	const sql = `
+		SELECT id, uid, resource, action, description, created_at, updated_at
+		FROM permission
+		WHERE uid = $1
+	`
+
+	var p model.Permission
+	err := r.db.QueryRow(ctx, sql, uid).Scan(
+		&p.ID, &p.UID, &p.Resource, &p.Action, &p.Description, &p.CreatedAt, &p.UpdatedAt,
+	)
+	if err != nil {
+		if stderrors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("permission with uid %s not found", uid)
+		}
+		return nil, fmt.Errorf("failed to get permission: %w", err)
+	}
+
+	return &p, nil
+}
+
 func (r *permissionRepository) List(ctx context.Context, pagination *param.PaginationParam, filter *param.PermissionListFilterParam) (model.Permissions, error) {
 	baseSQL := `
 		SELECT id, uid, resource, action, description, created_at, updated_at

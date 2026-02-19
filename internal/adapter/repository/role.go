@@ -103,6 +103,28 @@ func (r *roleRepository) GetByID(ctx context.Context, id int64) (*model.Role, er
 	return &role, nil
 }
 
+func (r *roleRepository) GetByUID(ctx context.Context, uid string) (*model.Role, error) {
+	const sql = `
+		SELECT r.id, r.uid, r.group_id, g.uid as group_uid, r.name, r.description, r.created_at, r.updated_at
+		FROM role r
+		JOIN "group" g ON r.group_id = g.id
+		WHERE r.uid = $1
+	`
+
+	var role model.Role
+	err := r.db.QueryRow(ctx, sql, uid).Scan(
+		&role.ID, &role.UID, &role.GroupID, &role.GroupUID, &role.Name, &role.Description, &role.CreatedAt, &role.UpdatedAt,
+	)
+	if err != nil {
+		if stderrors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("role with uid %s not found", uid)
+		}
+		return nil, fmt.Errorf("failed to get role: %w", err)
+	}
+
+	return &role, nil
+}
+
 func (r *roleRepository) List(ctx context.Context, pagination *param.PaginationParam, filter *param.RoleListFilterParam) (model.Roles, error) {
 	baseSQL := `
 		SELECT r.id, r.uid, r.group_id, g.uid as group_uid, r.name, r.description, r.created_at, r.updated_at

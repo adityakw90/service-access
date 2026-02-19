@@ -82,6 +82,38 @@ func (r *subjectRepository) Delete(ctx context.Context, subjectID int64, subject
 	return fmt.Errorf("delete by single id not supported for subject_role with composite key")
 }
 
+func (r *subjectRepository) GetRoles(ctx context.Context, subjectID string, subjectType string) ([]model.SubjectRole, error) {
+	const sql = `
+		SELECT sr.subject_id, sr.subject_type, sr.role_id, r.uid as role_uid, sr.assigned_at
+		FROM subject_role sr
+		JOIN role r ON sr.role_id = r.id
+		WHERE sr.subject_id = $1 AND sr.subject_type = $2
+		ORDER BY sr.assigned_at DESC
+	`
+
+	rows, err := r.db.Query(ctx, sql, subjectID, subjectType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get subject roles: %w", err)
+	}
+	defer rows.Close()
+
+	var items []model.SubjectRole
+	for rows.Next() {
+		var sr model.SubjectRole
+		err := rows.Scan(&sr.SubjectID, &sr.SubjectType, &sr.RoleID, &sr.RoleUID, &sr.AssignedAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan subject role: %w", err)
+		}
+		items = append(items, sr)
+	}
+
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("error iterating subject roles: %w", rows.Err())
+	}
+
+	return items, nil
+}
+
 func (r *subjectRepository) List(ctx context.Context, pagination *param.PaginationParam, filter *param.SubjectListFilterParam) (model.SubjectRoles, error) {
 	baseSQL := `
 		SELECT sr.subject_id, sr.subject_type, sr.role_id, r.uid as role_uid, sr.assigned_at
