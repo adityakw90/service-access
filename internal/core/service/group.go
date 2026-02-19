@@ -110,23 +110,22 @@ func (s *groupService) Update(ctx context.Context, uid string, p param.GroupUpda
 }
 
 func (s *groupService) Delete(ctx context.Context, uid string) error {
-	var events []event.Event
+	var group *model.Group
 
 	err := s.uow.Do(ctx, func(r repository.Repositories) error {
 		repo := r.Group()
 
 		// Get existing for event
-		group, err := repo.GetByUID(ctx, uid)
-		if err != nil {
-			return fmt.Errorf("failed to get group: %w", err)
+		var errUoW error
+		group, errUoW = repo.GetByUID(ctx, uid)
+		if errUoW != nil {
+			return fmt.Errorf("failed to get group: %w", errUoW)
 		}
 
 		// Delete
 		if err := repo.Delete(ctx, group.ID); err != nil {
 			return fmt.Errorf("failed to delete group: %w", err)
 		}
-
-		events = []event.Event{event.NewEventGroupDeleted(group)}
 		return nil
 	})
 
@@ -134,7 +133,9 @@ func (s *groupService) Delete(ctx context.Context, uid string) error {
 		return err
 	}
 
-	s.publisher.Publish(ctx, events)
+	s.publisher.Publish(ctx, event.EventGroupDelete, &event.EventGroupDeleteData{
+		UID: group.UID,
+	})
 	return nil
 }
 
