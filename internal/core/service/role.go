@@ -207,12 +207,13 @@ func (s *roleService) RevokePermission(ctx context.Context, roleUID string, perm
 }
 
 func (s *roleService) UpdatePermission(ctx context.Context, roleUID string, permissionUIDs []string) error {
-	var events []event.Event
+	var role *model.Role
 
 	err := s.uow.Do(ctx, func(r repository.Repositories) error {
-		role, err := r.Role().GetByUID(ctx, roleUID)
-		if err != nil {
-			return fmt.Errorf("failed to get role: %w", err)
+		var errUoW error
+		role, errUoW = r.Role().GetByUID(ctx, roleUID)
+		if errUoW != nil {
+			return fmt.Errorf("failed to get role: %w", errUoW)
 		}
 
 		groupPermissionIDs := make([]int64, 0, len(permissionUIDs))
@@ -227,8 +228,6 @@ func (s *roleService) UpdatePermission(ctx context.Context, roleUID string, perm
 		if err := r.Role().ReplacePermission(ctx, role.ID, groupPermissionIDs); err != nil {
 			return fmt.Errorf("failed to replace permissions: %w", err)
 		}
-
-		events = []event.Event{event.NewEventRolePermissionsUpdated(role)}
 		return nil
 	})
 
@@ -236,7 +235,10 @@ func (s *roleService) UpdatePermission(ctx context.Context, roleUID string, perm
 		return err
 	}
 
-	s.publisher.Publish(ctx, events)
+	s.publisher.Publish(ctx, event.EventRoleUpdatePermission, &event.EventRoleUpdatePermissionData{
+		RoleUID: role.UID,
+		UIDs:    permissionUIDs,
+	})
 	return nil
 }
 
