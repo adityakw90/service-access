@@ -73,14 +73,15 @@ func (s *roleService) List(ctx context.Context, pagination *param.PaginationPara
 }
 
 func (s *roleService) Update(ctx context.Context, uid string, p param.RoleUpdateParam) error {
-	var events []event.Event
+	var role *model.Role
 
 	err := s.uow.Do(ctx, func(r repository.Repositories) error {
 		repo := r.Role()
 
-		role, err := repo.GetByUID(ctx, uid)
-		if err != nil {
-			return fmt.Errorf("failed to get role: %w", err)
+		var errUoW error
+		role, errUoW = repo.GetByUID(ctx, uid)
+		if errUoW != nil {
+			return fmt.Errorf("failed to get role: %w", errUoW)
 		}
 
 		if p.Name != nil {
@@ -93,8 +94,6 @@ func (s *roleService) Update(ctx context.Context, uid string, p param.RoleUpdate
 		if err := repo.Update(ctx, role); err != nil {
 			return fmt.Errorf("failed to update role: %w", err)
 		}
-
-		events = []event.Event{event.NewEventRoleUpdated(role)}
 		return nil
 	})
 
@@ -102,7 +101,12 @@ func (s *roleService) Update(ctx context.Context, uid string, p param.RoleUpdate
 		return err
 	}
 
-	s.publisher.Publish(ctx, events)
+	s.publisher.Publish(ctx, event.EventRoleUpdate, &event.EventRoleUpdateData{
+		UID:         role.UID,
+		Name:        role.Name,
+		Description: role.Description,
+		UpdatedAt:   role.UpdatedAt,
+	})
 	return nil
 }
 
