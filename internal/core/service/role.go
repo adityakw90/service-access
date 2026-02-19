@@ -7,6 +7,7 @@ import (
 	"github.com/adityakw90/service-access/internal/core/domain/event"
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
+	portEvent "github.com/adityakw90/service-access/internal/core/port/event"
 	"github.com/adityakw90/service-access/internal/core/port/repository"
 	"github.com/adityakw90/service-access/internal/core/port/service"
 )
@@ -14,10 +15,10 @@ import (
 type roleService struct {
 	uow      repository.UnitOfWork
 	repos    repository.RepositoryProvider
-	publisher event.Publisher
+	publisher portEvent.EventPublisher
 }
 
-func NewRoleService(uow repository.UnitOfWork, repos repository.RepositoryProvider, publisher event.Publisher) service.RoleService {
+func NewRoleService(uow repository.UnitOfWork, repos repository.RepositoryProvider, publisher portEvent.EventPublisher) service.RoleService {
 	return &roleService{
 		uow:      uow,
 		repos:    repos,
