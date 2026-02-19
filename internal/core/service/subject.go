@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/adityakw90/service-access/internal/core/domain/event"
 	"github.com/adityakw90/service-access/internal/core/domain/model"
@@ -72,21 +73,19 @@ func (s *subjectService) Assign(ctx context.Context, subjectID string, subjectTy
 }
 
 func (s *subjectService) Revoke(ctx context.Context, subjectID string, subjectType string, roleUID string) error {
-	var events []event.Event
+	var role *model.Role
 
 	err := s.uow.Do(ctx, func(r repository.Repositories) error {
-		role, err := r.Role().GetByUID(ctx, roleUID)
-		if err != nil {
-			return fmt.Errorf("failed to get role: %w", err)
+		var errUoW error
+		role, errUoW = r.Role().GetByUID(ctx, roleUID)
+		if errUoW != nil {
+			return fmt.Errorf("failed to get role: %w", errUoW)
 		}
 
 		// Delete the subject-role assignment
-		err = r.Subject().Delete(ctx, role.ID, subjectType, role.ID)
-		if err != nil {
+		if err := r.Subject().Delete(ctx, role.ID, subjectType, role.ID); err != nil {
 			return fmt.Errorf("failed to revoke role: %w", err)
 		}
-
-		events = []event.Event{event.NewEventSubjectRevoked(subjectID, subjectType, role.UID)}
 		return nil
 	})
 
@@ -94,6 +93,11 @@ func (s *subjectService) Revoke(ctx context.Context, subjectID string, subjectTy
 		return err
 	}
 
-	s.publisher.Publish(ctx, events)
+	s.publisher.Publish(ctx, event.EventSubjectRevoke, &event.EventSubjectRevokeData{
+		SubjectID:   subjectID,
+		SubjectType: subjectType,
+		RoleUID:     role.UID,
+		RevokedAt:   time.Now(),
+	})
 	return nil
 }
