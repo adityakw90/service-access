@@ -74,11 +74,16 @@ func setupDatabase(ctx context.Context, connStr string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-// noopPublisher implements event.Publisher interface for development/testing
+// noopPublisher implements portEvent.EventPublisher interface for development/testing
 type noopPublisher struct{}
 
-func (n *noopPublisher) Publish(ctx context.Context, events []event.Event) error {
-	log.Printf("Published %d events (noop)", len(events))
+func (n *noopPublisher) Publish(ctx context.Context, eventType event.EventType, eventData any) error {
+	log.Printf("Published event: %s (noop)", eventType)
+	return nil
+}
+
+func (n *noopPublisher) Close() error {
+	log.Printf("Closing noopPublisher")
 	return nil
 }
 
