@@ -14,15 +14,15 @@ import (
 )
 
 type subjectService struct {
-	uow      repository.UnitOfWork
-	repos    repository.RepositoryProvider
+	uow       repository.UnitOfWork
+	repos     repository.RepositoryProvider
 	publisher portEvent.EventPublisher
 }
 
 func NewSubjectService(uow repository.UnitOfWork, repos repository.RepositoryProvider, publisher portEvent.EventPublisher) service.SubjectService {
 	return &subjectService{
-		uow:      uow,
-		repos:    repos,
+		uow:       uow,
+		repos:     repos,
 		publisher: publisher,
 	}
 }
@@ -39,7 +39,7 @@ func (s *subjectService) Assign(ctx context.Context, subjectID string, subjectTy
 	var role *model.Role
 	var subjectRole *model.SubjectRole
 
-	err := s.uow.Do(ctx, func(r repository.Repositories) error {
+	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		var errUoW error
 		role, errUoW = r.Role().GetByUID(ctx, roleUID)
 		if errUoW != nil {
@@ -75,7 +75,7 @@ func (s *subjectService) Assign(ctx context.Context, subjectID string, subjectTy
 func (s *subjectService) Revoke(ctx context.Context, subjectID string, subjectType string, roleUID string) error {
 	var role *model.Role
 
-	err := s.uow.Do(ctx, func(r repository.Repositories) error {
+	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		var errUoW error
 		role, errUoW = r.Role().GetByUID(ctx, roleUID)
 		if errUoW != nil {

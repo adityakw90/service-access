@@ -92,12 +92,12 @@ func (m *mockGroupRepository) GetPermissionByGroupIDAndPermissionUID(ctx context
 	return args.Get(0).(*model.GroupPermission), args.Error(1)
 }
 
-// mockRepositories implements repository.Repositories for testing
+// mockRepositories implements repository.RepositoryProvider for testing
 type mockRepositories struct {
-	group       repository.GroupRepository
-	permission  repository.PermissionRepository
-	role        repository.RoleRepository
-	subject     repository.SubjectRepository
+	group      repository.GroupRepository
+	permission repository.PermissionRepository
+	role       repository.RoleRepository
+	subject    repository.SubjectRepository
 }
 
 func (m *mockRepositories) Group() repository.GroupRepository {
@@ -147,8 +147,8 @@ func TestGroupService_Create(t *testing.T) {
 		{
 			name: "Happy Path",
 			setup: func(m *mocks.UnitOfWork, p *mocks.RepositoryProvider) {
-				m.On("Do", mock.Anything, mock.AnythingOfType("func(repository.Repositories) error")).Return(nil).Run(func(args mock.Arguments) {
-					fn := args.Get(1).(func(repository.Repositories) error)
+				m.On("Do", mock.Anything, mock.AnythingOfType("func(repository.RepositoryProvider) error")).Return(nil).Run(func(args mock.Arguments) {
+					fn := args.Get(1).(func(repository.RepositoryProvider) error)
 					repos := &mockRepositories{group: &mockGroupRepository{}}
 					// Set up the mock to return nil for Create
 					repos.group.(*mockGroupRepository).On("Create", mock.Anything, mock.AnythingOfType("*model.Group")).Return(nil)
@@ -172,7 +172,7 @@ func TestGroupService_Create(t *testing.T) {
 		{
 			name: "UnitOfWork Error",
 			setup: func(m *mocks.UnitOfWork, p *mocks.RepositoryProvider) {
-				m.On("Do", mock.Anything, mock.AnythingOfType("func(repository.Repositories) error")).Return(errors.New("transaction error"))
+				m.On("Do", mock.Anything, mock.AnythingOfType("func(repository.RepositoryProvider) error")).Return(errors.New("transaction error"))
 			},
 			param: param.GroupCreateParam{
 				Name:        "admin",

@@ -13,15 +13,15 @@ import (
 )
 
 type roleService struct {
-	uow      repository.UnitOfWork
-	repos    repository.RepositoryProvider
+	uow       repository.UnitOfWork
+	repos     repository.RepositoryProvider
 	publisher portEvent.EventPublisher
 }
 
 func NewRoleService(uow repository.UnitOfWork, repos repository.RepositoryProvider, publisher portEvent.EventPublisher) service.RoleService {
 	return &roleService{
-		uow:      uow,
-		repos:    repos,
+		uow:       uow,
+		repos:     repos,
 		publisher: publisher,
 	}
 }
@@ -29,7 +29,7 @@ func NewRoleService(uow repository.UnitOfWork, repos repository.RepositoryProvid
 func (s *roleService) Create(ctx context.Context, p param.RoleCreateParam) (*model.Role, error) {
 	var result *model.Role
 
-	err := s.uow.Do(ctx, func(r repository.Repositories) error {
+	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		role := &model.Role{
 			GroupID:     p.GroupID,
 			Name:        p.Name,
@@ -75,7 +75,7 @@ func (s *roleService) List(ctx context.Context, pagination *param.PaginationPara
 func (s *roleService) Update(ctx context.Context, uid string, p param.RoleUpdateParam) error {
 	var role *model.Role
 
-	err := s.uow.Do(ctx, func(r repository.Repositories) error {
+	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		repo := r.Role()
 
 		var errUoW error
@@ -113,7 +113,7 @@ func (s *roleService) Update(ctx context.Context, uid string, p param.RoleUpdate
 func (s *roleService) Delete(ctx context.Context, uid string) error {
 	var role *model.Role
 
-	err := s.uow.Do(ctx, func(r repository.Repositories) error {
+	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		repo := r.Role()
 
 		var errUoW error
@@ -142,7 +142,7 @@ func (s *roleService) AssignPermission(ctx context.Context, roleUID string, perm
 	var role *model.Role
 	var groupPerm *model.GroupPermission
 
-	err := s.uow.Do(ctx, func(r repository.Repositories) error {
+	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		var errUoW error
 		role, errUoW = r.Role().GetByUID(ctx, roleUID)
 		if errUoW != nil {
@@ -176,7 +176,7 @@ func (s *roleService) RevokePermission(ctx context.Context, roleUID string, perm
 	var role *model.Role
 	var groupPerm *model.GroupPermission
 
-	err := s.uow.Do(ctx, func(r repository.Repositories) error {
+	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		var errUoW error
 		role, errUoW = r.Role().GetByUID(ctx, roleUID)
 		if errUoW != nil {
@@ -209,7 +209,7 @@ func (s *roleService) RevokePermission(ctx context.Context, roleUID string, perm
 func (s *roleService) UpdatePermission(ctx context.Context, roleUID string, permissionUIDs []string) error {
 	var role *model.Role
 
-	err := s.uow.Do(ctx, func(r repository.Repositories) error {
+	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		var errUoW error
 		role, errUoW = r.Role().GetByUID(ctx, roleUID)
 		if errUoW != nil {

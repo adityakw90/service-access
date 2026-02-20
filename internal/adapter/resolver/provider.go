@@ -8,7 +8,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-type ResolverProvider struct {
+type resolverProvider struct {
 	db                 PostgrePool
 	redisClient        *redis.Client
 	redisPrefix        string
@@ -24,8 +24,8 @@ func NewResolverProvider(
 	redisCacheDuration time.Duration,
 	logger monitoring.Logger,
 	tracer monitoring.Tracer,
-) *ResolverProvider {
-	return &ResolverProvider{
+) portResolver.ResolverProvider {
+	return &resolverProvider{
 		db:                 db,
 		redisClient:        redisClient,
 		redisPrefix:        redisPrefix,
@@ -35,7 +35,7 @@ func NewResolverProvider(
 	}
 }
 
-func (p *ResolverProvider) PermissionResolver() portResolver.PermissionResolver {
+func (p *resolverProvider) Permission() portResolver.PermissionResolver {
 	return NewPermissionResolver(
 		p.db,
 		p.redisClient,
@@ -46,7 +46,7 @@ func (p *ResolverProvider) PermissionResolver() portResolver.PermissionResolver 
 	)
 }
 
-func (p *ResolverProvider) GroupResolver() portResolver.GroupResolver {
+func (p *resolverProvider) Group() portResolver.GroupResolver {
 	return NewGroupResolver(
 		p.db,
 		p.redisClient,
@@ -57,7 +57,7 @@ func (p *ResolverProvider) GroupResolver() portResolver.GroupResolver {
 	)
 }
 
-func (p *ResolverProvider) RoleResolver() portResolver.RoleResolver {
+func (p *resolverProvider) Role() portResolver.RoleResolver {
 	return NewRoleResolver(
 		p.db,
 		p.redisClient,
@@ -68,7 +68,7 @@ func (p *ResolverProvider) RoleResolver() portResolver.RoleResolver {
 	)
 }
 
-func (p *ResolverProvider) GroupPermissionResolver() portResolver.GroupPermissionResolver {
+func (p *resolverProvider) GroupPermission() portResolver.GroupPermissionResolver {
 	return NewGroupPermissionResolver(
 		p.db,
 		p.redisClient,

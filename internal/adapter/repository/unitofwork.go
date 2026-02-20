@@ -38,14 +38,14 @@ func (u *unitOfWork) rollback(ctx context.Context, tx pgx.Tx) error {
 	return nil
 }
 
-func (u *unitOfWork) Do(ctx context.Context, fn func(r portrepository.Repositories) error) error {
+func (u *unitOfWork) Do(ctx context.Context, fn func(r portrepository.RepositoryProvider) error) error {
 	tx, err := u.begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer u.rollback(ctx, tx)
 
-	r := &repositories{
+	r := &repositoryProvider{
 		db: tx,
 	}
 

@@ -10,7 +10,7 @@ import (
 // TestAdapter_Repositories_LazyInitialization tests that repositories are created lazily
 func TestAdapter_Repositories_LazyInitialization(t *testing.T) {
 	t.Run("Repositories are created lazily and cached", func(t *testing.T) {
-		repos := &repositories{
+		repos := &repositoryProvider{
 			db: nil, // db can be nil for this test since we're not calling any repository methods
 		}
 
@@ -49,7 +49,7 @@ func TestAdapter_Repositories_ImplementsInterface(t *testing.T) {
 	t.Run("Repositories implements portrepository.Repositories interface", func(t *testing.T) {
 		// This test verifies that the repositories struct correctly implements
 		// the portrepository.Repositories interface
-		var _ portrepository.Repositories = &repositories{}
+		var _ portrepository.RepositoryProvider = &repositoryProvider{}
 	})
 }
 
@@ -71,7 +71,7 @@ func TestAdapter_NewUnitOfWork_CreatesInstance(t *testing.T) {
 // TestAdapter_Repositories_TypeSafety tests type safety of repository returns
 func TestAdapter_Repositories_TypeSafety(t *testing.T) {
 	t.Run("Repository methods return correct interface types", func(t *testing.T) {
-		repos := &repositories{
+		repos := &repositoryProvider{
 			db: nil,
 		}
 

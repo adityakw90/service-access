@@ -32,7 +32,7 @@ func (s *groupService) Create(ctx context.Context, p param.GroupCreateParam) (*m
 		Name:        p.Name,
 		Description: p.Description,
 	}
-	err := s.uow.Do(ctx, func(r repository.Repositories) error {
+	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		if err := r.Group().Create(ctx, group); err != nil {
 			return fmt.Errorf("failed to create group: %w", err)
 		}
@@ -71,7 +71,7 @@ func (s *groupService) List(ctx context.Context, pagination *param.PaginationPar
 func (s *groupService) Update(ctx context.Context, uid string, p param.GroupUpdateParam) error {
 	var group *model.Group
 
-	err := s.uow.Do(ctx, func(r repository.Repositories) error {
+	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		var errUoW error
 		repo := r.Group()
 
@@ -112,7 +112,7 @@ func (s *groupService) Update(ctx context.Context, uid string, p param.GroupUpda
 func (s *groupService) Delete(ctx context.Context, uid string) error {
 	var group *model.Group
 
-	err := s.uow.Do(ctx, func(r repository.Repositories) error {
+	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		repo := r.Group()
 
 		// Get existing for event
@@ -143,7 +143,7 @@ func (s *groupService) AssignPermission(ctx context.Context, groupUID string, pe
 	var group *model.Group
 	var permission *model.Permission
 
-	err := s.uow.Do(ctx, func(r repository.Repositories) error {
+	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		var errUoW error
 		// Get group
 		group, errUoW = r.Group().GetByUID(ctx, groupUID)
@@ -179,7 +179,7 @@ func (s *groupService) RevokePermission(ctx context.Context, groupUID string, pe
 	var group *model.Group
 	var permission *model.Permission
 
-	err := s.uow.Do(ctx, func(r repository.Repositories) error {
+	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		var errUoW error
 		// Get group
 		group, errUoW = r.Group().GetByUID(ctx, groupUID)
@@ -214,7 +214,7 @@ func (s *groupService) RevokePermission(ctx context.Context, groupUID string, pe
 func (s *groupService) UpdatePermission(ctx context.Context, groupUID string, permissionUIDs []string) error {
 	var group *model.Group
 
-	err := s.uow.Do(ctx, func(r repository.Repositories) error {
+	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		var errUoW error
 		// Get group
 		group, errUoW = r.Group().GetByUID(ctx, groupUID)

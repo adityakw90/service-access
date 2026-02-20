@@ -11,15 +11,15 @@ import (
 )
 
 // createTestRepositories creates a repositories instance with a mock db executor for testing
-func createTestRepositories(t *testing.T) (*repositories, pgxmock.PgxPoolIface) {
+func createTestRepositories(t *testing.T) (*repositoryProvider, pgxmock.PgxPoolIface) {
 	mockPool, err := pgxmock.NewPool()
 	require.NoError(t, err, "Failed to create mock pool")
-	return &repositories{db: mockPool}, mockPool
+	return &repositoryProvider{db: mockPool}, mockPool
 }
 
 // createTestRepositoriesWithNilDB creates a repositories instance with nil db executor
-func createTestRepositoriesWithNilDB() *repositories {
-	return &repositories{db: nil}
+func createTestRepositoriesWithNilDB() *repositoryProvider {
+	return &repositoryProvider{db: nil}
 }
 
 // ============================================================================
@@ -31,40 +31,40 @@ func TestAdapter_Repositories_ConcurrentInitialization(t *testing.T) {
 	tests := []struct {
 		name       string
 		goroutines int
-		repoGetter func(*repositories) any
+		repoGetter func(*repositoryProvider) any
 	}{
 		{
 			name:       "Concurrent Permission repository access",
 			goroutines: 100,
-			repoGetter: func(r *repositories) any {
+			repoGetter: func(r *repositoryProvider) any {
 				return r.Permission()
 			},
 		},
 		{
 			name:       "Concurrent Group repository access",
 			goroutines: 100,
-			repoGetter: func(r *repositories) any {
+			repoGetter: func(r *repositoryProvider) any {
 				return r.Group()
 			},
 		},
 		{
 			name:       "Concurrent Role repository access",
 			goroutines: 100,
-			repoGetter: func(r *repositories) any {
+			repoGetter: func(r *repositoryProvider) any {
 				return r.Role()
 			},
 		},
 		{
 			name:       "Concurrent Subject repository access",
 			goroutines: 100,
-			repoGetter: func(r *repositories) any {
+			repoGetter: func(r *repositoryProvider) any {
 				return r.Subject()
 			},
 		},
 		{
 			name:       "Mixed repository access concurrently",
 			goroutines: 100,
-			repoGetter: func(r *repositories) any {
+			repoGetter: func(r *repositoryProvider) any {
 				// Use a counter to mix up different repository types
 				// This is called concurrently, so the counter is just for variety
 				// Thread-safety is tested by having goroutines call this
@@ -74,7 +74,7 @@ func TestAdapter_Repositories_ConcurrentInitialization(t *testing.T) {
 		{
 			name:       "Rapid repeated calls to same repository",
 			goroutines: 1000,
-			repoGetter: func(r *repositories) any {
+			repoGetter: func(r *repositoryProvider) any {
 				return r.Permission()
 			},
 		},
@@ -114,35 +114,35 @@ func TestAdapter_Repositories_ConcurrentInitialization(t *testing.T) {
 func TestAdapter_Repositories_DbExecutorPropagation(t *testing.T) {
 	tests := []struct {
 		name       string
-		repoGetter func(*repositories) any
+		repoGetter func(*repositoryProvider) any
 	}{
 		{
 			name: "Permission repository receives dbExecutor",
-			repoGetter: func(r *repositories) any {
+			repoGetter: func(r *repositoryProvider) any {
 				return r.Permission()
 			},
 		},
 		{
 			name: "Group repository receives dbExecutor",
-			repoGetter: func(r *repositories) any {
+			repoGetter: func(r *repositoryProvider) any {
 				return r.Group()
 			},
 		},
 		{
 			name: "Role repository receives dbExecutor",
-			repoGetter: func(r *repositories) any {
+			repoGetter: func(r *repositoryProvider) any {
 				return r.Role()
 			},
 		},
 		{
 			name: "Subject repository receives dbExecutor",
-			repoGetter: func(r *repositories) any {
+			repoGetter: func(r *repositoryProvider) any {
 				return r.Subject()
 			},
 		},
 		{
 			name: "All repositories share same dbExecutor instance",
-			repoGetter: func(r *repositories) any {
+			repoGetter: func(r *repositoryProvider) any {
 				// Return all repositories for verification
 				return []any{r.Permission(), r.Group(), r.Role(), r.Subject()}
 			},
@@ -154,7 +154,7 @@ func TestAdapter_Repositories_DbExecutorPropagation(t *testing.T) {
 			mockPool, err := pgxmock.NewPool()
 			require.NoError(t, err)
 
-			repos := &repositories{db: mockPool}
+			repos := &repositoryProvider{db: mockPool}
 			repo := tt.repoGetter(repos)
 
 			// Verify repositories were created with the dbExecutor
@@ -183,11 +183,11 @@ func TestAdapter_Repositories_DbExecutorPropagation(t *testing.T) {
 func TestAdapter_Repositories_RaceCondition(t *testing.T) {
 	tests := []struct {
 		name   string
-		testFn func(*testing.T, *repositories)
+		testFn func(*testing.T, *repositoryProvider)
 	}{
 		{
 			name: "Write-read race on repository initialization",
-			testFn: func(t *testing.T, repos *repositories) {
+			testFn: func(t *testing.T, repos *repositoryProvider) {
 				var wg sync.WaitGroup
 				for i := 0; i < 50; i++ {
 					wg.Add(2)
@@ -207,7 +207,7 @@ func TestAdapter_Repositories_RaceCondition(t *testing.T) {
 		},
 		{
 			name: "Read-read race on same repository",
-			testFn: func(t *testing.T, repos *repositories) {
+			testFn: func(t *testing.T, repos *repositoryProvider) {
 				var wg sync.WaitGroup
 				for i := 0; i < 100; i++ {
 					wg.Add(1)
@@ -222,7 +222,7 @@ func TestAdapter_Repositories_RaceCondition(t *testing.T) {
 		},
 		{
 			name: "Mixed repository race - all types concurrently",
-			testFn: func(t *testing.T, repos *repositories) {
+			testFn: func(t *testing.T, repos *repositoryProvider) {
 				var wg sync.WaitGroup
 				for i := 0; i < 25; i++ {
 					wg.Add(4)
@@ -265,7 +265,7 @@ func TestAdapter_Repositories_WithinUnitOfWork(t *testing.T) {
 	tests := []struct {
 		name          string
 		setupMock     func(pgxmock.PgxPoolIface)
-		testFunc      func(*testing.T, *repositories)
+		testFunc      func(*testing.T, *repositoryProvider)
 		expectError   bool
 		errorContains string
 	}{
@@ -275,7 +275,7 @@ func TestAdapter_Repositories_WithinUnitOfWork(t *testing.T) {
 				mock.ExpectBegin()
 				mock.ExpectCommit()
 			},
-			testFunc: func(t *testing.T, repos *repositories) {
+			testFunc: func(t *testing.T, repos *repositoryProvider) {
 				// Access repositories sequentially - should share same transaction
 				_ = repos.Permission()
 				_ = repos.Group()
@@ -290,7 +290,7 @@ func TestAdapter_Repositories_WithinUnitOfWork(t *testing.T) {
 				mock.ExpectBegin()
 				mock.ExpectCommit()
 			},
-			testFunc: func(t *testing.T, repos *repositories) {
+			testFunc: func(t *testing.T, repos *repositoryProvider) {
 				// Access repositories multiple times - should return cached instances
 				perm1 := repos.Permission()
 				perm2 := repos.Permission()
@@ -308,7 +308,7 @@ func TestAdapter_Repositories_WithinUnitOfWork(t *testing.T) {
 				mock.ExpectBegin()
 				mock.ExpectCommit()
 			},
-			testFunc: func(t *testing.T, repos *repositories) {
+			testFunc: func(t *testing.T, repos *repositoryProvider) {
 				// All repositories should be created with the same db executor
 				perm := repos.Permission()
 				group := repos.Group()
@@ -337,7 +337,7 @@ func TestAdapter_Repositories_WithinUnitOfWork(t *testing.T) {
 			defer tx.Rollback(context.Background())
 
 			// Create repositories with transaction as dbExecutor
-			repos := &repositories{db: tx}
+			repos := &repositoryProvider{db: tx}
 			tt.testFunc(t, repos)
 
 			// Commit transaction
@@ -360,11 +360,11 @@ func TestAdapter_Repositories_WithinUnitOfWork(t *testing.T) {
 func TestAdapter_Repositories_InstanceIdentity(t *testing.T) {
 	tests := []struct {
 		name     string
-		testFunc func(*testing.T, *repositories)
+		testFunc func(*testing.T, *repositoryProvider)
 	}{
 		{
 			name: "Different repository types return different instances",
-			testFunc: func(t *testing.T, repos *repositories) {
+			testFunc: func(t *testing.T, repos *repositoryProvider) {
 				perm := repos.Permission()
 				group := repos.Group()
 				role := repos.Role()
@@ -387,7 +387,7 @@ func TestAdapter_Repositories_InstanceIdentity(t *testing.T) {
 		},
 		{
 			name: "Same repository type returns cached instance",
-			testFunc: func(t *testing.T, repos *repositories) {
+			testFunc: func(t *testing.T, repos *repositoryProvider) {
 				perm1 := repos.Permission()
 				perm2 := repos.Permission()
 				perm3 := repos.Permission()
@@ -411,7 +411,7 @@ func TestAdapter_Repositories_InstanceIdentity(t *testing.T) {
 		},
 		{
 			name: "Cached instances persist across multiple access patterns",
-			testFunc: func(t *testing.T, repos *repositories) {
+			testFunc: func(t *testing.T, repos *repositoryProvider) {
 				// Create first instance
 				permFirst := repos.Permission()
 				groupFirst := repos.Group()
@@ -431,7 +431,7 @@ func TestAdapter_Repositories_InstanceIdentity(t *testing.T) {
 		},
 		{
 			name: "Each repositories struct has independent cache",
-			testFunc: func(t *testing.T, _ *repositories) {
+			testFunc: func(t *testing.T, _ *repositoryProvider) {
 				repos1, _ := createTestRepositories(t)
 				repos2, _ := createTestRepositories(t)
 
@@ -460,11 +460,11 @@ func TestAdapter_Repositories_InstanceIdentity(t *testing.T) {
 func TestAdapter_Repositories_NilDbExecutor(t *testing.T) {
 	tests := []struct {
 		name     string
-		testFunc func(*testing.T, *repositories)
+		testFunc func(*testing.T, *repositoryProvider)
 	}{
 		{
 			name: "Repositories can be created with nil dbExecutor",
-			testFunc: func(t *testing.T, repos *repositories) {
+			testFunc: func(t *testing.T, repos *repositoryProvider) {
 				// Should not panic when creating repos
 				perm := repos.Permission()
 				group := repos.Group()
@@ -480,7 +480,7 @@ func TestAdapter_Repositories_NilDbExecutor(t *testing.T) {
 		},
 		{
 			name: "Nil dbExecutor is cached like valid executor",
-			testFunc: func(t *testing.T, repos *repositories) {
+			testFunc: func(t *testing.T, repos *repositoryProvider) {
 				perm1 := repos.Permission()
 				perm2 := repos.Permission()
 
@@ -540,11 +540,11 @@ func TestAdapter_Repositories_MultipleInitializationAttempts(t *testing.T) {
 func TestAdapter_Repositories_DatabaseQueryExecution(t *testing.T) {
 	tests := []struct {
 		name       string
-		repoAction func(*testing.T, *repositories)
+		repoAction func(*testing.T, *repositoryProvider)
 	}{
 		{
 			name: "Permission repository can be created with dbExecutor",
-			repoAction: func(t *testing.T, repos *repositories) {
+			repoAction: func(t *testing.T, repos *repositoryProvider) {
 				perm := repos.Permission()
 				assert.NotNil(t, perm, "Permission repository should be created")
 				// Note: Actual query execution is tested in permission_test.go
@@ -552,21 +552,21 @@ func TestAdapter_Repositories_DatabaseQueryExecution(t *testing.T) {
 		},
 		{
 			name: "Group repository can be created with dbExecutor",
-			repoAction: func(t *testing.T, repos *repositories) {
+			repoAction: func(t *testing.T, repos *repositoryProvider) {
 				group := repos.Group()
 				assert.NotNil(t, group, "Group repository should be created")
 			},
 		},
 		{
 			name: "Role repository can be created with dbExecutor",
-			repoAction: func(t *testing.T, repos *repositories) {
+			repoAction: func(t *testing.T, repos *repositoryProvider) {
 				role := repos.Role()
 				assert.NotNil(t, role, "Role repository should be created")
 			},
 		},
 		{
 			name: "Subject repository can be created with dbExecutor",
-			repoAction: func(t *testing.T, repos *repositories) {
+			repoAction: func(t *testing.T, repos *repositoryProvider) {
 				subject := repos.Subject()
 				assert.NotNil(t, subject, "Subject repository should be created")
 			},
@@ -578,7 +578,7 @@ func TestAdapter_Repositories_DatabaseQueryExecution(t *testing.T) {
 			mockPool, err := pgxmock.NewPool()
 			require.NoError(t, err)
 
-			repos := &repositories{db: mockPool}
+			repos := &repositoryProvider{db: mockPool}
 			tt.repoAction(t, repos)
 
 			// No queries expected, just verify the mock pool is clean
@@ -595,17 +595,17 @@ func TestAdapter_Repositories_DatabaseQueryExecution(t *testing.T) {
 func BenchmarkRepository_Initialization(b *testing.B) {
 	benchmarks := []struct {
 		name       string
-		repoGetter func(*repositories) any
+		repoGetter func(*repositoryProvider) any
 	}{
-		{name: "Permission", repoGetter: func(r *repositories) any { return r.Permission() }},
-		{name: "Group", repoGetter: func(r *repositories) any { return r.Group() }},
-		{name: "Role", repoGetter: func(r *repositories) any { return r.Role() }},
-		{name: "Subject", repoGetter: func(r *repositories) any { return r.Subject() }},
+		{name: "Permission", repoGetter: func(r *repositoryProvider) any { return r.Permission() }},
+		{name: "Group", repoGetter: func(r *repositoryProvider) any { return r.Group() }},
+		{name: "Role", repoGetter: func(r *repositoryProvider) any { return r.Role() }},
+		{name: "Subject", repoGetter: func(r *repositoryProvider) any { return r.Subject() }},
 	}
 
 	for _, bm := range benchmarks {
 		b.Run(bm.name, func(b *testing.B) {
-			repos := &repositories{db: nil}
+			repos := &repositoryProvider{db: nil}
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_ = bm.repoGetter(repos)
@@ -618,17 +618,17 @@ func BenchmarkRepository_Initialization(b *testing.B) {
 func BenchmarkRepository_CachedAccess(b *testing.B) {
 	benchmarks := []struct {
 		name       string
-		repoGetter func(*repositories) any
+		repoGetter func(*repositoryProvider) any
 	}{
-		{name: "Permission", repoGetter: func(r *repositories) any { return r.Permission() }},
-		{name: "Group", repoGetter: func(r *repositories) any { return r.Group() }},
-		{name: "Role", repoGetter: func(r *repositories) any { return r.Role() }},
-		{name: "Subject", repoGetter: func(r *repositories) any { return r.Subject() }},
+		{name: "Permission", repoGetter: func(r *repositoryProvider) any { return r.Permission() }},
+		{name: "Group", repoGetter: func(r *repositoryProvider) any { return r.Group() }},
+		{name: "Role", repoGetter: func(r *repositoryProvider) any { return r.Role() }},
+		{name: "Subject", repoGetter: func(r *repositoryProvider) any { return r.Subject() }},
 	}
 
 	for _, bm := range benchmarks {
 		b.Run(bm.name, func(b *testing.B) {
-			repos := &repositories{db: nil}
+			repos := &repositoryProvider{db: nil}
 			// Initialize first to cache it
 			_ = bm.repoGetter(repos)
 			b.ResetTimer()
@@ -653,7 +653,7 @@ func BenchmarkRepository_ConcurrentAccess(b *testing.B) {
 
 	for _, bm := range benchmarks {
 		b.Run(bm.name, func(b *testing.B) {
-			repos := &repositories{db: nil}
+			repos := &repositoryProvider{db: nil}
 			b.ResetTimer()
 
 			for i := 0; i < b.N; i++ {
@@ -695,7 +695,7 @@ func TestAdapter_Repositories_CrossRepositoryConsistency(t *testing.T) {
 				defer tx.Rollback(context.Background())
 
 				// Create repositories with transaction
-				repos := &repositories{db: tx}
+				repos := &repositoryProvider{db: tx}
 
 				// All repos should be accessible within the same transaction
 				perm := repos.Permission()
@@ -729,7 +729,7 @@ func TestAdapter_Repositories_CrossRepositoryConsistency(t *testing.T) {
 				// First transaction
 				tx1, err := mockPool.Begin(context.Background())
 				require.NoError(t, err)
-				repos1 := &repositories{db: tx1}
+				repos1 := &repositoryProvider{db: tx1}
 				perm1 = repos1.Permission()
 				err = tx1.Commit(context.Background())
 				assert.NoError(t, err)
@@ -737,7 +737,7 @@ func TestAdapter_Repositories_CrossRepositoryConsistency(t *testing.T) {
 				// Second transaction
 				tx2, err := mockPool.Begin(context.Background())
 				require.NoError(t, err)
-				repos2 := &repositories{db: tx2}
+				repos2 := &repositoryProvider{db: tx2}
 				perm2 = repos2.Permission()
 				err = tx2.Commit(context.Background())
 				assert.NoError(t, err)

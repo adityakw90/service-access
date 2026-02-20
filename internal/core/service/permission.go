@@ -29,7 +29,7 @@ func NewPermissionService(uow repository.UnitOfWork, repos repository.Repository
 func (s *permissionService) Create(ctx context.Context, p param.PermissionCreateParam) (*model.Permission, error) {
 	var result *model.Permission
 
-	err := s.uow.Do(ctx, func(r repository.Repositories) error {
+	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		permission := &model.Permission{
 			Resource:    p.Resource,
 			Action:      p.Action,
@@ -75,7 +75,7 @@ func (s *permissionService) List(ctx context.Context, pagination *param.Paginati
 func (s *permissionService) Update(ctx context.Context, uid string, p param.PermissionUpdateParam) error {
 	var permission *model.Permission
 
-	err := s.uow.Do(ctx, func(r repository.Repositories) error {
+	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		repo := r.Permission()
 
 		var errUoW error
@@ -117,7 +117,7 @@ func (s *permissionService) Update(ctx context.Context, uid string, p param.Perm
 func (s *permissionService) Delete(ctx context.Context, uid string) error {
 	var permission *model.Permission
 
-	err := s.uow.Do(ctx, func(r repository.Repositories) error {
+	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		repo := r.Permission()
 
 		var errUoW error

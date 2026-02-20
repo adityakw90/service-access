@@ -4,6 +4,7 @@ package mocks
 
 import (
 	context "context"
+
 	mock "github.com/stretchr/testify/mock"
 
 	repository "github.com/adityakw90/service-access/internal/core/port/repository"
@@ -15,7 +16,7 @@ type UnitOfWork struct {
 }
 
 // Do provides a mock function with given fields: ctx, fn
-func (_m *UnitOfWork) Do(ctx context.Context, fn func(repository.Repositories) error) error {
+func (_m *UnitOfWork) Do(ctx context.Context, fn func(repository.RepositoryProvider) error) error {
 	ret := _m.Called(ctx, fn)
 
 	if len(ret) == 0 {
@@ -23,7 +24,7 @@ func (_m *UnitOfWork) Do(ctx context.Context, fn func(repository.Repositories) e
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, func(repository.Repositories) error) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, func(repository.RepositoryProvider) error) error); ok {
 		r0 = rf(ctx, fn)
 	} else {
 		r0 = ret.Error(0)
