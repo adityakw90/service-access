@@ -12,5 +12,6 @@ var (
 	ErrInvalidArgument         = NewCustomError(10008, "invalid argument", nil)
 	ErrValidation              = NewCustomError(10009, "validation error", nil)
 	ErrPermissionDenied        = NewCustomError(10010, "permission denied", nil)
-	ErrResourceConflict = NewCustomError(10011, "resource conflict", nil)
+	ErrResourceConflict        = NewCustomError(10011, "resource conflict", nil)
+	ErrInvalidEntity           = NewCustomError(10012, "entity validation failed: missing required fields", nil)
 )
