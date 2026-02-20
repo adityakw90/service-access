@@ -5,10 +5,10 @@ import (
 	stderrors "errors"
 	"fmt"
 
+	"github.com/adityakw90/service-access/internal/core/domain/errors"
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
 	portrepository "github.com/adityakw90/service-access/internal/core/port/repository"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -23,6 +23,11 @@ func NewGroupRepository(db dbExecutor) portrepository.GroupRepository {
 }
 
 func (r *groupRepository) Create(ctx context.Context, group *model.Group) error {
+	// Validate UID is not empty
+	if group.UID == "" {
+		return errors.ErrInvalidEntity
+	}
+
 	const sql = `
 		INSERT INTO "group" (uid, name, description)
 		VALUES ($1, $2, $3)
@@ -463,8 +468,8 @@ func (r *groupRepository) AddPermission(ctx context.Context, groupID int64, perm
 		ON CONFLICT (group_id, permission_id) DO NOTHING
 	`
 
-	newUID := uuid.New().String()
-	_, err := r.db.Exec(ctx, sql, newUID, groupID, permissionID)
+	// uid should come from service layer - use empty string for now (will be updated in Task 9)
+	_, err := r.db.Exec(ctx, sql, "", groupID, permissionID)
 	if err != nil {
 		// Check for foreign key violations
 		var pgErr *pgconn.PgError
@@ -516,8 +521,8 @@ func (r *groupRepository) ReplacePermission(ctx context.Context, groupID int64, 
 		VALUES ($1, $2, $3)
 	`
 	for _, permissionID := range permissionIDs {
-		newUID := uuid.New().String()
-		_, err := tx.Exec(ctx, insertSQL, newUID, groupID, permissionID)
+		// uid should come from service layer - use empty string for now (will be updated in Task 9)
+		_, err := tx.Exec(ctx, insertSQL, "", groupID, permissionID)
 		if err != nil {
 			var pgErr *pgconn.PgError
 			if stderrors.As(err, &pgErr) {

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/adityakw90/service-access/internal/core/domain/errors"
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
 	"github.com/jackc/pgx/v5"
@@ -93,6 +94,24 @@ func TestAdapter_GroupRepository_Create(t *testing.T) {
 			assert.NoError(t, mockPool.ExpectationsWereMet())
 		})
 	}
+}
+
+func TestAdapter_GroupRepository_Create_EmptyUID(t *testing.T) {
+	mockDB, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	defer mockDB.Close()
+
+	repo := NewGroupRepository(mockDB)
+
+	group := &model.Group{
+		Name:        "Test Group",
+		Description: "Test Description",
+		UID:         "", // Empty UID
+	}
+
+	err = repo.Create(context.Background(), group)
+
+	assert.ErrorIs(t, err, errors.ErrInvalidEntity)
 }
 
 func TestAdapter_GroupRepository_Update(t *testing.T) {
