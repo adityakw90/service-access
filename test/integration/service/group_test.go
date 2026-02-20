@@ -6,6 +6,7 @@ import (
 
 	"github.com/adityakw90/service-access/internal/adapter/publisher"
 	"github.com/adityakw90/service-access/internal/adapter/repository"
+	"github.com/adityakw90/service-access/internal/adapter/security"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
 	"github.com/adityakw90/service-access/internal/core/service"
 	testutil "github.com/adityakw90/service-access/test/util"
@@ -29,7 +30,8 @@ func TestIntegration_GroupService_Create(t *testing.T) {
 
 	// Create a mock publisher for testing
 	noopPublisher := publisher.NewNoOpPublisher()
-	groupService := service.NewGroupService(uow, repos, noopPublisher)
+	uidGenerator := security.NewUIDGenerator()
+	groupService := service.NewGroupService(uow, repos, noopPublisher, uidGenerator)
 
 	// Test: create group
 	group, err := groupService.Create(ctx, param.GroupCreateParam{

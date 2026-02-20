@@ -138,7 +138,7 @@ func (m *mockPublisher) Close() error {
 func TestGroupService_Create(t *testing.T) {
 	tests := []struct {
 		name    string
-		setup   func(*mocks.UnitOfWork, *mocks.RepositoryProvider)
+		setup   func(*mocks.UnitOfWork, *mocks.RepositoryProvider, *MockUIDGenerator)
 		param   param.GroupCreateParam
 		want    *model.Group
 		wantErr bool
@@ -146,7 +146,8 @@ func TestGroupService_Create(t *testing.T) {
 	}{
 		{
 			name: "Happy Path",
-			setup: func(m *mocks.UnitOfWork, p *mocks.RepositoryProvider) {
+			setup: func(m *mocks.UnitOfWork, p *mocks.RepositoryProvider, uidGen *MockUIDGenerator) {
+				uidGen.MockNew = func() string { return "test-uid" }
 				m.On("Do", mock.Anything, mock.AnythingOfType("func(repository.RepositoryProvider) error")).Return(nil).Run(func(args mock.Arguments) {
 					fn := args.Get(1).(func(repository.RepositoryProvider) error)
 					repos := &mockRepositories{group: &mockGroupRepository{}}
@@ -171,7 +172,8 @@ func TestGroupService_Create(t *testing.T) {
 		},
 		{
 			name: "UnitOfWork Error",
-			setup: func(m *mocks.UnitOfWork, p *mocks.RepositoryProvider) {
+			setup: func(m *mocks.UnitOfWork, p *mocks.RepositoryProvider, uidGen *MockUIDGenerator) {
+				uidGen.MockNew = func() string { return "test-uid" }
 				m.On("Do", mock.Anything, mock.AnythingOfType("func(repository.RepositoryProvider) error")).Return(errors.New("transaction error"))
 			},
 			param: param.GroupCreateParam{
@@ -188,10 +190,11 @@ func TestGroupService_Create(t *testing.T) {
 			mockUoW := mocks.NewUnitOfWork(t)
 			mockRepos := mocks.NewRepositoryProvider(t)
 			mockPublisher := &mockPublisher{}
+			mockUIDGenerator := &MockUIDGenerator{}
 
-			tt.setup(mockUoW, mockRepos)
+			tt.setup(mockUoW, mockRepos, mockUIDGenerator)
 
-			service := NewGroupService(mockUoW, mockRepos, mockPublisher)
+			service := NewGroupService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator)
 			got, err := service.Create(context.Background(), tt.param)
 
 			if tt.wantErr {
@@ -201,6 +204,7 @@ func TestGroupService_Create(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				if got != nil {
+					assert.Equal(t, tt.want.UID, got.UID)
 					assert.Equal(t, tt.want.Name, got.Name)
 					assert.Equal(t, tt.want.Description, got.Description)
 				}
@@ -260,10 +264,11 @@ func TestGroupService_Get(t *testing.T) {
 			mockUoW := mocks.NewUnitOfWork(t)
 			mockRepos := mocks.NewRepositoryProvider(t)
 			mockPublisher := &mockPublisher{}
+			mockUIDGenerator := &MockUIDGenerator{}
 
 			tt.setup(mockRepos)
 
-			service := NewGroupService(mockUoW, mockRepos, mockPublisher)
+			service := NewGroupService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator)
 			got, err := service.Get(context.Background(), tt.uid)
 
 			if tt.wantErr {
@@ -308,10 +313,11 @@ func TestGroupService_List(t *testing.T) {
 			mockUoW := mocks.NewUnitOfWork(t)
 			mockRepos := mocks.NewRepositoryProvider(t)
 			mockPublisher := &mockPublisher{}
+			mockUIDGenerator := &MockUIDGenerator{}
 
 			tt.setup(mockRepos)
 
-			service := NewGroupService(mockUoW, mockRepos, mockPublisher)
+			service := NewGroupService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator)
 			got, err := service.List(context.Background(), nil, nil)
 
 			if tt.wantErr {

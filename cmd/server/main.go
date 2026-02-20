@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/adityakw90/service-access/internal/adapter/repository"
+	"github.com/adityakw90/service-access/internal/adapter/security"
 	"github.com/adityakw90/service-access/internal/core/domain/event"
 	"github.com/adityakw90/service-access/internal/core/service"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -41,8 +42,11 @@ func main() {
 	// Event Publisher - using noop publisher for now
 	publisher := &noopPublisher{}
 
+	// UID Generator
+	uidGenerator := security.NewUIDGenerator()
+
 	// Services
-	groupService := service.NewGroupService(uow, repos, publisher)
+	groupService := service.NewGroupService(uow, repos, publisher, uidGenerator)
 	permissionService := service.NewPermissionService(uow, repos, publisher)
 	roleService := service.NewRoleService(uow, repos, publisher)
 	subjectService := service.NewSubjectService(uow, repos, publisher)

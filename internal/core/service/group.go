@@ -9,26 +9,35 @@ import (
 	"github.com/adityakw90/service-access/internal/core/domain/param"
 	portEvent "github.com/adityakw90/service-access/internal/core/port/event"
 	"github.com/adityakw90/service-access/internal/core/port/repository"
+	"github.com/adityakw90/service-access/internal/core/port/security"
 	"github.com/adityakw90/service-access/internal/core/port/service"
 )
 
 type groupService struct {
-	uow       repository.UnitOfWork
-	repos     repository.RepositoryProvider
-	publisher portEvent.EventPublisher
+	uow         repository.UnitOfWork
+	repos       repository.RepositoryProvider
+	publisher   portEvent.EventPublisher
+	uidGenerator security.UIDGenerator
 }
 
 // NewGroupService creates a new GroupService.
-func NewGroupService(uow repository.UnitOfWork, repos repository.RepositoryProvider, publisher portEvent.EventPublisher) service.GroupService {
+func NewGroupService(
+	uow repository.UnitOfWork,
+	repos repository.RepositoryProvider,
+	publisher portEvent.EventPublisher,
+	uidGenerator security.UIDGenerator,
+) service.GroupService {
 	return &groupService{
-		uow:       uow,
-		repos:     repos,
-		publisher: publisher,
+		uow:         uow,
+		repos:       repos,
+		publisher:   publisher,
+		uidGenerator: uidGenerator,
 	}
 }
 
 func (s *groupService) Create(ctx context.Context, p param.GroupCreateParam) (*model.Group, error) {
 	group := &model.Group{
+		UID:         s.uidGenerator.New(),
 		Name:        p.Name,
 		Description: p.Description,
 	}
