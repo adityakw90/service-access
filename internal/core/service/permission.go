@@ -9,20 +9,28 @@ import (
 	"github.com/adityakw90/service-access/internal/core/domain/param"
 	portEvent "github.com/adityakw90/service-access/internal/core/port/event"
 	"github.com/adityakw90/service-access/internal/core/port/repository"
+	"github.com/adityakw90/service-access/internal/core/port/security"
 	"github.com/adityakw90/service-access/internal/core/port/service"
 )
 
 type permissionService struct {
-	uow       repository.UnitOfWork
-	repos     repository.RepositoryProvider
-	publisher portEvent.EventPublisher
+	uow         repository.UnitOfWork
+	repos       repository.RepositoryProvider
+	publisher   portEvent.EventPublisher
+	uidGenerator security.UIDGenerator
 }
 
-func NewPermissionService(uow repository.UnitOfWork, repos repository.RepositoryProvider, publisher portEvent.EventPublisher) service.PermissionService {
+func NewPermissionService(
+	uow repository.UnitOfWork,
+	repos repository.RepositoryProvider,
+	publisher portEvent.EventPublisher,
+	uidGenerator security.UIDGenerator,
+) service.PermissionService {
 	return &permissionService{
-		uow:       uow,
-		repos:     repos,
-		publisher: publisher,
+		uow:         uow,
+		repos:       repos,
+		publisher:   publisher,
+		uidGenerator: uidGenerator,
 	}
 }
 
@@ -31,6 +39,7 @@ func (s *permissionService) Create(ctx context.Context, p param.PermissionCreate
 
 	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		permission := &model.Permission{
+			UID:         s.uidGenerator.New(),
 			Resource:    p.Resource,
 			Action:      p.Action,
 			Description: p.Description,
