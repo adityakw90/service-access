@@ -5,7 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/adityakw90/service-access/internal/core/domain/event"
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
 	"github.com/adityakw90/service-access/internal/core/port/repository"
@@ -90,49 +89,6 @@ func (m *mockGroupRepository) GetPermissionByGroupIDAndPermissionUID(ctx context
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*model.GroupPermission), args.Error(1)
-}
-
-// mockRepositories implements repository.RepositoryProvider for testing
-type mockRepositories struct {
-	group      repository.GroupRepository
-	permission repository.PermissionRepository
-	role       repository.RoleRepository
-	subject    repository.SubjectRepository
-}
-
-func (m *mockRepositories) Group() repository.GroupRepository {
-	return m.group
-}
-
-func (m *mockRepositories) Permission() repository.PermissionRepository {
-	return m.permission
-}
-
-func (m *mockRepositories) Role() repository.RoleRepository {
-	return m.role
-}
-
-func (m *mockRepositories) Subject() repository.SubjectRepository {
-	return m.subject
-}
-
-// mockPublisher is a simple mock for event.Publisher
-type mockPublisher struct {
-	publishedEvents []publishedEvent
-}
-
-type publishedEvent struct {
-	eventType event.EventType
-	eventData any
-}
-
-func (m *mockPublisher) Publish(ctx context.Context, eventType event.EventType, eventData any) error {
-	m.publishedEvents = append(m.publishedEvents, publishedEvent{eventType: eventType, eventData: eventData})
-	return nil
-}
-
-func (m *mockPublisher) Close() error {
-	return nil
 }
 
 func TestGroupService_Create(t *testing.T) {

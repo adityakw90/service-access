@@ -48,7 +48,7 @@ func main() {
 	// Services
 	groupService := service.NewGroupService(uow, repos, publisher, uidGenerator)
 	permissionService := service.NewPermissionService(uow, repos, publisher, uidGenerator)
-	roleService := service.NewRoleService(uow, repos, publisher)
+	roleService := service.NewRoleService(uow, repos, publisher, uidGenerator)
 	subjectService := service.NewSubjectService(uow, repos, publisher)
 	accessService := service.NewAccessService(repos)
 

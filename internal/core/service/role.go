@@ -9,20 +9,29 @@ import (
 	"github.com/adityakw90/service-access/internal/core/domain/param"
 	portEvent "github.com/adityakw90/service-access/internal/core/port/event"
 	"github.com/adityakw90/service-access/internal/core/port/repository"
+	"github.com/adityakw90/service-access/internal/core/port/security"
 	"github.com/adityakw90/service-access/internal/core/port/service"
 )
 
 type roleService struct {
-	uow       repository.UnitOfWork
-	repos     repository.RepositoryProvider
-	publisher portEvent.EventPublisher
+	uow         repository.UnitOfWork
+	repos       repository.RepositoryProvider
+	publisher   portEvent.EventPublisher
+	uidGenerator security.UIDGenerator
 }
 
-func NewRoleService(uow repository.UnitOfWork, repos repository.RepositoryProvider, publisher portEvent.EventPublisher) service.RoleService {
+// NewRoleService creates a new RoleService.
+func NewRoleService(
+	uow repository.UnitOfWork,
+	repos repository.RepositoryProvider,
+	publisher portEvent.EventPublisher,
+	uidGenerator security.UIDGenerator,
+) service.RoleService {
 	return &roleService{
-		uow:       uow,
-		repos:     repos,
-		publisher: publisher,
+		uow:         uow,
+		repos:       repos,
+		publisher:   publisher,
+		uidGenerator: uidGenerator,
 	}
 }
 
@@ -31,6 +40,7 @@ func (s *roleService) Create(ctx context.Context, p param.RoleCreateParam) (*mod
 
 	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		role := &model.Role{
+			UID:         s.uidGenerator.New(),
 			GroupID:     p.GroupID,
 			Name:        p.Name,
 			Description: p.Description,
