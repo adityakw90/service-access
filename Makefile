@@ -1,4 +1,4 @@
-.PHONY: test test-cover test-clean build run help verbose
+.PHONY: test test-cover test-clean build run help verbose mocks
 
 # Default target
 .DEFAULT_GOAL := help
@@ -7,8 +7,13 @@
 verbose:
 	@:
 
+# Generate mocks using mockery
+mocks:
+	@echo "Generating mocks..."
+	@mockery --config .mockery.yaml
+
 # Test (usage: make test or make test verbose)
-test:
+test: mocks
 	@if echo "$(MAKECMDGOALS)" | grep -q "verbose"; then \
 		echo "Running tests with verbose output..."; \
 		go test -v ./...; \
@@ -48,6 +53,7 @@ run:
 # Help target
 help:
 	@echo "Available targets:"
+	@echo "  mocks                - Generate mocks using mockery"
 	@echo "  test [verbose]       - Run all tests (add verbose for verbose output)"
 	@echo "  test-cover [verbose] - Run tests with coverage (add verbose for verbose output)"
 	@echo "  test-clean           - Clean test cache and coverage files"
