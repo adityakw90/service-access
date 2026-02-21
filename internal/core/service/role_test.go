@@ -8,7 +8,8 @@ import (
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
 	"github.com/adityakw90/service-access/internal/core/port/repository"
-	"github.com/adityakw90/service-access/test/mocks/repository"
+	repomocks "github.com/adityakw90/service-access/test/mocks/repository"
+	securitymocks "github.com/adityakw90/service-access/test/mocks/security"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -78,7 +79,7 @@ func (m *mockRoleRepository) ReplacePermission(ctx context.Context, roleID int64
 func TestRoleService_Create(t *testing.T) {
 	tests := []struct {
 		name    string
-		setup   func(*mocks.MockUnitOfWork, *mocks.MockRepositoryProvider, *MockUIDGenerator)
+		setup   func(*repomocks.MockUnitOfWork, *repomocks.MockRepositoryProvider, *securitymocks.MockUIDGenerator)
 		param   param.RoleCreateParam
 		want    *model.Role
 		wantErr bool
@@ -86,8 +87,8 @@ func TestRoleService_Create(t *testing.T) {
 	}{
 		{
 			name: "Happy Path",
-			setup: func(m *mocks.MockUnitOfWork, p *mocks.MockRepositoryProvider, uidGen *MockUIDGenerator) {
-				uidGen.MockNew = func() string { return "test-uid" }
+			setup: func(m *repomocks.MockUnitOfWork, p *repomocks.MockRepositoryProvider, uidGen *securitymocks.MockUIDGenerator) {
+				uidGen.On("New").Return("test-uid")
 				m.On("Do", mock.Anything, mock.AnythingOfType("func(repository.RepositoryProvider) error")).Return(nil).Run(func(args mock.Arguments) {
 					fn := args.Get(1).(func(repository.RepositoryProvider) error)
 					repos := &mockRepositories{role: &mockRoleRepository{}}
@@ -114,8 +115,8 @@ func TestRoleService_Create(t *testing.T) {
 		},
 		{
 			name: "UnitOfWork Error",
-			setup: func(m *mocks.MockUnitOfWork, p *mocks.MockRepositoryProvider, uidGen *MockUIDGenerator) {
-				uidGen.MockNew = func() string { return "test-uid" }
+			setup: func(m *repomocks.MockUnitOfWork, p *repomocks.MockRepositoryProvider, uidGen *securitymocks.MockUIDGenerator) {
+				// Don't set up UID generator expectation since it won't be called in error case
 				m.On("Do", mock.Anything, mock.AnythingOfType("func(repository.RepositoryProvider) error")).Return(errors.New("transaction error"))
 			},
 			param: param.RoleCreateParam{
@@ -130,10 +131,10 @@ func TestRoleService_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockUoW := mocks.NewMockUnitOfWork(t)
-			mockRepos := mocks.NewMockRepositoryProvider(t)
+			mockUoW := repomocks.NewMockUnitOfWork(t)
+			mockRepos := repomocks.NewMockRepositoryProvider(t)
 			mockPublisher := &mockPublisher{}
-			mockUIDGenerator := &MockUIDGenerator{}
+			mockUIDGenerator := securitymocks.NewMockUIDGenerator(t)
 
 			tt.setup(mockUoW, mockRepos, mockUIDGenerator)
 
