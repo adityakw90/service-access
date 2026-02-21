@@ -5,6 +5,7 @@ import (
 	stderrors "errors"
 	"fmt"
 
+	"github.com/adityakw90/service-access/internal/core/domain/errors"
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
 	portrepository "github.com/adityakw90/service-access/internal/core/port/repository"
@@ -22,6 +23,11 @@ func NewRoleRepository(db dbExecutor) portrepository.RoleRepository {
 }
 
 func (r *roleRepository) Create(ctx context.Context, role *model.Role) error {
+	// Validate UID is not empty
+	if role.UID == "" {
+		return errors.ErrInvalidEntity
+	}
+
 	const sql = `
 		INSERT INTO role (uid, group_id, name, description)
 		VALUES ($1, $2, $3, $4)

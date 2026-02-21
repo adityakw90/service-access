@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/adityakw90/service-access/internal/core/domain/errors"
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
 	"github.com/jackc/pgx/v5"
@@ -119,6 +120,25 @@ func TestAdapter_RoleRepository_Create(t *testing.T) {
 			assert.NoError(t, mockPool.ExpectationsWereMet())
 		})
 	}
+}
+
+func TestAdapter_RoleRepository_Create_EmptyUID(t *testing.T) {
+	mockDB, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	defer mockDB.Close()
+
+	repo := NewRoleRepository(mockDB)
+
+	role := &model.Role{
+		GroupID:     1,
+		Name:        "Test Role",
+		Description: "Test Description",
+		UID:         "", // Empty UID
+	}
+
+	err = repo.Create(context.Background(), role)
+
+	assert.ErrorIs(t, err, errors.ErrInvalidEntity)
 }
 
 func TestAdapter_RoleRepository_Update(t *testing.T) {
