@@ -8,7 +8,7 @@ import (
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
 	"github.com/adityakw90/service-access/internal/core/port/repository"
-	testmocks "github.com/adityakw90/service-access/test/mocks"
+	"github.com/adityakw90/service-access/test/mocks/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -78,7 +78,7 @@ func (m *mockRoleRepository) ReplacePermission(ctx context.Context, roleID int64
 func TestRoleService_Create(t *testing.T) {
 	tests := []struct {
 		name    string
-		setup   func(*testmocks.UnitOfWork, *testmocks.RepositoryProvider, *MockUIDGenerator)
+		setup   func(*mocks.UnitOfWork, *mocks.RepositoryProvider, *MockUIDGenerator)
 		param   param.RoleCreateParam
 		want    *model.Role
 		wantErr bool
@@ -86,7 +86,7 @@ func TestRoleService_Create(t *testing.T) {
 	}{
 		{
 			name: "Happy Path",
-			setup: func(m *testmocks.UnitOfWork, p *testmocks.RepositoryProvider, uidGen *MockUIDGenerator) {
+			setup: func(m *mocks.UnitOfWork, p *mocks.RepositoryProvider, uidGen *MockUIDGenerator) {
 				uidGen.MockNew = func() string { return "test-uid" }
 				m.On("Do", mock.Anything, mock.AnythingOfType("func(repository.RepositoryProvider) error")).Return(nil).Run(func(args mock.Arguments) {
 					fn := args.Get(1).(func(repository.RepositoryProvider) error)
@@ -114,7 +114,7 @@ func TestRoleService_Create(t *testing.T) {
 		},
 		{
 			name: "UnitOfWork Error",
-			setup: func(m *testmocks.UnitOfWork, p *testmocks.RepositoryProvider, uidGen *MockUIDGenerator) {
+			setup: func(m *mocks.UnitOfWork, p *mocks.RepositoryProvider, uidGen *MockUIDGenerator) {
 				uidGen.MockNew = func() string { return "test-uid" }
 				m.On("Do", mock.Anything, mock.AnythingOfType("func(repository.RepositoryProvider) error")).Return(errors.New("transaction error"))
 			},
@@ -130,8 +130,8 @@ func TestRoleService_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockUoW := testmocks.NewUnitOfWork(t)
-			mockRepos := testmocks.NewRepositoryProvider(t)
+			mockUoW := mocks.NewUnitOfWork(t)
+			mockRepos := mocks.NewRepositoryProvider(t)
 			mockPublisher := &mockPublisher{}
 			mockUIDGenerator := &MockUIDGenerator{}
 

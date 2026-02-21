@@ -8,7 +8,7 @@ import (
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
 	"github.com/adityakw90/service-access/internal/core/port/repository"
-	testmocks "github.com/adityakw90/service-access/test/mocks"
+	"github.com/adityakw90/service-access/test/mocks/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -58,7 +58,7 @@ func (m *mockPermissionRepository) List(ctx context.Context, pagination *param.P
 func TestPermissionService_Create(t *testing.T) {
 	tests := []struct {
 		name    string
-		setup   func(*testmocks.UnitOfWork, *testmocks.RepositoryProvider, *MockUIDGenerator)
+		setup   func(*mocks.UnitOfWork, *mocks.RepositoryProvider, *MockUIDGenerator)
 		param   param.PermissionCreateParam
 		want    *model.Permission
 		wantErr bool
@@ -66,7 +66,7 @@ func TestPermissionService_Create(t *testing.T) {
 	}{
 		{
 			name: "Happy Path",
-			setup: func(m *testmocks.UnitOfWork, p *testmocks.RepositoryProvider, uidGen *MockUIDGenerator) {
+			setup: func(m *mocks.UnitOfWork, p *mocks.RepositoryProvider, uidGen *MockUIDGenerator) {
 				uidGen.MockNew = func() string { return "test-uid" }
 				m.On("Do", mock.Anything, mock.AnythingOfType("func(repository.RepositoryProvider) error")).Return(nil).Run(func(args mock.Arguments) {
 					fn := args.Get(1).(func(repository.RepositoryProvider) error)
@@ -94,7 +94,7 @@ func TestPermissionService_Create(t *testing.T) {
 		},
 		{
 			name: "UnitOfWork Error",
-			setup: func(m *testmocks.UnitOfWork, p *testmocks.RepositoryProvider, uidGen *MockUIDGenerator) {
+			setup: func(m *mocks.UnitOfWork, p *mocks.RepositoryProvider, uidGen *MockUIDGenerator) {
 				uidGen.MockNew = func() string { return "test-uid" }
 				m.On("Do", mock.Anything, mock.AnythingOfType("func(repository.RepositoryProvider) error")).Return(errors.New("transaction error"))
 			},
@@ -110,8 +110,8 @@ func TestPermissionService_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockUoW := testmocks.NewUnitOfWork(t)
-			mockRepos := testmocks.NewRepositoryProvider(t)
+			mockUoW := mocks.NewUnitOfWork(t)
+			mockRepos := mocks.NewRepositoryProvider(t)
 			mockPublisher := &mockPublisher{}
 			mockUIDGenerator := &MockUIDGenerator{}
 
@@ -143,7 +143,7 @@ func TestPermissionService_Create(t *testing.T) {
 func TestPermissionService_Get(t *testing.T) {
 	tests := []struct {
 		name    string
-		setup   func(*testmocks.RepositoryProvider)
+		setup   func(*mocks.RepositoryProvider)
 		uid     string
 		want    *model.Permission
 		wantErr bool
@@ -151,7 +151,7 @@ func TestPermissionService_Get(t *testing.T) {
 	}{
 		{
 			name: "Happy Path",
-			setup: func(p *testmocks.RepositoryProvider) {
+			setup: func(p *mocks.RepositoryProvider) {
 				mockPermRepo := &mockPermissionRepository{}
 				mockPermRepo.On("GetByUID", mock.Anything, "test-uid").Return(&model.Permission{
 					ID:          1,
@@ -174,7 +174,7 @@ func TestPermissionService_Get(t *testing.T) {
 		},
 		{
 			name: "Not Found",
-			setup: func(p *testmocks.RepositoryProvider) {
+			setup: func(p *mocks.RepositoryProvider) {
 				mockPermRepo := &mockPermissionRepository{}
 				mockPermRepo.On("GetByUID", mock.Anything, "not-found").Return(nil, errors.New("permission not found"))
 				p.On("Permission").Return(mockPermRepo)
@@ -187,8 +187,8 @@ func TestPermissionService_Get(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockUoW := testmocks.NewUnitOfWork(t)
-			mockRepos := testmocks.NewRepositoryProvider(t)
+			mockUoW := mocks.NewUnitOfWork(t)
+			mockRepos := mocks.NewRepositoryProvider(t)
 			mockPublisher := &mockPublisher{}
 			mockUIDGenerator := &MockUIDGenerator{}
 
@@ -214,12 +214,12 @@ func TestPermissionService_Get(t *testing.T) {
 func TestPermissionService_List(t *testing.T) {
 	tests := []struct {
 		name    string
-		setup   func(*testmocks.RepositoryProvider)
+		setup   func(*mocks.RepositoryProvider)
 		wantErr bool
 	}{
 		{
 			name: "Happy Path",
-			setup: func(p *testmocks.RepositoryProvider) {
+			setup: func(p *mocks.RepositoryProvider) {
 				mockPermRepo := &mockPermissionRepository{}
 				mockPermRepo.On("List", mock.Anything, mock.Anything, mock.Anything).Return(model.Permissions{
 					Items: []model.Permission{
@@ -236,8 +236,8 @@ func TestPermissionService_List(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockUoW := testmocks.NewUnitOfWork(t)
-			mockRepos := testmocks.NewRepositoryProvider(t)
+			mockUoW := mocks.NewUnitOfWork(t)
+			mockRepos := mocks.NewRepositoryProvider(t)
 			mockPublisher := &mockPublisher{}
 			mockUIDGenerator := &MockUIDGenerator{}
 
