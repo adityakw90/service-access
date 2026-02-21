@@ -13,7 +13,7 @@ mocks:
 	@mockery --config .mockery.yaml
 
 # Test (usage: make test or make test verbose)
-test: mocks
+test:
 	@if echo "$(MAKECMDGOALS)" | grep -q "verbose"; then \
 		echo "Running tests with verbose output..."; \
 		go test -v ./...; \

@@ -64,7 +64,7 @@ func Load() (*Config, error) {
 	defaultEventPublisherConfig("event_publisher", vConfig)
 
 	// test
-	vConfig.SafeWriteConfig()
+	// vConfig.SafeWriteConfig()
 
 	// Enable environment variable override
 	vConfig.AutomaticEnv()

@@ -28,7 +28,7 @@ func defaultDatabaseConfig(key string, vConfig *viper.Viper) {
 	vConfig.SetDefault(key+".port", 5432)
 	vConfig.SetDefault(key+".user", "user")
 	vConfig.SetDefault(key+".password", "password")
-	vConfig.SetDefault(key+".name", "service_user")
+	vConfig.SetDefault(key+".name", "service_access")
 	vConfig.SetDefault(key+".sslmode", "disable")
 	vConfig.SetDefault(key+".timezone", "UTC")
 	vConfig.SetDefault(key+".min_conns", int32(1))
