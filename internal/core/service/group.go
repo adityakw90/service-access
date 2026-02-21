@@ -166,8 +166,11 @@ func (s *groupService) AssignPermission(ctx context.Context, groupUID string, pe
 			return fmt.Errorf("failed to get permission: %w", errUoW)
 		}
 
+		// Generate UID for group permission
+		groupPermUID := s.uidGenerator.New()
+
 		// Assign
-		if err := r.Group().AddPermission(ctx, group.ID, permission.ID); err != nil {
+		if err := r.Group().AddPermission(ctx, group.ID, permission.ID, groupPermUID); err != nil {
 			return fmt.Errorf("failed to assign permission: %w", err)
 		}
 		return nil
@@ -231,18 +234,20 @@ func (s *groupService) UpdatePermission(ctx context.Context, groupUID string, pe
 			return fmt.Errorf("failed to get group: %w", errUoW)
 		}
 
-		// Get all permission IDs
+		// Get all permission IDs and generate UIDs for each
 		permissionIDs := make([]int64, 0, len(permissionUIDs))
+		groupPermUIDs := make([]string, 0, len(permissionUIDs))
 		for _, uid := range permissionUIDs {
 			permission, err := r.Permission().GetByUID(ctx, uid)
 			if err != nil {
 				return fmt.Errorf("failed to get permission %s: %w", uid, err)
 			}
 			permissionIDs = append(permissionIDs, permission.ID)
+			groupPermUIDs = append(groupPermUIDs, s.uidGenerator.New())
 		}
 
 		// Replace permissions
-		if err := r.Group().ReplacePermission(ctx, group.ID, permissionIDs); err != nil {
+		if err := r.Group().ReplacePermission(ctx, group.ID, permissionIDs, groupPermUIDs); err != nil {
 			return fmt.Errorf("failed to replace permissions: %w", err)
 		}
 		return nil

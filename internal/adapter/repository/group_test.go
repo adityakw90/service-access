@@ -617,7 +617,7 @@ func TestAdapter_GroupRepository_AddPermission(t *testing.T) {
 					WillReturnResult(pgxmock.NewResult("INSERT", 1))
 			}
 
-			err = repo.AddPermission(context.Background(), tt.groupID, tt.permissionID)
+			err = repo.AddPermission(context.Background(), tt.groupID, tt.permissionID, "test-uid")
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -727,6 +727,12 @@ func TestAdapter_GroupRepository_ReplacePermission(t *testing.T) {
 
 			repo := NewGroupRepository(mockDB)
 
+			// Generate UIDs slice matching the length of permissionIDs
+			uids := make([]string, len(tt.permissionIDs))
+			for i := range uids {
+				uids[i] = fmt.Sprintf("test-uid-%d", i)
+			}
+
 			// Mock delete
 			mockDB.ExpectExec(`DELETE FROM group_permission WHERE group_id = \$1`).
 				WithArgs(tt.groupID).
@@ -739,7 +745,7 @@ func TestAdapter_GroupRepository_ReplacePermission(t *testing.T) {
 					WillReturnResult(pgxmock.NewResult("INSERT", 1))
 			}
 
-			err = repo.ReplacePermission(context.Background(), tt.groupID, tt.permissionIDs)
+			err = repo.ReplacePermission(context.Background(), tt.groupID, tt.permissionIDs, uids)
 
 			if tt.wantErr {
 				assert.Error(t, err)

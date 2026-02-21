@@ -461,15 +461,14 @@ func (r *groupRepository) GetPermissionByGroupIDAndPermissionUID(ctx context.Con
 	return &gp, nil
 }
 
-func (r *groupRepository) AddPermission(ctx context.Context, groupID int64, permissionID int64) error {
+func (r *groupRepository) AddPermission(ctx context.Context, groupID int64, permissionID int64, uid string) error {
 	const sql = `
 		INSERT INTO group_permission (uid, group_id, permission_id)
 		VALUES ($1, $2, $3)
 		ON CONFLICT (group_id, permission_id) DO NOTHING
 	`
 
-	// uid should come from service layer - use empty string for now (will be updated in Task 9)
-	_, err := r.db.Exec(ctx, sql, "", groupID, permissionID)
+	_, err := r.db.Exec(ctx, sql, uid, groupID, permissionID)
 	if err != nil {
 		// Check for foreign key violations
 		var pgErr *pgconn.PgError
@@ -502,10 +501,14 @@ func (r *groupRepository) RemovePermission(ctx context.Context, groupID int64, p
 	return nil
 }
 
-func (r *groupRepository) ReplacePermission(ctx context.Context, groupID int64, permissionIDs []int64) error {
+func (r *groupRepository) ReplacePermission(ctx context.Context, groupID int64, permissionIDs []int64, uids []string) error {
 	tx, ok := r.db.(pgx.Tx)
 	if !ok {
 		return fmt.Errorf("ReplacePermission requires a transaction")
+	}
+
+	if len(permissionIDs) != len(uids) {
+		return fmt.Errorf("permissionIDs and uids must have same length")
 	}
 
 	// First, delete all existing permissions for the group
@@ -520,9 +523,8 @@ func (r *groupRepository) ReplacePermission(ctx context.Context, groupID int64, 
 		INSERT INTO group_permission (uid, group_id, permission_id)
 		VALUES ($1, $2, $3)
 	`
-	for _, permissionID := range permissionIDs {
-		// uid should come from service layer - use empty string for now (will be updated in Task 9)
-		_, err := tx.Exec(ctx, insertSQL, "", groupID, permissionID)
+	for i, permissionID := range permissionIDs {
+		_, err := tx.Exec(ctx, insertSQL, uids[i], groupID, permissionID)
 		if err != nil {
 			var pgErr *pgconn.PgError
 			if stderrors.As(err, &pgErr) {

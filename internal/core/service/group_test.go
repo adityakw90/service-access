@@ -60,8 +60,8 @@ func (m *mockGroupRepository) ListPermission(ctx context.Context, groupID int64,
 	return args.Get(0).(model.GroupPermissions), args.Error(1)
 }
 
-func (m *mockGroupRepository) AddPermission(ctx context.Context, groupID int64, permissionID int64) error {
-	args := m.Called(ctx, groupID, permissionID)
+func (m *mockGroupRepository) AddPermission(ctx context.Context, groupID int64, permissionID int64, uid string) error {
+	args := m.Called(ctx, groupID, permissionID, uid)
 	return args.Error(0)
 }
 
@@ -70,8 +70,8 @@ func (m *mockGroupRepository) RemovePermission(ctx context.Context, groupID int6
 	return args.Error(0)
 }
 
-func (m *mockGroupRepository) ReplacePermission(ctx context.Context, groupID int64, permissionIDs []int64) error {
-	args := m.Called(ctx, groupID, permissionIDs)
+func (m *mockGroupRepository) ReplacePermission(ctx context.Context, groupID int64, permissionIDs []int64, uids []string) error {
+	args := m.Called(ctx, groupID, permissionIDs, uids)
 	return args.Error(0)
 }
 

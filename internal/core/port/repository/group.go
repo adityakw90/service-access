@@ -23,7 +23,7 @@ type GroupRepository interface {
 	ListPermission(ctx context.Context, groupID int64, pagination *param.PaginationParam, filter *param.GroupPermissionListFilterParam) (model.GroupPermissions, error)
 	GetPermissionByID(ctx context.Context, groupPermissionID int64) (*model.GroupPermission, error)                                  // GetPermissionByID returns a group permission by ID.
 	GetPermissionByGroupIDAndPermissionUID(ctx context.Context, groupID int64, permissionUID string) (*model.GroupPermission, error) // GetPermissionByGroupIDAndPermissionUID returns a group permission by group ID and permission UID.
-	AddPermission(ctx context.Context, groupID int64, permissionID int64) error                                                      // AddPermission adds a permission to a group.
+	AddPermission(ctx context.Context, groupID int64, permissionID int64, uid string) error                                         // AddPermission adds a permission to a group.
 	RemovePermission(ctx context.Context, groupID int64, permissionID int64) error                                                   // RemovePermission removes a permission from a group.
-	ReplacePermission(ctx context.Context, groupID int64, permissionIDs []int64) error                                               // ReplacePermission replaces the permissions of a group.
+	ReplacePermission(ctx context.Context, groupID int64, permissionIDs []int64, uids []string) error                                 // ReplacePermission replaces the permissions of a group.
 }
