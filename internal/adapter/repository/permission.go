@@ -5,6 +5,7 @@ import (
 	stderrors "errors"
 	"fmt"
 
+	"github.com/adityakw90/service-access/internal/core/domain/errors"
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
 	portrepository "github.com/adityakw90/service-access/internal/core/port/repository"
@@ -22,6 +23,11 @@ func NewPermissionRepository(db dbExecutor) portrepository.PermissionRepository 
 }
 
 func (r *permissionRepository) Create(ctx context.Context, permission *model.Permission) error {
+	// Validate UID is not empty
+	if permission.UID == "" {
+		return errors.ErrInvalidEntity
+	}
+
 	const sql = `
 		INSERT INTO permission (uid, resource, action, description)
 		VALUES ($1, $2, $3, $4)

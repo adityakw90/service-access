@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/adityakw90/service-access/internal/core/domain/errors"
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
 	"github.com/jackc/pgx/v5"
@@ -99,6 +100,25 @@ func TestAdapter_PermissionRepository_Create(t *testing.T) {
 			assert.NoError(t, mockPool.ExpectationsWereMet())
 		})
 	}
+}
+
+func TestAdapter_PermissionRepository_Create_EmptyUID(t *testing.T) {
+	mockDB, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	defer mockDB.Close()
+
+	repo := NewPermissionRepository(mockDB)
+
+	permission := &model.Permission{
+		Resource:    "test-resource",
+		Action:      "test-action",
+		Description: "Test Description",
+		UID:         "", // Empty UID
+	}
+
+	err = repo.Create(context.Background(), permission)
+
+	assert.ErrorIs(t, err, errors.ErrInvalidEntity)
 }
 
 func TestAdapter_PermissionRepository_Update(t *testing.T) {
