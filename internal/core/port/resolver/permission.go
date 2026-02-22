@@ -11,4 +11,5 @@ type PermissionResolver interface {
 	UIDsByIDs(ctx context.Context, ids []int64) (map[int64]string, error)
 	IDsByResourceActions(ctx context.Context, resourceActions []param.PermissionMapResourceAction) (map[param.PermissionMapResourceAction]int64, error)
 	ResourceActionsByIDs(ctx context.Context, ids []int64) (map[int64]param.PermissionMapResourceAction, error)
+	Invalidate(ctx context.Context, uids ...string) error
 }
