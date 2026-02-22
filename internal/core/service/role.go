@@ -4,11 +4,15 @@ import (
 	"context"
 	"fmt"
 
+	_ "github.com/adityakw90/service-access/internal/core/domain/errors"
 	"github.com/adityakw90/service-access/internal/core/domain/event"
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
+	"github.com/adityakw90/service-access/internal/core/domain/signal"
 	portEvent "github.com/adityakw90/service-access/internal/core/port/event"
+	"github.com/adityakw90/service-access/internal/core/port/observer"
 	"github.com/adityakw90/service-access/internal/core/port/repository"
+	"github.com/adityakw90/service-access/internal/core/port/resolver"
 	"github.com/adityakw90/service-access/internal/core/port/security"
 	"github.com/adityakw90/service-access/internal/core/port/service"
 )
@@ -18,6 +22,8 @@ type roleService struct {
 	repos       repository.RepositoryProvider
 	publisher   portEvent.EventPublisher
 	uidGenerator security.UIDGenerator
+	resolvers   resolver.ResolverProvider
+	observer    observer.ServiceObserver[signal.SignalRole]
 }
 
 // NewRoleService creates a new RoleService.
@@ -26,12 +32,16 @@ func NewRoleService(
 	repos repository.RepositoryProvider,
 	publisher portEvent.EventPublisher,
 	uidGenerator security.UIDGenerator,
+	resolverProvider resolver.ResolverProvider,
+	observer observer.ServiceObserver[signal.SignalRole],
 ) service.RoleService {
 	return &roleService{
 		uow:         uow,
 		repos:       repos,
 		publisher:   publisher,
 		uidGenerator: uidGenerator,
+		resolvers:   resolverProvider,
+		observer:    observer,
 	}
 }
 
