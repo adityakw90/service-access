@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	_ "github.com/adityakw90/service-access/internal/core/domain/errors"
+	domainerrors "github.com/adityakw90/service-access/internal/core/domain/errors"
 	"github.com/adityakw90/service-access/internal/core/domain/event"
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
@@ -72,10 +72,40 @@ func (s *groupService) Create(ctx context.Context, p param.GroupCreateParam) (*m
 }
 
 func (s *groupService) Get(ctx context.Context, uid string) (*model.Group, error) {
-	group, err := s.repos.Group().GetByUID(ctx, uid)
+	ids, err := s.resolvers.Group().IDsByUIDs(ctx, []string{uid})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get group: %w", err)
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &uid,
+			Operation: "get",
+		}, err)
+		return nil, domainerrors.ErrGroupGetFailed
 	}
+
+	id, exists := ids[uid]
+	if !exists {
+		err := domainerrors.ErrGroupNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
+			UID:       &uid,
+			Operation: "get",
+		}, err)
+		return nil, err
+	}
+
+	group, err := s.repos.Group().GetByID(ctx, id)
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &uid,
+			Operation: "get",
+		}, err)
+		return nil, domainerrors.ErrGroupGetFailed
+	}
+
+	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalGroup{
+		UID:       &uid,
+		Name:      &group.Name,
+		Operation: "get",
+	}, nil)
+
 	return group, nil
 }
 
