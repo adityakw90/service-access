@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	_ "github.com/adityakw90/service-access/internal/core/domain/errors"
+	domainerrors "github.com/adityakw90/service-access/internal/core/domain/errors"
 	"github.com/adityakw90/service-access/internal/core/domain/event"
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
@@ -77,10 +77,40 @@ func (s *roleService) Create(ctx context.Context, p param.RoleCreateParam) (*mod
 }
 
 func (s *roleService) Get(ctx context.Context, uid string) (*model.Role, error) {
-	role, err := s.repos.Role().GetByUID(ctx, uid)
+	ids, err := s.resolvers.Role().IDsByUIDs(ctx, []string{uid})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get role: %w", err)
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+			UID:       &uid,
+			Operation: "get",
+		}, err)
+		return nil, domainerrors.ErrRoleGetFailed
 	}
+
+	id, exists := ids[uid]
+	if !exists {
+		err := domainerrors.ErrRoleNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalRole{
+			UID:       &uid,
+			Operation: "get",
+		}, err)
+		return nil, err
+	}
+
+	role, err := s.repos.Role().GetByID(ctx, id)
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+			UID:       &uid,
+			Operation: "get",
+		}, err)
+		return nil, domainerrors.ErrRoleGetFailed
+	}
+
+	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalRole{
+		UID:       &uid,
+		Name:      &role.Name,
+		Operation: "get",
+	}, nil)
+
 	return role, nil
 }
 
@@ -93,15 +123,34 @@ func (s *roleService) List(ctx context.Context, pagination *param.PaginationPara
 }
 
 func (s *roleService) Update(ctx context.Context, uid string, p param.RoleUpdateParam) error {
-	var role *model.Role
+	// Resolve UID before transaction
+	ids, err := s.resolvers.Role().IDsByUIDs(ctx, []string{uid})
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+			UID:       &uid,
+			Operation: "update",
+		}, err)
+		return domainerrors.ErrRoleUpdateFailed
+	}
 
-	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
+	id, exists := ids[uid]
+	if !exists {
+		err := domainerrors.ErrRoleNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalRole{
+			UID:       &uid,
+			Operation: "update",
+		}, err)
+		return err
+	}
+
+	var role *model.Role
+	err = s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		repo := r.Role()
 
 		var errUoW error
-		role, errUoW = repo.GetByUID(ctx, uid)
+		role, errUoW = repo.GetByID(ctx, id)
 		if errUoW != nil {
-			return fmt.Errorf("failed to get role: %w", errUoW)
+			return errUoW
 		}
 
 		if p.Name != nil {
@@ -112,14 +161,22 @@ func (s *roleService) Update(ctx context.Context, uid string, p param.RoleUpdate
 		}
 
 		if err := repo.Update(ctx, role); err != nil {
-			return fmt.Errorf("failed to update role: %w", err)
+			return err
 		}
 		return nil
 	})
 
 	if err != nil {
-		return err
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+			UID:       &uid,
+			Operation: "update",
+		}, err)
+		return domainerrors.ErrRoleUpdateFailed
 	}
+
+	// Invalidate resolver cache
+	// TODO: Add Invalidate call after Task 21 (port interface update)
+	// _ = s.resolvers.Role().Invalidate(ctx, uid)
 
 	s.publisher.Publish(ctx, event.EventRoleUpdate, &event.EventRoleUpdateData{
 		UID:         role.UID,
@@ -127,34 +184,75 @@ func (s *roleService) Update(ctx context.Context, uid string, p param.RoleUpdate
 		Description: role.Description,
 		UpdatedAt:   role.UpdatedAt,
 	})
+
+	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalRole{
+		UID:       &uid,
+		Name:      &role.Name,
+		Operation: "update",
+	}, nil)
+
 	return nil
 }
 
 func (s *roleService) Delete(ctx context.Context, uid string) error {
-	var role *model.Role
+	// Resolve UID before transaction
+	ids, err := s.resolvers.Role().IDsByUIDs(ctx, []string{uid})
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+			UID:       &uid,
+			Operation: "delete",
+		}, err)
+		return domainerrors.ErrRoleDeleteFailed
+	}
 
-	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
+	id, exists := ids[uid]
+	if !exists {
+		err := domainerrors.ErrRoleNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalRole{
+			UID:       &uid,
+			Operation: "delete",
+		}, err)
+		return err
+	}
+
+	var role *model.Role
+	err = s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		repo := r.Role()
 
 		var errUoW error
-		role, errUoW = repo.GetByUID(ctx, uid)
+		role, errUoW = repo.GetByID(ctx, id)
 		if errUoW != nil {
-			return fmt.Errorf("failed to get role: %w", errUoW)
+			return errUoW
 		}
 
-		if err := repo.Delete(ctx, role.ID); err != nil {
-			return fmt.Errorf("failed to delete role: %w", err)
+		if err := repo.Delete(ctx, id); err != nil {
+			return err
 		}
 		return nil
 	})
 
 	if err != nil {
-		return err
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+			UID:       &uid,
+			Operation: "delete",
+		}, err)
+		return domainerrors.ErrRoleDeleteFailed
 	}
+
+	// Invalidate resolver cache
+	// TODO: Add Invalidate call after Task 21 (port interface update)
+	// _ = s.resolvers.Role().Invalidate(ctx, uid)
 
 	s.publisher.Publish(ctx, event.EventRoleDelete, &event.EventRoleDeleteData{
 		UID: role.UID,
 	})
+
+	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalRole{
+		UID:       &uid,
+		Name:      &role.Name,
+		Operation: "delete",
+	}, nil)
+
 	return nil
 }
 
