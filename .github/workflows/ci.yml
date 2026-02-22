@@ -108,8 +108,6 @@ jobs:
           echo "DATABASE_URL=jdbc:postgresql://localhost:5432/service_db" > .env
           echo "DATABASE_USER=postgres" >> .env
           echo "DATABASE_PASSWORD=postgres" >> .env
-          # Patch Makefile to use host network for CI
-          sed -i 's/docker run --rm/docker run --rm --network host/g' Makefile
           make build
           make update
 
