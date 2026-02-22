@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	_ "github.com/adityakw90/service-access/internal/core/domain/errors"
+	domainerrors "github.com/adityakw90/service-access/internal/core/domain/errors"
 	"github.com/adityakw90/service-access/internal/core/domain/event"
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
@@ -76,10 +76,41 @@ func (s *permissionService) Create(ctx context.Context, p param.PermissionCreate
 }
 
 func (s *permissionService) Get(ctx context.Context, uid string) (*model.Permission, error) {
-	permission, err := s.repos.Permission().GetByUID(ctx, uid)
+	ids, err := s.resolvers.Permission().IDsByUIDs(ctx, []string{uid})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get permission: %w", err)
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalPermission{
+			UID:       &uid,
+			Operation: "get",
+		}, err)
+		return nil, domainerrors.ErrPermissionGetFailed
 	}
+
+	id, exists := ids[uid]
+	if !exists {
+		err := domainerrors.ErrPermissionNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalPermission{
+			UID:       &uid,
+			Operation: "get",
+		}, err)
+		return nil, err
+	}
+
+	permission, err := s.repos.Permission().GetByID(ctx, id)
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalPermission{
+			UID:       &uid,
+			Operation: "get",
+		}, err)
+		return nil, domainerrors.ErrPermissionGetFailed
+	}
+
+	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalPermission{
+		UID:       &uid,
+		Resource:  &permission.Resource,
+		Action:    &permission.Action,
+		Operation: "get",
+	}, nil)
+
 	return permission, nil
 }
 
