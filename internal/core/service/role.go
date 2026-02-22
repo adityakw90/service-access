@@ -175,8 +175,7 @@ func (s *roleService) Update(ctx context.Context, uid string, p param.RoleUpdate
 	}
 
 	// Invalidate resolver cache
-	// TODO: Add Invalidate call after Task 21 (port interface update)
-	// _ = s.resolvers.Role().Invalidate(ctx, uid)
+	_ = s.resolvers.Role().Invalidate(ctx, uid)
 
 	s.publisher.Publish(ctx, event.EventRoleUpdate, &event.EventRoleUpdateData{
 		UID:         role.UID,
@@ -240,8 +239,7 @@ func (s *roleService) Delete(ctx context.Context, uid string) error {
 	}
 
 	// Invalidate resolver cache
-	// TODO: Add Invalidate call after Task 21 (port interface update)
-	// _ = s.resolvers.Role().Invalidate(ctx, uid)
+	_ = s.resolvers.Role().Invalidate(ctx, uid)
 
 	s.publisher.Publish(ctx, event.EventRoleDelete, &event.EventRoleDeleteData{
 		UID: role.UID,

@@ -178,8 +178,7 @@ func (s *permissionService) Update(ctx context.Context, uid string, p param.Perm
 	}
 
 	// Invalidate resolver cache
-	// TODO: Add Invalidate call after Task 21 (port interface update)
-	// _ = s.resolvers.Permission().Invalidate(ctx, uid)
+	_ = s.resolvers.Permission().Invalidate(ctx, uid)
 
 	s.publisher.Publish(ctx, event.EventPermissionUpdate, &event.EventPermissionUpdateData{
 		UID:         permission.UID,
@@ -245,8 +244,7 @@ func (s *permissionService) Delete(ctx context.Context, uid string) error {
 	}
 
 	// Invalidate resolver cache
-	// TODO: Add Invalidate call after Task 21 (port interface update)
-	// _ = s.resolvers.Permission().Invalidate(ctx, uid)
+	_ = s.resolvers.Permission().Invalidate(ctx, uid)
 
 	s.publisher.Publish(ctx, event.EventPermissionDelete, &event.EventPermissionDeleteData{
 		UID: permission.UID,

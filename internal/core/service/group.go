@@ -173,8 +173,7 @@ func (s *groupService) Update(ctx context.Context, uid string, p param.GroupUpda
 	}
 
 	// Invalidate resolver cache
-	// TODO: Add Invalidate call after Task 21 (port interface update)
-	// _ = s.resolvers.Group().Invalidate(ctx, uid)
+	_ = s.resolvers.Group().Invalidate(ctx, uid)
 
 	s.publisher.Publish(ctx, event.EventGroupUpdate, &event.EventGroupUpdateData{
 		UID:         group.UID,
@@ -240,8 +239,7 @@ func (s *groupService) Delete(ctx context.Context, uid string) error {
 	}
 
 	// Invalidate resolver cache
-	// TODO: Add Invalidate call after Task 21 (port interface update)
-	// _ = s.resolvers.Group().Invalidate(ctx, uid)
+	_ = s.resolvers.Group().Invalidate(ctx, uid)
 
 	s.publisher.Publish(ctx, event.EventGroupDelete, &event.EventGroupDeleteData{
 		UID: group.UID,
