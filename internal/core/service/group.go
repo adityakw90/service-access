@@ -430,43 +430,91 @@ func (s *groupService) RevokePermission(ctx context.Context, groupUID string, pe
 }
 
 func (s *groupService) UpdatePermission(ctx context.Context, groupUID string, permissionUIDs []string) error {
-	var group *model.Group
+	// Resolve group UID
+	groupIDs, err := s.resolvers.Group().IDsByUIDs(ctx, []string{groupUID})
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &groupUID,
+			Operation: "update_permission",
+		}, err)
+		return domainerrors.ErrGroupPermissionUpdateFailed
+	}
 
-	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
-		var errUoW error
-		// Get group
-		group, errUoW = r.Group().GetByUID(ctx, groupUID)
-		if errUoW != nil {
-			return fmt.Errorf("failed to get group: %w", errUoW)
+	groupID, exists := groupIDs[groupUID]
+	if !exists {
+		err := domainerrors.ErrGroupNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
+			UID:       &groupUID,
+			Operation: "update_permission",
+		}, err)
+		return err
+	}
+
+	// Batch resolve permission UIDs
+	permIDs, err := s.resolvers.Permission().IDsByUIDs(ctx, permissionUIDs)
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &groupUID,
+			Operation: "update_permission",
+		}, err)
+		return domainerrors.ErrGroupPermissionUpdateFailed
+	}
+
+	// Validate all permissions exist and build ID slice
+	permissionIDs := make([]int64, 0, len(permissionUIDs))
+	for _, uid := range permissionUIDs {
+		id, exists := permIDs[uid]
+		if !exists {
+			err := domainerrors.ErrPermissionNotFound
+			s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
+				UID:       &groupUID,
+				Operation: "update_permission",
+			}, err)
+			return err
 		}
+		permissionIDs = append(permissionIDs, id)
+	}
 
-		// Get all permission IDs and generate UIDs for each
-		permissionIDs := make([]int64, 0, len(permissionUIDs))
-		groupPermUIDs := make([]string, 0, len(permissionUIDs))
-		for _, uid := range permissionUIDs {
-			permission, err := r.Permission().GetByUID(ctx, uid)
-			if err != nil {
-				return fmt.Errorf("failed to get permission %s: %w", uid, err)
-			}
-			permissionIDs = append(permissionIDs, permission.ID)
-			groupPermUIDs = append(groupPermUIDs, s.uidGenerator.New())
+	// Generate UIDs
+	groupPermUIDs := make([]string, len(permissionUIDs))
+	for i := range permissionUIDs {
+		groupPermUIDs[i] = s.uidGenerator.New()
+	}
+
+	var group *model.Group
+	err = s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
+		var errUoW error
+		group, errUoW = r.Group().GetByID(ctx, groupID)
+		if errUoW != nil {
+			return errUoW
 		}
 
 		// Replace permissions
-		if err := r.Group().ReplacePermission(ctx, group.ID, permissionIDs, groupPermUIDs); err != nil {
-			return fmt.Errorf("failed to replace permissions: %w", err)
+		if err := r.Group().ReplacePermission(ctx, groupID, permissionIDs, groupPermUIDs); err != nil {
+			return err
 		}
 		return nil
 	})
 
 	if err != nil {
-		return err
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &groupUID,
+			Operation: "update_permission",
+		}, err)
+		return domainerrors.ErrGroupPermissionUpdateFailed
 	}
 
 	s.publisher.Publish(ctx, event.EventGroupUpdatePermission, &event.EventGroupUpdatePermissionData{
 		GroupUID: group.UID,
 		UIDs:     permissionUIDs,
 	})
+
+	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalGroup{
+		UID:       &groupUID,
+		Name:      &group.Name,
+		Operation: "update_permission",
+	}, nil)
+
 	return nil
 }
 
