@@ -200,29 +200,64 @@ func (s *permissionService) Update(ctx context.Context, uid string, p param.Perm
 }
 
 func (s *permissionService) Delete(ctx context.Context, uid string) error {
-	var permission *model.Permission
+	// Resolve UID before transaction
+	ids, err := s.resolvers.Permission().IDsByUIDs(ctx, []string{uid})
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalPermission{
+			UID:       &uid,
+			Operation: "delete",
+		}, err)
+		return domainerrors.ErrPermissionDeleteFailed
+	}
 
-	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
+	id, exists := ids[uid]
+	if !exists {
+		err := domainerrors.ErrPermissionNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalPermission{
+			UID:       &uid,
+			Operation: "delete",
+		}, err)
+		return err
+	}
+
+	var permission *model.Permission
+	err = s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		repo := r.Permission()
 
 		var errUoW error
-		permission, errUoW = repo.GetByUID(ctx, uid)
+		permission, errUoW = repo.GetByID(ctx, id)
 		if errUoW != nil {
-			return fmt.Errorf("failed to get permission: %w", errUoW)
+			return errUoW
 		}
 
-		if err := repo.Delete(ctx, permission.ID); err != nil {
-			return fmt.Errorf("failed to delete permission: %w", err)
+		if err := repo.Delete(ctx, id); err != nil {
+			return err
 		}
 		return nil
 	})
 
 	if err != nil {
-		return err
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalPermission{
+			UID:       &uid,
+			Operation: "delete",
+		}, err)
+		return domainerrors.ErrPermissionDeleteFailed
 	}
+
+	// Invalidate resolver cache
+	// TODO: Add Invalidate call after Task 21 (port interface update)
+	// _ = s.resolvers.Permission().Invalidate(ctx, uid)
 
 	s.publisher.Publish(ctx, event.EventPermissionDelete, &event.EventPermissionDeleteData{
 		UID: permission.UID,
 	})
+
+	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalPermission{
+		UID:       &uid,
+		Resource:  &permission.Resource,
+		Action:    &permission.Action,
+		Operation: "delete",
+	}, nil)
+
 	return nil
 }
