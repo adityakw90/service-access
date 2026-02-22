@@ -345,38 +345,87 @@ func (s *groupService) AssignPermission(ctx context.Context, groupUID string, pe
 }
 
 func (s *groupService) RevokePermission(ctx context.Context, groupUID string, permissionUID string) error {
+	// Resolve group UID
+	groupIDs, err := s.resolvers.Group().IDsByUIDs(ctx, []string{groupUID})
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &groupUID,
+			Operation: "revoke_permission",
+		}, err)
+		return domainerrors.ErrGroupPermissionRevokeFailed
+	}
+
+	groupID, exists := groupIDs[groupUID]
+	if !exists {
+		err := domainerrors.ErrGroupNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
+			UID:       &groupUID,
+			Operation: "revoke_permission",
+		}, err)
+		return err
+	}
+
+	// Resolve permission UID
+	permIDs, err := s.resolvers.Permission().IDsByUIDs(ctx, []string{permissionUID})
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &groupUID,
+			Operation: "revoke_permission",
+		}, err)
+		return domainerrors.ErrGroupPermissionRevokeFailed
+	}
+
+	permissionID, exists := permIDs[permissionUID]
+	if !exists {
+		err := domainerrors.ErrPermissionNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
+			UID:       &groupUID,
+			Operation: "revoke_permission",
+		}, err)
+		return err
+	}
+
+	// Get group and permission for event
 	var group *model.Group
 	var permission *model.Permission
-
-	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
+	err = s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		var errUoW error
-		// Get group
-		group, errUoW = r.Group().GetByUID(ctx, groupUID)
+		group, errUoW = r.Group().GetByID(ctx, groupID)
 		if errUoW != nil {
-			return fmt.Errorf("failed to get group: %w", errUoW)
+			return errUoW
 		}
 
-		// Get permission
-		permission, errUoW = r.Permission().GetByUID(ctx, permissionUID)
+		permission, errUoW = r.Permission().GetByID(ctx, permissionID)
 		if errUoW != nil {
-			return fmt.Errorf("failed to get permission: %w", errUoW)
+			return errUoW
 		}
 
 		// Revoke
-		if err := r.Group().RemovePermission(ctx, group.ID, permission.ID); err != nil {
-			return fmt.Errorf("failed to revoke permission: %w", err)
+		if err := r.Group().RemovePermission(ctx, groupID, permissionID); err != nil {
+			return err
 		}
 		return nil
 	})
 
 	if err != nil {
-		return err
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &groupUID,
+			Operation: "revoke_permission",
+		}, err)
+		return domainerrors.ErrGroupPermissionRevokeFailed
 	}
 
 	s.publisher.Publish(ctx, event.EventGroupRevokePermission, &event.EventGroupRevokePermissionData{
 		GroupUID:      group.UID,
 		PermissionUID: permission.UID,
 	})
+
+	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalGroup{
+		UID:       &groupUID,
+		Name:      &group.Name,
+		Operation: "revoke_permission",
+	}, nil)
+
 	return nil
 }
 
