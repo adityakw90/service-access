@@ -193,32 +193,66 @@ func (s *groupService) Update(ctx context.Context, uid string, p param.GroupUpda
 }
 
 func (s *groupService) Delete(ctx context.Context, uid string) error {
-	var group *model.Group
+	// Resolve UID before transaction
+	ids, err := s.resolvers.Group().IDsByUIDs(ctx, []string{uid})
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &uid,
+			Operation: "delete",
+		}, err)
+		return domainerrors.ErrGroupDeleteFailed
+	}
 
-	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
+	id, exists := ids[uid]
+	if !exists {
+		err := domainerrors.ErrGroupNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
+			UID:       &uid,
+			Operation: "delete",
+		}, err)
+		return err
+	}
+
+	var group *model.Group
+	err = s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		repo := r.Group()
 
 		// Get existing for event
 		var errUoW error
-		group, errUoW = repo.GetByUID(ctx, uid)
+		group, errUoW = repo.GetByID(ctx, id)
 		if errUoW != nil {
-			return fmt.Errorf("failed to get group: %w", errUoW)
+			return errUoW
 		}
 
 		// Delete
-		if err := repo.Delete(ctx, group.ID); err != nil {
-			return fmt.Errorf("failed to delete group: %w", err)
+		if err := repo.Delete(ctx, id); err != nil {
+			return err
 		}
 		return nil
 	})
 
 	if err != nil {
-		return err
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &uid,
+			Operation: "delete",
+		}, err)
+		return domainerrors.ErrGroupDeleteFailed
 	}
+
+	// Invalidate resolver cache
+	// TODO: Add Invalidate call after Task 21 (port interface update)
+	// _ = s.resolvers.Group().Invalidate(ctx, uid)
 
 	s.publisher.Publish(ctx, event.EventGroupDelete, &event.EventGroupDeleteData{
 		UID: group.UID,
 	})
+
+	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalGroup{
+		UID:       &uid,
+		Name:      &group.Name,
+		Operation: "delete",
+	}, nil)
+
 	return nil
 }
 
