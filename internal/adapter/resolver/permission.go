@@ -325,3 +325,16 @@ func (r *permissionResolver) fetchUIDFromDB(ctx context.Context, id int64) (*per
 
 	return &iden, nil
 }
+
+func (r *permissionResolver) Invalidate(ctx context.Context, uids ...string) error {
+	if len(uids) == 0 {
+		return nil
+	}
+
+	keys := make([]string, len(uids))
+	for i, uid := range uids {
+		keys[i] = r.redisPrefix + ":" + uid + ":id"
+	}
+
+	return r.redisClient.Del(ctx, keys...).Err()
+}
