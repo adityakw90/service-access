@@ -118,16 +118,35 @@ func (s *groupService) List(ctx context.Context, pagination *param.PaginationPar
 }
 
 func (s *groupService) Update(ctx context.Context, uid string, p param.GroupUpdateParam) error {
-	var group *model.Group
+	// Resolve UID before transaction
+	ids, err := s.resolvers.Group().IDsByUIDs(ctx, []string{uid})
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &uid,
+			Operation: "update",
+		}, err)
+		return domainerrors.ErrGroupUpdateFailed
+	}
 
-	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
+	id, exists := ids[uid]
+	if !exists {
+		err := domainerrors.ErrGroupNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
+			UID:       &uid,
+			Operation: "update",
+		}, err)
+		return err
+	}
+
+	var group *model.Group
+	err = s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		var errUoW error
 		repo := r.Group()
 
-		// Get existing
-		group, errUoW = repo.GetByUID(ctx, uid)
+		// Get existing by ID
+		group, errUoW = repo.GetByID(ctx, id)
 		if errUoW != nil {
-			return fmt.Errorf("failed to get group: %w", errUoW)
+			return errUoW
 		}
 
 		// Update fields
@@ -140,14 +159,22 @@ func (s *groupService) Update(ctx context.Context, uid string, p param.GroupUpda
 
 		// Persist
 		if err := repo.Update(ctx, group); err != nil {
-			return fmt.Errorf("failed to update group: %w", err)
+			return err
 		}
 		return nil
 	})
 
 	if err != nil {
-		return err
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &uid,
+			Operation: "update",
+		}, err)
+		return domainerrors.ErrGroupUpdateFailed
 	}
+
+	// Invalidate resolver cache
+	// TODO: Add Invalidate call after Task 21 (port interface update)
+	// _ = s.resolvers.Group().Invalidate(ctx, uid)
 
 	s.publisher.Publish(ctx, event.EventGroupUpdate, &event.EventGroupUpdateData{
 		UID:         group.UID,
@@ -155,6 +182,13 @@ func (s *groupService) Update(ctx context.Context, uid string, p param.GroupUpda
 		Description: group.Description,
 		UpdatedAt:   group.UpdatedAt,
 	})
+
+	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalGroup{
+		UID:       &uid,
+		Name:      &group.Name,
+		Operation: "update",
+	}, nil)
+
 	return nil
 }
 
