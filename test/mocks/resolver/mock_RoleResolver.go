@@ -139,6 +139,120 @@ func (_c *MockRoleResolver_UIDsByIDs_Call) RunAndReturn(run func(context.Context
 	return _c
 }
 
+// Invalidate provides a mock function with given fields: ctx, uids
+func (_m *MockRoleResolver) Invalidate(ctx context.Context, uids ...string) error {
+	ret := _m.Called(ctx, uids)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Invalidate")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []string) error); ok {
+		return rf(ctx, uids)
+	}
+	if rf, ok := ret.Get(0).(func(...string) error); ok {
+		return rf(uids...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(error)
+		}
+	}
+
+	return r0
+}
+
+// MockRoleResolver_Invalidate_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Invalidate'
+type MockRoleResolver_Invalidate_Call struct {
+	*mock.Call
+}
+
+// Invalidate is a helper method to define mock.On call
+//   - ctx context.Context
+//   - uids ...string
+func (_e *MockRoleResolver_Expecter) Invalidate(ctx interface{}, uids ...interface{}) *MockRoleResolver_Invalidate_Call {
+	var _ca []interface{} = append([]interface{}{ctx}, uids...)
+	return &MockRoleResolver_Invalidate_Call{Call: _e.mock.On("Invalidate", _ca...)}
+}
+
+func (_c *MockRoleResolver_Invalidate_Call) Run(run func(ctx context.Context, uids []string)) *MockRoleResolver_Invalidate_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		uidsArg := make([]string, 0, len(args)-1)
+		for i := 1; i < len(args); i++ {
+			uidsArg = append(uidsArg, args[i].(string))
+		}
+		run(args[0].(context.Context), uidsArg)
+	})
+	return _c
+}
+
+func (_c *MockRoleResolver_Invalidate_Call) Return(_a0 error) *MockRoleResolver_Invalidate_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockRoleResolver_Invalidate_Call) RunAndReturn(run func(context.Context, []string) error) *MockRoleResolver_Invalidate_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// InvalidateByIDs provides a mock function with given fields: ctx, ids
+func (_m *MockRoleResolver) InvalidateByIDs(ctx context.Context, ids ...int64) error {
+	ret := _m.Called(ctx, ids)
+
+	if len(ret) == 0 {
+		panic("no return value specified for InvalidateByIDs")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []int64) error); ok {
+		return rf(ctx, ids)
+	}
+	if rf, ok := ret.Get(0).(func(...int64) error); ok {
+		return rf(ids...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(error)
+		}
+	}
+
+	return r0
+}
+
+// MockRoleResolver_InvalidateByIDs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'InvalidateByIDs'
+type MockRoleResolver_InvalidateByIDs_Call struct {
+	*mock.Call
+}
+
+// InvalidateByIDs is a helper method to define mock.On call
+//   - ctx context.Context
+//   - ids ...int64
+func (_e *MockRoleResolver_Expecter) InvalidateByIDs(ctx interface{}, ids ...interface{}) *MockRoleResolver_InvalidateByIDs_Call {
+	var _ca []interface{} = append([]interface{}{ctx}, ids...)
+	return &MockRoleResolver_InvalidateByIDs_Call{Call: _e.mock.On("InvalidateByIDs", _ca...)}
+}
+
+func (_c *MockRoleResolver_InvalidateByIDs_Call) Run(run func(ctx context.Context, ids []int64)) *MockRoleResolver_InvalidateByIDs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		idsArg := make([]int64, 0, len(args)-1)
+		for i := 1; i < len(args); i++ {
+			idsArg = append(idsArg, args[i].(int64))
+		}
+		run(args[0].(context.Context), idsArg)
+	})
+	return _c
+}
+
+func (_c *MockRoleResolver_InvalidateByIDs_Call) Return(_a0 error) *MockRoleResolver_InvalidateByIDs_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockRoleResolver_InvalidateByIDs_Call) RunAndReturn(run func(context.Context, []int64) error) *MockRoleResolver_InvalidateByIDs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewMockRoleResolver creates a new instance of MockRoleResolver. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockRoleResolver(t interface {

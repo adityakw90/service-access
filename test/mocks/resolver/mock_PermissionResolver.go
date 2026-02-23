@@ -258,6 +258,120 @@ func (_c *MockPermissionResolver_UIDsByIDs_Call) RunAndReturn(run func(context.C
 	return _c
 }
 
+// Invalidate provides a mock function with given fields: ctx, uids
+func (_m *MockPermissionResolver) Invalidate(ctx context.Context, uids ...string) error {
+	ret := _m.Called(ctx, uids)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Invalidate")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []string) error); ok {
+		return rf(ctx, uids)
+	}
+	if rf, ok := ret.Get(0).(func(...string) error); ok {
+		return rf(uids...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(error)
+		}
+	}
+
+	return r0
+}
+
+// MockPermissionResolver_Invalidate_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Invalidate'
+type MockPermissionResolver_Invalidate_Call struct {
+	*mock.Call
+}
+
+// Invalidate is a helper method to define mock.On call
+//   - ctx context.Context
+//   - uids ...string
+func (_e *MockPermissionResolver_Expecter) Invalidate(ctx interface{}, uids ...interface{}) *MockPermissionResolver_Invalidate_Call {
+	var _ca []interface{} = append([]interface{}{ctx}, uids...)
+	return &MockPermissionResolver_Invalidate_Call{Call: _e.mock.On("Invalidate", _ca...)}
+}
+
+func (_c *MockPermissionResolver_Invalidate_Call) Run(run func(ctx context.Context, uids []string)) *MockPermissionResolver_Invalidate_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		uidsArg := make([]string, 0, len(args)-1)
+		for i := 1; i < len(args); i++ {
+			uidsArg = append(uidsArg, args[i].(string))
+		}
+		run(args[0].(context.Context), uidsArg)
+	})
+	return _c
+}
+
+func (_c *MockPermissionResolver_Invalidate_Call) Return(_a0 error) *MockPermissionResolver_Invalidate_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockPermissionResolver_Invalidate_Call) RunAndReturn(run func(context.Context, []string) error) *MockPermissionResolver_Invalidate_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// InvalidateByIDs provides a mock function with given fields: ctx, ids
+func (_m *MockPermissionResolver) InvalidateByIDs(ctx context.Context, ids ...int64) error {
+	ret := _m.Called(ctx, ids)
+
+	if len(ret) == 0 {
+		panic("no return value specified for InvalidateByIDs")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []int64) error); ok {
+		return rf(ctx, ids)
+	}
+	if rf, ok := ret.Get(0).(func(...int64) error); ok {
+		return rf(ids...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(error)
+		}
+	}
+
+	return r0
+}
+
+// MockPermissionResolver_InvalidateByIDs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'InvalidateByIDs'
+type MockPermissionResolver_InvalidateByIDs_Call struct {
+	*mock.Call
+}
+
+// InvalidateByIDs is a helper method to define mock.On call
+//   - ctx context.Context
+//   - ids ...int64
+func (_e *MockPermissionResolver_Expecter) InvalidateByIDs(ctx interface{}, ids ...interface{}) *MockPermissionResolver_InvalidateByIDs_Call {
+	var _ca []interface{} = append([]interface{}{ctx}, ids...)
+	return &MockPermissionResolver_InvalidateByIDs_Call{Call: _e.mock.On("InvalidateByIDs", _ca...)}
+}
+
+func (_c *MockPermissionResolver_InvalidateByIDs_Call) Run(run func(ctx context.Context, ids []int64)) *MockPermissionResolver_InvalidateByIDs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		idsArg := make([]int64, 0, len(args)-1)
+		for i := 1; i < len(args); i++ {
+			idsArg = append(idsArg, args[i].(int64))
+		}
+		run(args[0].(context.Context), idsArg)
+	})
+	return _c
+}
+
+func (_c *MockPermissionResolver_InvalidateByIDs_Call) Return(_a0 error) *MockPermissionResolver_InvalidateByIDs_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockPermissionResolver_InvalidateByIDs_Call) RunAndReturn(run func(context.Context, []int64) error) *MockPermissionResolver_InvalidateByIDs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewMockPermissionResolver creates a new instance of MockPermissionResolver. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockPermissionResolver(t interface {
