@@ -212,3 +212,30 @@ func (r *groupResolver) Invalidate(ctx context.Context, uids ...string) error {
 
 	return r.redisClient.Del(ctx, keysToDelete...).Err()
 }
+
+func (r *groupResolver) InvalidateByIDs(ctx context.Context, ids ...int64) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	// Build all keys to delete - both forward (uid->id) and reverse (id->uid) mappings
+	keysToDelete := make([]string, 0, len(ids)*2)
+
+	for _, id := range ids {
+		idStr := strconv.FormatInt(id, 10)
+		idKey := r.redisPrefix + ":id:" + idStr + ":uid"
+		keysToDelete = append(keysToDelete, idKey)
+
+		// Try to get the UID from cache to build the forward key
+		uidStr, err := r.redisClient.Get(ctx, idKey).Result()
+		if err == nil && uidStr != "" {
+			// UID exists in cache, also delete the forward mapping key
+			uidKey := r.redisPrefix + ":" + uidStr + ":id"
+			keysToDelete = append(keysToDelete, uidKey)
+		}
+		// If UID not in cache or GET failed, that's okay - the forward key either
+		// doesn't exist or will expire naturally
+	}
+
+	return r.redisClient.Del(ctx, keysToDelete...).Err()
+}
