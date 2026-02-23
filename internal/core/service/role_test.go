@@ -7,8 +7,11 @@ import (
 
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
+	"github.com/adityakw90/service-access/internal/core/domain/signal"
+	adapterobserver "github.com/adityakw90/service-access/internal/adapter/observer"
 	"github.com/adityakw90/service-access/internal/core/port/repository"
 	repomocks "github.com/adityakw90/service-access/test/mocks/repository"
+	resolvermocks "github.com/adityakw90/service-access/test/mocks/resolver"
 	securitymocks "github.com/adityakw90/service-access/test/mocks/security"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -135,10 +138,12 @@ func TestRoleService_Create(t *testing.T) {
 			mockRepos := repomocks.NewMockRepositoryProvider(t)
 			mockPublisher := &mockPublisher{}
 			mockUIDGenerator := securitymocks.NewMockUIDGenerator(t)
+			mockResolverProvider := resolvermocks.NewMockResolverProvider(t)
+			mockObserver := adapterobserver.NewNoopObserver[signal.SignalRole]()
 
 			tt.setup(mockUoW, mockRepos, mockUIDGenerator)
 
-			service := NewRoleService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator)
+			service := NewRoleService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, mockObserver)
 			got, err := service.Create(context.Background(), tt.param)
 
 			if tt.wantErr {

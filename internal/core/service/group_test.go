@@ -7,8 +7,11 @@ import (
 
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
+	"github.com/adityakw90/service-access/internal/core/domain/signal"
+	adapterobserver "github.com/adityakw90/service-access/internal/adapter/observer"
 	"github.com/adityakw90/service-access/internal/core/port/repository"
 	repomocks "github.com/adityakw90/service-access/test/mocks/repository"
+	resolvermocks "github.com/adityakw90/service-access/test/mocks/resolver"
 	securitymocks "github.com/adityakw90/service-access/test/mocks/security"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -148,10 +151,12 @@ func TestGroupService_Create(t *testing.T) {
 			mockRepos := repomocks.NewMockRepositoryProvider(t)
 			mockPublisher := &mockPublisher{}
 			mockUIDGenerator := securitymocks.NewMockUIDGenerator(t)
+			mockResolverProvider := resolvermocks.NewMockResolverProvider(t)
+			mockObserver := adapterobserver.NewNoopObserver[signal.SignalGroup]()
 
 			tt.setup(mockUoW, mockRepos, mockUIDGenerator)
 
-			service := NewGroupService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator)
+			service := NewGroupService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, mockObserver)
 			got, err := service.Create(context.Background(), tt.param)
 
 			if tt.wantErr {
@@ -186,7 +191,7 @@ func TestGroupService_Get(t *testing.T) {
 			name: "Happy Path",
 			setup: func(p *repomocks.MockRepositoryProvider) {
 				mockGroupRepo := &mockGroupRepository{}
-				mockGroupRepo.On("GetByUID", mock.Anything, "test-uid").Return(&model.Group{
+				mockGroupRepo.On("GetByID", mock.Anything, int64(1)).Return(&model.Group{
 					ID:          1,
 					UID:         "test-uid",
 					Name:        "admin",
@@ -207,7 +212,7 @@ func TestGroupService_Get(t *testing.T) {
 			name: "Not Found",
 			setup: func(p *repomocks.MockRepositoryProvider) {
 				mockGroupRepo := &mockGroupRepository{}
-				mockGroupRepo.On("GetByUID", mock.Anything, "not-found").Return(nil, errors.New("group not found"))
+				mockGroupRepo.On("GetByID", mock.Anything, int64(1)).Return(nil, errors.New("group not found"))
 				p.On("Group").Return(mockGroupRepo)
 			},
 			uid:     "not-found",
@@ -222,10 +227,17 @@ func TestGroupService_Get(t *testing.T) {
 			mockRepos := repomocks.NewMockRepositoryProvider(t)
 			mockPublisher := &mockPublisher{}
 			mockUIDGenerator := securitymocks.NewMockUIDGenerator(t)
+			mockResolverProvider := resolvermocks.NewMockResolverProvider(t)
+			mockObserver := adapterobserver.NewNoopObserver[signal.SignalGroup]()
+
+			// Set up resolver mock
+			mockGroupResolver := resolvermocks.NewMockGroupResolver(t)
+			mockGroupResolver.On("IDsByUIDs", mock.Anything, []string{tt.uid}).Return(map[string]int64{tt.uid: 1}, nil)
+			mockResolverProvider.On("Group").Return(mockGroupResolver)
 
 			tt.setup(mockRepos)
 
-			service := NewGroupService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator)
+			service := NewGroupService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, mockObserver)
 			got, err := service.Get(context.Background(), tt.uid)
 
 			if tt.wantErr {
@@ -271,10 +283,12 @@ func TestGroupService_List(t *testing.T) {
 			mockRepos := repomocks.NewMockRepositoryProvider(t)
 			mockPublisher := &mockPublisher{}
 			mockUIDGenerator := securitymocks.NewMockUIDGenerator(t)
+			mockResolverProvider := resolvermocks.NewMockResolverProvider(t)
+			mockObserver := adapterobserver.NewNoopObserver[signal.SignalGroup]()
 
 			tt.setup(mockRepos)
 
-			service := NewGroupService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator)
+			service := NewGroupService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, mockObserver)
 			got, err := service.List(context.Background(), nil, nil)
 
 			if tt.wantErr {

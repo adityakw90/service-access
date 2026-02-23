@@ -2,13 +2,18 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	domainerrors "github.com/adityakw90/service-access/internal/core/domain/errors"
 	"github.com/adityakw90/service-access/internal/core/domain/event"
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
+	"github.com/adityakw90/service-access/internal/core/domain/signal"
 	portEvent "github.com/adityakw90/service-access/internal/core/port/event"
+	"github.com/adityakw90/service-access/internal/core/port/observer"
 	"github.com/adityakw90/service-access/internal/core/port/repository"
+	"github.com/adityakw90/service-access/internal/core/port/resolver"
 	"github.com/adityakw90/service-access/internal/core/port/security"
 	"github.com/adityakw90/service-access/internal/core/port/service"
 )
@@ -18,6 +23,8 @@ type permissionService struct {
 	repos       repository.RepositoryProvider
 	publisher   portEvent.EventPublisher
 	uidGenerator security.UIDGenerator
+	resolvers   resolver.ResolverProvider
+	observer    observer.ServiceObserver[signal.SignalPermission]
 }
 
 func NewPermissionService(
@@ -25,12 +32,16 @@ func NewPermissionService(
 	repos repository.RepositoryProvider,
 	publisher portEvent.EventPublisher,
 	uidGenerator security.UIDGenerator,
+	resolverProvider resolver.ResolverProvider,
+	observer observer.ServiceObserver[signal.SignalPermission],
 ) service.PermissionService {
 	return &permissionService{
 		uow:         uow,
 		repos:       repos,
 		publisher:   publisher,
 		uidGenerator: uidGenerator,
+		resolvers:   resolverProvider,
+		observer:    observer,
 	}
 }
 
@@ -66,10 +77,59 @@ func (s *permissionService) Create(ctx context.Context, p param.PermissionCreate
 }
 
 func (s *permissionService) Get(ctx context.Context, uid string) (*model.Permission, error) {
-	permission, err := s.repos.Permission().GetByUID(ctx, uid)
+	ids, err := s.resolvers.Permission().IDsByUIDs(ctx, []string{uid})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get permission: %w", err)
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalPermission{
+			UID:       &uid,
+			Operation: "get",
+		}, err)
+		return nil, domainerrors.ErrPermissionGetFailed
 	}
+
+	id, exists := ids[uid]
+	if !exists {
+		err := domainerrors.ErrPermissionNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalPermission{
+			UID:       &uid,
+			Operation: "get",
+		}, err)
+		return nil, err
+	}
+
+	permission, err := s.repos.Permission().GetByID(ctx, id)
+	if err != nil {
+		// Check if it's a not-found error - if so, we have a stale cache entry
+		if errors.Is(err, domainerrors.ErrPermissionNotFound) {
+			// Invalidate the stale resolver mapping
+			if invErr := s.resolvers.Permission().Invalidate(ctx, resolver.WithUIDs(uid)); invErr != nil {
+				s.observer.OnSignal(ctx, signal.SignalError, signal.SignalPermission{
+					UID:       &uid,
+					Operation: "cache_invalidate",
+				}, invErr)
+				// Continue and return not found even if invalidate fails
+			}
+
+			s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalPermission{
+				UID:       &uid,
+				Operation: "get",
+			}, err)
+			return nil, err
+		}
+
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalPermission{
+			UID:       &uid,
+			Operation: "get",
+		}, err)
+		return nil, domainerrors.ErrPermissionGetFailed
+	}
+
+	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalPermission{
+		UID:       &uid,
+		Resource:  &permission.Resource,
+		Action:    &permission.Action,
+		Operation: "get",
+	}, nil)
+
 	return permission, nil
 }
 
@@ -82,15 +142,34 @@ func (s *permissionService) List(ctx context.Context, pagination *param.Paginati
 }
 
 func (s *permissionService) Update(ctx context.Context, uid string, p param.PermissionUpdateParam) error {
-	var permission *model.Permission
+	// Resolve UID before transaction
+	ids, err := s.resolvers.Permission().IDsByUIDs(ctx, []string{uid})
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalPermission{
+			UID:       &uid,
+			Operation: "update",
+		}, err)
+		return domainerrors.ErrPermissionUpdateFailed
+	}
 
-	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
+	id, exists := ids[uid]
+	if !exists {
+		err := domainerrors.ErrPermissionNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalPermission{
+			UID:       &uid,
+			Operation: "update",
+		}, err)
+		return err
+	}
+
+	var permission *model.Permission
+	err = s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		repo := r.Permission()
 
 		var errUoW error
-		permission, errUoW = repo.GetByUID(ctx, uid)
+		permission, errUoW = repo.GetByID(ctx, id)
 		if errUoW != nil {
-			return fmt.Errorf("failed to get permission: %w", errUoW)
+			return errUoW
 		}
 
 		if p.Resource != nil {
@@ -104,13 +183,27 @@ func (s *permissionService) Update(ctx context.Context, uid string, p param.Perm
 		}
 
 		if err := repo.Update(ctx, permission); err != nil {
-			return fmt.Errorf("failed to update permission: %w", err)
+			return err
 		}
 		return nil
 	})
 
 	if err != nil {
-		return err
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalPermission{
+			UID:       &uid,
+			Operation: "update",
+		}, err)
+		return domainerrors.ErrPermissionUpdateFailed
+	}
+
+	// Invalidate resolver cache
+	if invErr := s.resolvers.Permission().Invalidate(ctx, resolver.WithUIDs(uid)); invErr != nil {
+		// Note: We don't fail the operation since the primary operation succeeded.
+		// The cache invalidation error is logged via observer for observability.
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalPermission{
+			UID:       &uid,
+			Operation: "cache_invalidate",
+		}, invErr)
 	}
 
 	s.publisher.Publish(ctx, event.EventPermissionUpdate, &event.EventPermissionUpdateData{
@@ -120,33 +213,82 @@ func (s *permissionService) Update(ctx context.Context, uid string, p param.Perm
 		Description: permission.Description,
 		UpdatedAt:   permission.UpdatedAt,
 	})
+
+	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalPermission{
+		UID:       &uid,
+		Resource:  &permission.Resource,
+		Action:    &permission.Action,
+		Operation: "update",
+	}, nil)
+
 	return nil
 }
 
 func (s *permissionService) Delete(ctx context.Context, uid string) error {
-	var permission *model.Permission
+	// Resolve UID before transaction
+	ids, err := s.resolvers.Permission().IDsByUIDs(ctx, []string{uid})
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalPermission{
+			UID:       &uid,
+			Operation: "delete",
+		}, err)
+		return domainerrors.ErrPermissionDeleteFailed
+	}
 
-	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
+	id, exists := ids[uid]
+	if !exists {
+		err := domainerrors.ErrPermissionNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalPermission{
+			UID:       &uid,
+			Operation: "delete",
+		}, err)
+		return err
+	}
+
+	var permission *model.Permission
+	err = s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		repo := r.Permission()
 
 		var errUoW error
-		permission, errUoW = repo.GetByUID(ctx, uid)
+		permission, errUoW = repo.GetByID(ctx, id)
 		if errUoW != nil {
-			return fmt.Errorf("failed to get permission: %w", errUoW)
+			return errUoW
 		}
 
-		if err := repo.Delete(ctx, permission.ID); err != nil {
-			return fmt.Errorf("failed to delete permission: %w", err)
+		if err := repo.Delete(ctx, id); err != nil {
+			return err
 		}
 		return nil
 	})
 
 	if err != nil {
-		return err
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalPermission{
+			UID:       &uid,
+			Operation: "delete",
+		}, err)
+		return domainerrors.ErrPermissionDeleteFailed
+	}
+
+	// Invalidate resolver cache
+	if invErr := s.resolvers.Permission().Invalidate(ctx, resolver.WithUIDs(uid)); invErr != nil {
+		// Note: We don't fail the operation since the primary operation succeeded.
+		// The cache invalidation error is logged via observer for observability.
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalPermission{
+			UID:       &uid,
+			Operation: "cache_invalidate",
+		}, invErr)
 	}
 
 	s.publisher.Publish(ctx, event.EventPermissionDelete, &event.EventPermissionDeleteData{
 		UID: permission.UID,
 	})
+
+	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalPermission{
+		UID:       &uid,
+		Resource:  &permission.Resource,
+		Action:    &permission.Action,
+		Operation: "delete",
+	}, nil)
+
 	return nil
 }

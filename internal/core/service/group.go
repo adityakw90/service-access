@@ -2,13 +2,18 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	domainerrors "github.com/adityakw90/service-access/internal/core/domain/errors"
 	"github.com/adityakw90/service-access/internal/core/domain/event"
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
+	"github.com/adityakw90/service-access/internal/core/domain/signal"
 	portEvent "github.com/adityakw90/service-access/internal/core/port/event"
+	"github.com/adityakw90/service-access/internal/core/port/observer"
 	"github.com/adityakw90/service-access/internal/core/port/repository"
+	"github.com/adityakw90/service-access/internal/core/port/resolver"
 	"github.com/adityakw90/service-access/internal/core/port/security"
 	"github.com/adityakw90/service-access/internal/core/port/service"
 )
@@ -18,6 +23,8 @@ type groupService struct {
 	repos       repository.RepositoryProvider
 	publisher   portEvent.EventPublisher
 	uidGenerator security.UIDGenerator
+	resolvers   resolver.ResolverProvider
+	observer    observer.ServiceObserver[signal.SignalGroup]
 }
 
 // NewGroupService creates a new GroupService.
@@ -26,12 +33,16 @@ func NewGroupService(
 	repos repository.RepositoryProvider,
 	publisher portEvent.EventPublisher,
 	uidGenerator security.UIDGenerator,
+	resolverProvider resolver.ResolverProvider,
+	observer observer.ServiceObserver[signal.SignalGroup],
 ) service.GroupService {
 	return &groupService{
 		uow:         uow,
 		repos:       repos,
 		publisher:   publisher,
 		uidGenerator: uidGenerator,
+		resolvers:   resolverProvider,
+		observer:    observer,
 	}
 }
 
@@ -62,10 +73,52 @@ func (s *groupService) Create(ctx context.Context, p param.GroupCreateParam) (*m
 }
 
 func (s *groupService) Get(ctx context.Context, uid string) (*model.Group, error) {
-	group, err := s.repos.Group().GetByUID(ctx, uid)
+	ids, err := s.resolvers.Group().IDsByUIDs(ctx, []string{uid})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get group: %w", err)
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &uid,
+			Operation: "get",
+		}, err)
+		return nil, domainerrors.ErrGroupGetFailed
 	}
+
+	id, exists := ids[uid]
+	if !exists {
+		err := domainerrors.ErrGroupNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
+			UID:       &uid,
+			Operation: "get",
+		}, err)
+		return nil, err
+	}
+
+	group, err := s.repos.Group().GetByID(ctx, id)
+	if err != nil {
+		// Check if it's a not-found error - if so, we have a stale cache entry
+		if errors.Is(err, domainerrors.ErrGroupNotFound) {
+			// Invalidate the stale resolver mapping
+			_ = s.resolvers.Group().Invalidate(ctx, resolver.WithUIDs(uid))
+
+			s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
+				UID:       &uid,
+				Operation: "get",
+			}, err)
+			return nil, err
+		}
+
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &uid,
+			Operation: "get",
+		}, err)
+		return nil, domainerrors.ErrGroupGetFailed
+	}
+
+	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalGroup{
+		UID:       &uid,
+		Name:      &group.Name,
+		Operation: "get",
+	}, nil)
+
 	return group, nil
 }
 
@@ -78,16 +131,35 @@ func (s *groupService) List(ctx context.Context, pagination *param.PaginationPar
 }
 
 func (s *groupService) Update(ctx context.Context, uid string, p param.GroupUpdateParam) error {
-	var group *model.Group
+	// Resolve UID before transaction
+	ids, err := s.resolvers.Group().IDsByUIDs(ctx, []string{uid})
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &uid,
+			Operation: "update",
+		}, err)
+		return domainerrors.ErrGroupUpdateFailed
+	}
 
-	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
+	id, exists := ids[uid]
+	if !exists {
+		err := domainerrors.ErrGroupNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
+			UID:       &uid,
+			Operation: "update",
+		}, err)
+		return err
+	}
+
+	var group *model.Group
+	err = s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		var errUoW error
 		repo := r.Group()
 
-		// Get existing
-		group, errUoW = repo.GetByUID(ctx, uid)
+		// Get existing by ID
+		group, errUoW = repo.GetByID(ctx, id)
 		if errUoW != nil {
-			return fmt.Errorf("failed to get group: %w", errUoW)
+			return errUoW
 		}
 
 		// Update fields
@@ -100,13 +172,27 @@ func (s *groupService) Update(ctx context.Context, uid string, p param.GroupUpda
 
 		// Persist
 		if err := repo.Update(ctx, group); err != nil {
-			return fmt.Errorf("failed to update group: %w", err)
+			return err
 		}
 		return nil
 	})
 
 	if err != nil {
-		return err
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &uid,
+			Operation: "update",
+		}, err)
+		return domainerrors.ErrGroupUpdateFailed
+	}
+
+	// Invalidate resolver cache
+	if invErr := s.resolvers.Group().Invalidate(ctx, resolver.WithUIDs(uid)); invErr != nil {
+		// Note: We don't fail the operation since the primary operation succeeded.
+		// The cache invalidation error is logged via observer for observability.
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &uid,
+			Operation: "cache_invalidate",
+		}, invErr)
 	}
 
 	s.publisher.Publish(ctx, event.EventGroupUpdate, &event.EventGroupUpdateData{
@@ -115,152 +201,345 @@ func (s *groupService) Update(ctx context.Context, uid string, p param.GroupUpda
 		Description: group.Description,
 		UpdatedAt:   group.UpdatedAt,
 	})
+
+	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalGroup{
+		UID:       &uid,
+		Name:      &group.Name,
+		Operation: "update",
+	}, nil)
+
 	return nil
 }
 
 func (s *groupService) Delete(ctx context.Context, uid string) error {
-	var group *model.Group
+	// Resolve UID before transaction
+	ids, err := s.resolvers.Group().IDsByUIDs(ctx, []string{uid})
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &uid,
+			Operation: "delete",
+		}, err)
+		return domainerrors.ErrGroupDeleteFailed
+	}
 
-	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
+	id, exists := ids[uid]
+	if !exists {
+		err := domainerrors.ErrGroupNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
+			UID:       &uid,
+			Operation: "delete",
+		}, err)
+		return err
+	}
+
+	var group *model.Group
+	err = s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		repo := r.Group()
 
 		// Get existing for event
 		var errUoW error
-		group, errUoW = repo.GetByUID(ctx, uid)
+		group, errUoW = repo.GetByID(ctx, id)
 		if errUoW != nil {
-			return fmt.Errorf("failed to get group: %w", errUoW)
+			return errUoW
 		}
 
 		// Delete
-		if err := repo.Delete(ctx, group.ID); err != nil {
-			return fmt.Errorf("failed to delete group: %w", err)
+		if err := repo.Delete(ctx, id); err != nil {
+			return err
 		}
 		return nil
 	})
 
 	if err != nil {
-		return err
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &uid,
+			Operation: "delete",
+		}, err)
+		return domainerrors.ErrGroupDeleteFailed
+	}
+
+	// Invalidate resolver cache
+	if invErr := s.resolvers.Group().Invalidate(ctx, resolver.WithUIDs(uid)); invErr != nil {
+		// Note: We don't fail the operation since the primary operation succeeded.
+		// The cache invalidation error is logged via observer for observability.
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &uid,
+			Operation: "cache_invalidate",
+		}, invErr)
 	}
 
 	s.publisher.Publish(ctx, event.EventGroupDelete, &event.EventGroupDeleteData{
 		UID: group.UID,
 	})
+
+	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalGroup{
+		UID:       &uid,
+		Name:      &group.Name,
+		Operation: "delete",
+	}, nil)
+
 	return nil
 }
 
 func (s *groupService) AssignPermission(ctx context.Context, groupUID string, permissionUID string) error {
+	// Resolve group UID
+	groupIDs, err := s.resolvers.Group().IDsByUIDs(ctx, []string{groupUID})
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &groupUID,
+			Operation: "assign_permission",
+		}, err)
+		return domainerrors.ErrGroupPermissionAssignFailed
+	}
+
+	groupID, exists := groupIDs[groupUID]
+	if !exists {
+		err := domainerrors.ErrGroupNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
+			UID:       &groupUID,
+			Operation: "assign_permission",
+		}, err)
+		return err
+	}
+
+	// Resolve permission UID
+	permIDs, err := s.resolvers.Permission().IDsByUIDs(ctx, []string{permissionUID})
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &groupUID,
+			Operation: "assign_permission",
+		}, err)
+		return domainerrors.ErrGroupPermissionAssignFailed
+	}
+
+	permissionID, exists := permIDs[permissionUID]
+	if !exists {
+		err := domainerrors.ErrPermissionNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
+			UID:       &groupUID,
+			Operation: "assign_permission",
+		}, err)
+		return err
+	}
+
+	// Generate UID for group permission
+	groupPermUID := s.uidGenerator.New()
+
+	// Get group and permission for event
 	var group *model.Group
 	var permission *model.Permission
-
-	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
+	err = s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		var errUoW error
-		// Get group
-		group, errUoW = r.Group().GetByUID(ctx, groupUID)
+		group, errUoW = r.Group().GetByID(ctx, groupID)
 		if errUoW != nil {
-			return fmt.Errorf("failed to get group: %w", errUoW)
+			return errUoW
 		}
 
-		// Get permission
-		permission, errUoW = r.Permission().GetByUID(ctx, permissionUID)
+		permission, errUoW = r.Permission().GetByID(ctx, permissionID)
 		if errUoW != nil {
-			return fmt.Errorf("failed to get permission: %w", errUoW)
+			return errUoW
 		}
-
-		// Generate UID for group permission
-		groupPermUID := s.uidGenerator.New()
 
 		// Assign
-		if err := r.Group().AddPermission(ctx, group.ID, permission.ID, groupPermUID); err != nil {
-			return fmt.Errorf("failed to assign permission: %w", err)
+		if err := r.Group().AddPermission(ctx, groupID, permissionID, groupPermUID); err != nil {
+			return err
 		}
 		return nil
 	})
 
 	if err != nil {
-		return err
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &groupUID,
+			Operation: "assign_permission",
+		}, err)
+		return domainerrors.ErrGroupPermissionAssignFailed
 	}
 
 	s.publisher.Publish(ctx, event.EventGroupAssignPermission, &event.EventGroupAssignPermissionData{
 		GroupUID:      group.UID,
 		PermissionUID: permission.UID,
 	})
+
+	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalGroup{
+		UID:       &groupUID,
+		Name:      &group.Name,
+		Operation: "assign_permission",
+	}, nil)
+
 	return nil
 }
 
 func (s *groupService) RevokePermission(ctx context.Context, groupUID string, permissionUID string) error {
+	// Resolve group UID
+	groupIDs, err := s.resolvers.Group().IDsByUIDs(ctx, []string{groupUID})
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &groupUID,
+			Operation: "revoke_permission",
+		}, err)
+		return domainerrors.ErrGroupPermissionRevokeFailed
+	}
+
+	groupID, exists := groupIDs[groupUID]
+	if !exists {
+		err := domainerrors.ErrGroupNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
+			UID:       &groupUID,
+			Operation: "revoke_permission",
+		}, err)
+		return err
+	}
+
+	// Resolve permission UID
+	permIDs, err := s.resolvers.Permission().IDsByUIDs(ctx, []string{permissionUID})
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &groupUID,
+			Operation: "revoke_permission",
+		}, err)
+		return domainerrors.ErrGroupPermissionRevokeFailed
+	}
+
+	permissionID, exists := permIDs[permissionUID]
+	if !exists {
+		err := domainerrors.ErrPermissionNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
+			UID:       &groupUID,
+			Operation: "revoke_permission",
+		}, err)
+		return err
+	}
+
+	// Get group and permission for event
 	var group *model.Group
 	var permission *model.Permission
-
-	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
+	err = s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		var errUoW error
-		// Get group
-		group, errUoW = r.Group().GetByUID(ctx, groupUID)
+		group, errUoW = r.Group().GetByID(ctx, groupID)
 		if errUoW != nil {
-			return fmt.Errorf("failed to get group: %w", errUoW)
+			return errUoW
 		}
 
-		// Get permission
-		permission, errUoW = r.Permission().GetByUID(ctx, permissionUID)
+		permission, errUoW = r.Permission().GetByID(ctx, permissionID)
 		if errUoW != nil {
-			return fmt.Errorf("failed to get permission: %w", errUoW)
+			return errUoW
 		}
 
 		// Revoke
-		if err := r.Group().RemovePermission(ctx, group.ID, permission.ID); err != nil {
-			return fmt.Errorf("failed to revoke permission: %w", err)
+		if err := r.Group().RemovePermission(ctx, groupID, permissionID); err != nil {
+			return err
 		}
 		return nil
 	})
 
 	if err != nil {
-		return err
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &groupUID,
+			Operation: "revoke_permission",
+		}, err)
+		return domainerrors.ErrGroupPermissionRevokeFailed
 	}
 
 	s.publisher.Publish(ctx, event.EventGroupRevokePermission, &event.EventGroupRevokePermissionData{
 		GroupUID:      group.UID,
 		PermissionUID: permission.UID,
 	})
+
+	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalGroup{
+		UID:       &groupUID,
+		Name:      &group.Name,
+		Operation: "revoke_permission",
+	}, nil)
+
 	return nil
 }
 
 func (s *groupService) UpdatePermission(ctx context.Context, groupUID string, permissionUIDs []string) error {
-	var group *model.Group
+	// Resolve group UID
+	groupIDs, err := s.resolvers.Group().IDsByUIDs(ctx, []string{groupUID})
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &groupUID,
+			Operation: "update_permission",
+		}, err)
+		return domainerrors.ErrGroupPermissionUpdateFailed
+	}
 
-	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
-		var errUoW error
-		// Get group
-		group, errUoW = r.Group().GetByUID(ctx, groupUID)
-		if errUoW != nil {
-			return fmt.Errorf("failed to get group: %w", errUoW)
+	groupID, exists := groupIDs[groupUID]
+	if !exists {
+		err := domainerrors.ErrGroupNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
+			UID:       &groupUID,
+			Operation: "update_permission",
+		}, err)
+		return err
+	}
+
+	// Batch resolve permission UIDs
+	permIDs, err := s.resolvers.Permission().IDsByUIDs(ctx, permissionUIDs)
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &groupUID,
+			Operation: "update_permission",
+		}, err)
+		return domainerrors.ErrGroupPermissionUpdateFailed
+	}
+
+	// Validate all permissions exist and build ID slice
+	permissionIDs := make([]int64, 0, len(permissionUIDs))
+	for _, uid := range permissionUIDs {
+		id, exists := permIDs[uid]
+		if !exists {
+			err := domainerrors.ErrPermissionNotFound
+			s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
+				UID:       &groupUID,
+				Operation: "update_permission",
+			}, err)
+			return err
 		}
+		permissionIDs = append(permissionIDs, id)
+	}
 
-		// Get all permission IDs and generate UIDs for each
-		permissionIDs := make([]int64, 0, len(permissionUIDs))
-		groupPermUIDs := make([]string, 0, len(permissionUIDs))
-		for _, uid := range permissionUIDs {
-			permission, err := r.Permission().GetByUID(ctx, uid)
-			if err != nil {
-				return fmt.Errorf("failed to get permission %s: %w", uid, err)
-			}
-			permissionIDs = append(permissionIDs, permission.ID)
-			groupPermUIDs = append(groupPermUIDs, s.uidGenerator.New())
+	// Generate UIDs
+	groupPermUIDs := make([]string, len(permissionUIDs))
+	for i := range permissionUIDs {
+		groupPermUIDs[i] = s.uidGenerator.New()
+	}
+
+	var group *model.Group
+	err = s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
+		var errUoW error
+		group, errUoW = r.Group().GetByID(ctx, groupID)
+		if errUoW != nil {
+			return errUoW
 		}
 
 		// Replace permissions
-		if err := r.Group().ReplacePermission(ctx, group.ID, permissionIDs, groupPermUIDs); err != nil {
-			return fmt.Errorf("failed to replace permissions: %w", err)
+		if err := r.Group().ReplacePermission(ctx, groupID, permissionIDs, groupPermUIDs); err != nil {
+			return err
 		}
 		return nil
 	})
 
 	if err != nil {
-		return err
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &groupUID,
+			Operation: "update_permission",
+		}, err)
+		return domainerrors.ErrGroupPermissionUpdateFailed
 	}
 
 	s.publisher.Publish(ctx, event.EventGroupUpdatePermission, &event.EventGroupUpdatePermissionData{
 		GroupUID: group.UID,
 		UIDs:     permissionUIDs,
 	})
+
+	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalGroup{
+		UID:       &groupUID,
+		Name:      &group.Name,
+		Operation: "update_permission",
+	}, nil)
+
 	return nil
 }
 

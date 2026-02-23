@@ -18,3 +18,14 @@ type PermissionService interface {
 	Update(ctx context.Context, uid string, param param.PermissionUpdateParam) error
 	Delete(ctx context.Context, uid string) error
 }
+
+// Constructor signature for PermissionService implementations:
+// func NewPermissionService(
+//     uow repository.UnitOfWork,
+//     repos repository.RepositoryProvider,
+//     publisher event.EventPublisher,
+//     uidGenerator security.UIDGenerator,
+//     resolverProvider resolver.ResolverProvider,
+//     obs observer.ServiceObserver[signal.SignalPermission],
+// ) PermissionService
+

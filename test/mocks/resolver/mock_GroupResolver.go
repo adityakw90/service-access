@@ -5,6 +5,7 @@ package mocks
 import (
 	context "context"
 
+	portResolver "github.com/adityakw90/service-access/internal/core/port/resolver"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -135,6 +136,63 @@ func (_c *MockGroupResolver_UIDsByIDs_Call) Return(_a0 map[int64]string, _a1 err
 }
 
 func (_c *MockGroupResolver_UIDsByIDs_Call) RunAndReturn(run func(context.Context, []int64) (map[int64]string, error)) *MockGroupResolver_UIDsByIDs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Invalidate provides a mock function with given fields: ctx, opts
+func (_m *MockGroupResolver) Invalidate(ctx context.Context, opts ...portResolver.InvalidateOpt) error {
+	ret := _m.Called(ctx, opts)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Invalidate")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []portResolver.InvalidateOpt) error); ok {
+		return rf(ctx, opts)
+	}
+	if rf, ok := ret.Get(0).(func(...portResolver.InvalidateOpt) error); ok {
+		return rf(opts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(error)
+		}
+	}
+
+	return r0
+}
+
+// MockGroupResolver_Invalidate_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Invalidate'
+type MockGroupResolver_Invalidate_Call struct {
+	*mock.Call
+}
+
+// Invalidate is a helper method to define mock.On call
+//   - ctx context.Context
+//   - opts ...portResolver.InvalidateOpt
+func (_e *MockGroupResolver_Expecter) Invalidate(ctx interface{}, opts ...interface{}) *MockGroupResolver_Invalidate_Call {
+	var _ca []interface{} = append([]interface{}{ctx}, opts...)
+	return &MockGroupResolver_Invalidate_Call{Call: _e.mock.On("Invalidate", _ca...)}
+}
+
+func (_c *MockGroupResolver_Invalidate_Call) Run(run func(ctx context.Context, opts []portResolver.InvalidateOpt)) *MockGroupResolver_Invalidate_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		optsArg := make([]portResolver.InvalidateOpt, 0, len(args)-1)
+		for i := 1; i < len(args); i++ {
+			optsArg = append(optsArg, args[i].(portResolver.InvalidateOpt))
+		}
+		run(args[0].(context.Context), optsArg)
+	})
+	return _c
+}
+
+func (_c *MockGroupResolver_Invalidate_Call) Return(_a0 error) *MockGroupResolver_Invalidate_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockGroupResolver_Invalidate_Call) RunAndReturn(run func(context.Context, []portResolver.InvalidateOpt) error) *MockGroupResolver_Invalidate_Call {
 	_c.Call.Return(run)
 	return _c
 }

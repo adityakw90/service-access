@@ -1,5 +1,6 @@
 package errors
 
+// GroupPermission-related errors (23xxx range)
 var (
-	ErrGroupPermissionNotFound = NewCustomError(20004, "group_permission not found", nil)
+	ErrGroupPermissionNotFound = NewCustomError(23008, "group_permission not found", nil)
 )

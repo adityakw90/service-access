@@ -3,11 +3,15 @@ package integration
 import (
 	"context"
 	"testing"
+	"time"
 
+	"github.com/adityakw90/service-access/internal/adapter/observer"
 	"github.com/adityakw90/service-access/internal/adapter/publisher"
+	adapterResolver "github.com/adityakw90/service-access/internal/adapter/resolver"
 	"github.com/adityakw90/service-access/internal/adapter/repository"
 	"github.com/adityakw90/service-access/internal/adapter/security"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
+	"github.com/adityakw90/service-access/internal/core/domain/signal"
 	"github.com/adityakw90/service-access/internal/core/service"
 	testutil "github.com/adityakw90/service-access/test/util"
 	"github.com/stretchr/testify/assert"
@@ -24,6 +28,10 @@ func TestIntegration_GroupService_Create(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to connect to test postgres: %v", err)
 	}
+	redisClient, err := testutil.NewTestRedisConnection(t, ctx, cfg)
+	if err != nil {
+		t.Fatalf("failed to connect to test redis: %v", err)
+	}
 
 	uow := repository.NewUnitOfWork(db)
 	repos := repository.NewRepositoryProvider(db)
@@ -31,7 +39,15 @@ func TestIntegration_GroupService_Create(t *testing.T) {
 	// Create a mock publisher for testing
 	noopPublisher := publisher.NewNoOpPublisher()
 	uidGenerator := security.NewUIDGenerator()
-	groupService := service.NewGroupService(uow, repos, noopPublisher, uidGenerator)
+
+	// Create resolver provider with 5 minute TTL
+	resolverProvider := adapterResolver.NewResolverProvider(db, redisClient, "service-access", 5*time.Minute, nil, nil)
+
+	// Create noop observer
+	groupObserver := observer.NewNoopObserver[signal.SignalGroup]()
+
+	// Create service with all dependencies
+	groupService := service.NewGroupService(uow, repos, noopPublisher, uidGenerator, resolverProvider, groupObserver)
 
 	// Test: create group
 	group, err := groupService.Create(ctx, param.GroupCreateParam{
@@ -43,3 +59,4 @@ func TestIntegration_GroupService_Create(t *testing.T) {
 	assert.NotEmpty(t, group.UID)
 	assert.Equal(t, "test-group", group.Name)
 }
+

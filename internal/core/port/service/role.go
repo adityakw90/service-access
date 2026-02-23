@@ -24,3 +24,14 @@ type RoleService interface {
 	AssignPermission(ctx context.Context, roleUID string, permissionUID string) error
 	RevokePermission(ctx context.Context, roleUID string, permissionUID string) error
 }
+
+// Constructor signature for RoleService implementations:
+// func NewRoleService(
+//     uow repository.UnitOfWork,
+//     repos repository.RepositoryProvider,
+//     publisher event.EventPublisher,
+//     uidGenerator security.UIDGenerator,
+//     resolverProvider resolver.ResolverProvider,
+//     obs observer.ServiceObserver[signal.SignalRole],
+// ) RoleService
+

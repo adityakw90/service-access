@@ -325,3 +325,57 @@ func (r *permissionResolver) fetchUIDFromDB(ctx context.Context, id int64) (*per
 
 	return &iden, nil
 }
+
+func (r *permissionResolver) Invalidate(ctx context.Context, opts ...portResolver.InvalidateOpt) error {
+	// Parse options
+	options := &portResolver.InvalidateOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	if len(options.UIDs) == 0 && len(options.IDs) == 0 {
+		return nil
+	}
+
+	// Build all keys to delete - both forward (uid->id) and reverse (id->uid) mappings
+	keysToDelete := make([]string, 0, (len(options.UIDs)+len(options.IDs))*2)
+
+	// Process UIDs - delete forward mapping and look up reverse mapping
+	for _, uid := range options.UIDs {
+		uidKey := r.redisPrefix + ":" + uid + ":id"
+		keysToDelete = append(keysToDelete, uidKey)
+
+		// Try to get the ID from cache to build the reverse key
+		idStr, err := r.redisClient.Get(ctx, uidKey).Result()
+		if err == nil && idStr != "" {
+			// ID exists in cache, also delete the reverse mapping key
+			idKey := r.redisPrefix + ":id:" + idStr + ":uid"
+			keysToDelete = append(keysToDelete, idKey)
+		}
+		// If ID not in cache or GET failed, that's okay - the reverse key either
+		// doesn't exist or will expire naturally
+	}
+
+	// Process IDs - delete reverse mapping and look up forward mapping
+	for _, id := range options.IDs {
+		idStr := strconv.FormatInt(id, 10)
+		idKey := r.redisPrefix + ":id:" + idStr + ":uid"
+		keysToDelete = append(keysToDelete, idKey)
+
+		// Try to get the UID from cache to build the forward key
+		uidStr, err := r.redisClient.Get(ctx, idKey).Result()
+		if err == nil && uidStr != "" {
+			// UID exists in cache, also delete the forward mapping key
+			uidKey := r.redisPrefix + ":" + uidStr + ":id"
+			keysToDelete = append(keysToDelete, uidKey)
+		}
+		// If UID not in cache or GET failed, that's okay - the forward key either
+		// doesn't exist or will expire naturally
+	}
+
+	if len(keysToDelete) == 0 {
+		return nil
+	}
+
+	return r.redisClient.Del(ctx, keysToDelete...).Err()
+}
