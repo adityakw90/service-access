@@ -1,10 +1,11 @@
 package errors
 
 var (
-	ErrRoleNotFound = NewCustomError(20003, "role not found", nil)
+	// Role not found error (21xxx range)
+	ErrRoleNotFound = NewCustomError(21001, "role not found", nil)
 
-	// Role operation errors
-	ErrRoleGetFailed    = NewCustomError(20401, "failed to get role", nil)
-	ErrRoleUpdateFailed = NewCustomError(20402, "failed to update role", nil)
-	ErrRoleDeleteFailed = NewCustomError(20403, "failed to delete role", nil)
+	// Role operation errors (21xxx range)
+	ErrRoleGetFailed    = NewCustomError(21002, "failed to get role", nil)
+	ErrRoleUpdateFailed = NewCustomError(21003, "failed to update role", nil)
+	ErrRoleDeleteFailed = NewCustomError(21004, "failed to delete role", nil)
 )
