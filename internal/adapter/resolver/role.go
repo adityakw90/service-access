@@ -7,6 +7,7 @@ import (
 	"time"
 
 	monitoring "github.com/adityakw90/go-monitoring"
+	"github.com/adityakw90/service-access/internal/core/domain/param"
 	domainerrors "github.com/adityakw90/service-access/internal/core/domain/errors"
 	portResolver "github.com/adityakw90/service-access/internal/core/port/resolver"
 	"github.com/redis/go-redis/v9"
@@ -187,9 +188,9 @@ func (r *roleResolver) fetchUIDFromDB(ctx context.Context, id int64) (*roleIdent
 	return &iden, nil
 }
 
-func (r *roleResolver) Invalidate(ctx context.Context, opts ...portResolver.InvalidateOpt) error {
+func (r *roleResolver) Invalidate(ctx context.Context, opts ...param.InvalidateOpt) error {
 	// Parse options
-	options := &portResolver.InvalidateOptions{}
+	options := &param.InvalidateOptions{}
 	for _, opt := range opts {
 		opt(options)
 	}

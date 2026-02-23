@@ -101,7 +101,7 @@ func (s *permissionService) Get(ctx context.Context, uid string) (*model.Permiss
 		// Check if it's a not-found error - if so, we have a stale cache entry
 		if errors.Is(err, domainerrors.ErrPermissionNotFound) {
 			// Invalidate the stale resolver mapping
-			if invErr := s.resolvers.Permission().Invalidate(ctx, resolver.WithUIDs(uid)); invErr != nil {
+			if invErr := s.resolvers.Permission().Invalidate(ctx, param.WithUIDs(uid)); invErr != nil {
 				s.observer.OnSignal(ctx, signal.SignalError, signal.SignalPermission{
 					UID:       &uid,
 					Operation: "cache_invalidate",
@@ -197,7 +197,7 @@ func (s *permissionService) Update(ctx context.Context, uid string, p param.Perm
 	}
 
 	// Invalidate resolver cache
-	if invErr := s.resolvers.Permission().Invalidate(ctx, resolver.WithUIDs(uid)); invErr != nil {
+	if invErr := s.resolvers.Permission().Invalidate(ctx, param.WithUIDs(uid)); invErr != nil {
 		// Note: We don't fail the operation since the primary operation succeeded.
 		// The cache invalidation error is logged via observer for observability.
 		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalPermission{
@@ -270,7 +270,7 @@ func (s *permissionService) Delete(ctx context.Context, uid string) error {
 	}
 
 	// Invalidate resolver cache
-	if invErr := s.resolvers.Permission().Invalidate(ctx, resolver.WithUIDs(uid)); invErr != nil {
+	if invErr := s.resolvers.Permission().Invalidate(ctx, param.WithUIDs(uid)); invErr != nil {
 		// Note: We don't fail the operation since the primary operation succeeded.
 		// The cache invalidation error is logged via observer for observability.
 		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalPermission{

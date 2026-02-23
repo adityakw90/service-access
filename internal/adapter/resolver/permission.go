@@ -326,9 +326,9 @@ func (r *permissionResolver) fetchUIDFromDB(ctx context.Context, id int64) (*per
 	return &iden, nil
 }
 
-func (r *permissionResolver) Invalidate(ctx context.Context, opts ...portResolver.InvalidateOpt) error {
+func (r *permissionResolver) Invalidate(ctx context.Context, opts ...param.InvalidateOpt) error {
 	// Parse options
-	options := &portResolver.InvalidateOptions{}
+	options := &param.InvalidateOptions{}
 	for _, opt := range opts {
 		opt(options)
 	}
