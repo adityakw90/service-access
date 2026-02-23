@@ -187,15 +187,22 @@ func (r *groupResolver) fetchUIDFromDB(ctx context.Context, id int64) (*groupIde
 	return &iden, nil
 }
 
-func (r *groupResolver) Invalidate(ctx context.Context, uids ...string) error {
-	if len(uids) == 0 {
+func (r *groupResolver) Invalidate(ctx context.Context, opts ...portResolver.InvalidateOpt) error {
+	// Parse options
+	options := &portResolver.InvalidateOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	if len(options.UIDs) == 0 && len(options.IDs) == 0 {
 		return nil
 	}
 
 	// Build all keys to delete - both forward (uid->id) and reverse (id->uid) mappings
-	keysToDelete := make([]string, 0, len(uids)*2)
+	keysToDelete := make([]string, 0, (len(options.UIDs)+len(options.IDs))*2)
 
-	for _, uid := range uids {
+	// Process UIDs - delete forward mapping and look up reverse mapping
+	for _, uid := range options.UIDs {
 		uidKey := r.redisPrefix + ":" + uid + ":id"
 		keysToDelete = append(keysToDelete, uidKey)
 
@@ -210,18 +217,8 @@ func (r *groupResolver) Invalidate(ctx context.Context, uids ...string) error {
 		// doesn't exist or will expire naturally
 	}
 
-	return r.redisClient.Del(ctx, keysToDelete...).Err()
-}
-
-func (r *groupResolver) InvalidateByIDs(ctx context.Context, ids ...int64) error {
-	if len(ids) == 0 {
-		return nil
-	}
-
-	// Build all keys to delete - both forward (uid->id) and reverse (id->uid) mappings
-	keysToDelete := make([]string, 0, len(ids)*2)
-
-	for _, id := range ids {
+	// Process IDs - delete reverse mapping and look up forward mapping
+	for _, id := range options.IDs {
 		idStr := strconv.FormatInt(id, 10)
 		idKey := r.redisPrefix + ":id:" + idStr + ":uid"
 		keysToDelete = append(keysToDelete, idKey)
@@ -235,6 +232,10 @@ func (r *groupResolver) InvalidateByIDs(ctx context.Context, ids ...int64) error
 		}
 		// If UID not in cache or GET failed, that's okay - the forward key either
 		// doesn't exist or will expire naturally
+	}
+
+	if len(keysToDelete) == 0 {
+		return nil
 	}
 
 	return r.redisClient.Del(ctx, keysToDelete...).Err()

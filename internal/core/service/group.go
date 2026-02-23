@@ -97,7 +97,7 @@ func (s *groupService) Get(ctx context.Context, uid string) (*model.Group, error
 		// Check if it's a not-found error - if so, we have a stale cache entry
 		if errors.Is(err, domainerrors.ErrGroupNotFound) {
 			// Invalidate the stale resolver mapping
-			_ = s.resolvers.Group().Invalidate(ctx, uid)
+			_ = s.resolvers.Group().Invalidate(ctx, resolver.WithUIDs(uid))
 
 			s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
 				UID:       &uid,
@@ -186,7 +186,7 @@ func (s *groupService) Update(ctx context.Context, uid string, p param.GroupUpda
 	}
 
 	// Invalidate resolver cache
-	if invErr := s.resolvers.Group().Invalidate(ctx, uid); invErr != nil {
+	if invErr := s.resolvers.Group().Invalidate(ctx, resolver.WithUIDs(uid)); invErr != nil {
 		// Note: We don't fail the operation since the primary operation succeeded.
 		// The cache invalidation error is logged via observer for observability.
 		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
@@ -259,7 +259,7 @@ func (s *groupService) Delete(ctx context.Context, uid string) error {
 	}
 
 	// Invalidate resolver cache
-	if invErr := s.resolvers.Group().Invalidate(ctx, uid); invErr != nil {
+	if invErr := s.resolvers.Group().Invalidate(ctx, resolver.WithUIDs(uid)); invErr != nil {
 		// Note: We don't fail the operation since the primary operation succeeded.
 		// The cache invalidation error is logged via observer for observability.
 		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
