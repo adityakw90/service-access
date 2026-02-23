@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	domainerrors "github.com/adityakw90/service-access/internal/core/domain/errors"
@@ -97,6 +98,18 @@ func (s *permissionService) Get(ctx context.Context, uid string) (*model.Permiss
 
 	permission, err := s.repos.Permission().GetByID(ctx, id)
 	if err != nil {
+		// Check if it's a not-found error - if so, we have a stale cache entry
+		if errors.Is(err, domainerrors.ErrPermissionNotFound) {
+			// Invalidate the stale resolver mapping
+			_ = s.resolvers.Permission().Invalidate(ctx, uid)
+
+			s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalPermission{
+				UID:       &uid,
+				Operation: "get",
+			}, err)
+			return nil, err
+		}
+
 		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalPermission{
 			UID:       &uid,
 			Operation: "get",
