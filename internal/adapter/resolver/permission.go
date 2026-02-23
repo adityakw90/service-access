@@ -331,10 +331,23 @@ func (r *permissionResolver) Invalidate(ctx context.Context, uids ...string) err
 		return nil
 	}
 
-	keys := make([]string, len(uids))
-	for i, uid := range uids {
-		keys[i] = r.redisPrefix + ":" + uid + ":id"
+	// Build all keys to delete - both forward (uid->id) and reverse (id->uid) mappings
+	keysToDelete := make([]string, 0, len(uids)*2)
+
+	for _, uid := range uids {
+		uidKey := r.redisPrefix + ":" + uid + ":id"
+		keysToDelete = append(keysToDelete, uidKey)
+
+		// Try to get the ID from cache to build the reverse key
+		idStr, err := r.redisClient.Get(ctx, uidKey).Result()
+		if err == nil && idStr != "" {
+			// ID exists in cache, also delete the reverse mapping key
+			idKey := r.redisPrefix + ":id:" + idStr + ":uid"
+			keysToDelete = append(keysToDelete, idKey)
+		}
+		// If ID not in cache or GET failed, that's okay - the reverse key either
+		// doesn't exist or will expire naturally
 	}
 
-	return r.redisClient.Del(ctx, keys...).Err()
+	return r.redisClient.Del(ctx, keysToDelete...).Err()
 }
