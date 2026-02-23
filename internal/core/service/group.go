@@ -186,7 +186,14 @@ func (s *groupService) Update(ctx context.Context, uid string, p param.GroupUpda
 	}
 
 	// Invalidate resolver cache
-	_ = s.resolvers.Group().Invalidate(ctx, uid)
+	if invErr := s.resolvers.Group().Invalidate(ctx, uid); invErr != nil {
+		// Note: We don't fail the operation since the primary operation succeeded.
+		// The cache invalidation error is logged via observer for observability.
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &uid,
+			Operation: "cache_invalidate",
+		}, invErr)
+	}
 
 	s.publisher.Publish(ctx, event.EventGroupUpdate, &event.EventGroupUpdateData{
 		UID:         group.UID,
@@ -252,7 +259,14 @@ func (s *groupService) Delete(ctx context.Context, uid string) error {
 	}
 
 	// Invalidate resolver cache
-	_ = s.resolvers.Group().Invalidate(ctx, uid)
+	if invErr := s.resolvers.Group().Invalidate(ctx, uid); invErr != nil {
+		// Note: We don't fail the operation since the primary operation succeeded.
+		// The cache invalidation error is logged via observer for observability.
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+			UID:       &uid,
+			Operation: "cache_invalidate",
+		}, invErr)
+	}
 
 	s.publisher.Publish(ctx, event.EventGroupDelete, &event.EventGroupDeleteData{
 		UID: group.UID,

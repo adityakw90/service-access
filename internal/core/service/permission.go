@@ -101,7 +101,13 @@ func (s *permissionService) Get(ctx context.Context, uid string) (*model.Permiss
 		// Check if it's a not-found error - if so, we have a stale cache entry
 		if errors.Is(err, domainerrors.ErrPermissionNotFound) {
 			// Invalidate the stale resolver mapping
-			_ = s.resolvers.Permission().Invalidate(ctx, uid)
+			if invErr := s.resolvers.Permission().Invalidate(ctx, uid); invErr != nil {
+				s.observer.OnSignal(ctx, signal.SignalError, signal.SignalPermission{
+					UID:       &uid,
+					Operation: "cache_invalidate",
+				}, invErr)
+				// Continue and return not found even if invalidate fails
+			}
 
 			s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalPermission{
 				UID:       &uid,
@@ -191,7 +197,14 @@ func (s *permissionService) Update(ctx context.Context, uid string, p param.Perm
 	}
 
 	// Invalidate resolver cache
-	_ = s.resolvers.Permission().Invalidate(ctx, uid)
+	if invErr := s.resolvers.Permission().Invalidate(ctx, uid); invErr != nil {
+		// Note: We don't fail the operation since the primary operation succeeded.
+		// The cache invalidation error is logged via observer for observability.
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalPermission{
+			UID:       &uid,
+			Operation: "cache_invalidate",
+		}, invErr)
+	}
 
 	s.publisher.Publish(ctx, event.EventPermissionUpdate, &event.EventPermissionUpdateData{
 		UID:         permission.UID,
@@ -257,7 +270,14 @@ func (s *permissionService) Delete(ctx context.Context, uid string) error {
 	}
 
 	// Invalidate resolver cache
-	_ = s.resolvers.Permission().Invalidate(ctx, uid)
+	if invErr := s.resolvers.Permission().Invalidate(ctx, uid); invErr != nil {
+		// Note: We don't fail the operation since the primary operation succeeded.
+		// The cache invalidation error is logged via observer for observability.
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalPermission{
+			UID:       &uid,
+			Operation: "cache_invalidate",
+		}, invErr)
+	}
 
 	s.publisher.Publish(ctx, event.EventPermissionDelete, &event.EventPermissionDeleteData{
 		UID: permission.UID,

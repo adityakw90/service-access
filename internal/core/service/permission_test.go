@@ -7,8 +7,11 @@ import (
 
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
+	"github.com/adityakw90/service-access/internal/core/domain/signal"
+	adapterobserver "github.com/adityakw90/service-access/internal/adapter/observer"
 	"github.com/adityakw90/service-access/internal/core/port/repository"
 	repomocks "github.com/adityakw90/service-access/test/mocks/repository"
+	resolvermocks "github.com/adityakw90/service-access/test/mocks/resolver"
 	securitymocks "github.com/adityakw90/service-access/test/mocks/security"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -115,10 +118,12 @@ func TestPermissionService_Create(t *testing.T) {
 			mockRepos := repomocks.NewMockRepositoryProvider(t)
 			mockPublisher := &mockPublisher{}
 			mockUIDGenerator := securitymocks.NewMockUIDGenerator(t)
+			mockResolverProvider := resolvermocks.NewMockResolverProvider(t)
+			mockObserver := adapterobserver.NewNoopObserver[signal.SignalPermission]()
 
 			tt.setup(mockUoW, mockRepos, mockUIDGenerator)
 
-			service := NewPermissionService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator)
+			service := NewPermissionService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, mockObserver)
 			got, err := service.Create(context.Background(), tt.param)
 
 			if tt.wantErr {
@@ -154,7 +159,7 @@ func TestPermissionService_Get(t *testing.T) {
 			name: "Happy Path",
 			setup: func(p *repomocks.MockRepositoryProvider) {
 				mockPermRepo := &mockPermissionRepository{}
-				mockPermRepo.On("GetByUID", mock.Anything, "test-uid").Return(&model.Permission{
+				mockPermRepo.On("GetByID", mock.Anything, int64(1)).Return(&model.Permission{
 					ID:          1,
 					UID:         "test-uid",
 					Resource:    "articles",
@@ -177,7 +182,7 @@ func TestPermissionService_Get(t *testing.T) {
 			name: "Not Found",
 			setup: func(p *repomocks.MockRepositoryProvider) {
 				mockPermRepo := &mockPermissionRepository{}
-				mockPermRepo.On("GetByUID", mock.Anything, "not-found").Return(nil, errors.New("permission not found"))
+				mockPermRepo.On("GetByID", mock.Anything, int64(1)).Return(nil, errors.New("permission not found"))
 				p.On("Permission").Return(mockPermRepo)
 			},
 			uid:     "not-found",
@@ -192,10 +197,17 @@ func TestPermissionService_Get(t *testing.T) {
 			mockRepos := repomocks.NewMockRepositoryProvider(t)
 			mockPublisher := &mockPublisher{}
 			mockUIDGenerator := securitymocks.NewMockUIDGenerator(t)
+			mockResolverProvider := resolvermocks.NewMockResolverProvider(t)
+			mockObserver := adapterobserver.NewNoopObserver[signal.SignalPermission]()
+
+			// Set up resolver mock
+			mockPermissionResolver := resolvermocks.NewMockPermissionResolver(t)
+			mockPermissionResolver.On("IDsByUIDs", mock.Anything, []string{tt.uid}).Return(map[string]int64{tt.uid: 1}, nil)
+			mockResolverProvider.On("Permission").Return(mockPermissionResolver)
 
 			tt.setup(mockRepos)
 
-			service := NewPermissionService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator)
+			service := NewPermissionService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, mockObserver)
 			got, err := service.Get(context.Background(), tt.uid)
 
 			if tt.wantErr {
@@ -241,10 +253,12 @@ func TestPermissionService_List(t *testing.T) {
 			mockRepos := repomocks.NewMockRepositoryProvider(t)
 			mockPublisher := &mockPublisher{}
 			mockUIDGenerator := securitymocks.NewMockUIDGenerator(t)
+			mockResolverProvider := resolvermocks.NewMockResolverProvider(t)
+			mockObserver := adapterobserver.NewNoopObserver[signal.SignalPermission]()
 
 			tt.setup(mockRepos)
 
-			service := NewPermissionService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator)
+			service := NewPermissionService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, mockObserver)
 			got, err := service.List(context.Background(), nil, nil)
 
 			if tt.wantErr {
