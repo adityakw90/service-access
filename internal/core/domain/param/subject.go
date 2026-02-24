@@ -1,5 +1,17 @@
 package param
 
+type SubjectAssignRoleParam struct {
+	SubjectID   string
+	SubjectType string
+	RoleUID     string
+}
+
+type SubjectRevokeRoleParam struct {
+	SubjectID   string
+	SubjectType string
+	RoleUID     string
+}
+
 type SubjectListFilterParam struct {
 	SubjectID   *string
 	SubjectType *string
