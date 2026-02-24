@@ -11,7 +11,9 @@ import (
 	"github.com/adityakw90/service-access-proto/gen/go/role"
 )
 
+// RoleHandler must embed UnimplementedRoleServiceServer for forward compatibility
 type RoleHandler struct {
+	role.UnimplementedRoleServiceServer
 	roleService service.RoleService
 	validator   *validator.Validator
 }

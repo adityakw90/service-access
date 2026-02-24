@@ -11,7 +11,9 @@ import (
 	"github.com/adityakw90/service-access-proto/gen/go/group"
 )
 
+// GroupHandler must embed UnimplementedGroupServiceServer for forward compatibility
 type GroupHandler struct {
+	group.UnimplementedGroupServiceServer
 	groupService service.GroupService
 	validator    *validator.Validator
 }

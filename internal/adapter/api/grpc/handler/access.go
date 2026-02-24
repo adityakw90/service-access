@@ -11,7 +11,9 @@ import (
 	"github.com/adityakw90/service-access-proto/gen/go/access"
 )
 
+// AccessHandler must embed UnimplementedAccessControlServiceServer for forward compatibility
 type AccessHandler struct {
+	access.UnimplementedAccessControlServiceServer
 	accessService  service.AccessService
 	subjectService service.SubjectService
 	validator      *validator.Validator

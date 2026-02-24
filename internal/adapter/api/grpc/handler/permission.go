@@ -11,7 +11,9 @@ import (
 	"github.com/adityakw90/service-access-proto/gen/go/permission"
 )
 
+// PermissionHandler must embed UnimplementedPermissionServiceServer for forward compatibility
 type PermissionHandler struct {
+	permission.UnimplementedPermissionServiceServer
 	permService service.PermissionService
 	validator   *validator.Validator
 }
