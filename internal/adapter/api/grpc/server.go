@@ -2,8 +2,11 @@ package grpc
 
 import (
 	"net"
+	"sync"
 
+	"github.com/adityakw90/go-monitoring"
 	"github.com/adityakw90/service-access/internal/adapter/api/grpc/handler"
+	"github.com/adityakw90/service-access/internal/adapter/api/grpc/middleware"
 	"github.com/adityakw90/service-access/internal/adapter/api/grpc/validator"
 	"github.com/adityakw90/service-access/internal/core/port/service"
 
@@ -12,6 +15,7 @@ import (
 	permissionpb "github.com/adityakw90/service-access-proto/gen/go/permission"
 	rolepb "github.com/adityakw90/service-access-proto/gen/go/role"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 type Server struct {
@@ -20,6 +24,8 @@ type Server struct {
 	roleHandler   *handler.RoleHandler
 	groupHandler  *handler.GroupHandler
 	accessHandler *handler.AccessHandler
+	m             *monitoring.Monitoring
+	regOnce       sync.Once
 }
 
 func NewServer(
@@ -28,6 +34,7 @@ func NewServer(
 	groupService service.GroupService,
 	accessService service.AccessService,
 	subjectService service.SubjectService,
+	mon *monitoring.Monitoring,
 ) *Server {
 	validator := validator.New()
 
@@ -38,7 +45,18 @@ func NewServer(
 	accessHandler := handler.NewAccessHandler(accessService, subjectService, validator)
 
 	// Create gRPC server
-	server := grpc.NewServer()
+	server := grpc.NewServer(
+		grpc.UnaryInterceptor(
+			middleware.ChainUnaryInterceptors(
+				middleware.UnaryRequestInterceptor(mon),
+			),
+		),
+		grpc.StreamInterceptor(
+			middleware.ChainStreamInterceptors(
+				middleware.StreamRequestInterceptor(mon),
+			),
+		),
+	)
 
 	return &Server{
 		server:        server,
@@ -51,10 +69,13 @@ func NewServer(
 
 func (s *Server) RegisterServices() {
 	// Register service handlers with the gRPC server
-	permissionpb.RegisterPermissionServiceServer(s.server, s.permHandler)
-	rolepb.RegisterRoleServiceServer(s.server, s.roleHandler)
-	grouppb.RegisterGroupServiceServer(s.server, s.groupHandler)
-	accesspb.RegisterAccessControlServiceServer(s.server, s.accessHandler)
+	s.regOnce.Do(func() {
+		permissionpb.RegisterPermissionServiceServer(s.server, s.permHandler)
+		rolepb.RegisterRoleServiceServer(s.server, s.roleHandler)
+		grouppb.RegisterGroupServiceServer(s.server, s.groupHandler)
+		accesspb.RegisterAccessControlServiceServer(s.server, s.accessHandler)
+		reflection.Register(s.server)
+	})
 }
 
 func (s *Server) Start(address string) error {
@@ -62,6 +83,11 @@ func (s *Server) Start(address string) error {
 	if err != nil {
 		return err
 	}
+	s.m.Logger.Info("gRPC server listening", map[string]interface{}{
+		"addr": address,
+	})
+
+	s.RegisterServices()
 
 	return s.server.Serve(listener)
 }
@@ -85,4 +111,3 @@ func (s *Server) GetGroupHandler() *handler.GroupHandler {
 func (s *Server) GetAccessHandler() *handler.AccessHandler {
 	return s.accessHandler
 }
-
