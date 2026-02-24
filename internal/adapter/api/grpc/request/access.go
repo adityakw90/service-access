@@ -34,3 +34,17 @@ func AccessRequestFromPb(req *access.CheckAccessRequest) *AccessRequest {
 
 	return payload
 }
+
+// ToAccessListFilterParam converts proto ListSubjectRolesRequest directly to domain filter param.
+func ToAccessListFilterParam(req *access.ListSubjectRolesRequest) *param.SubjectListFilterParam {
+	if req.Filter == nil {
+		return &param.SubjectListFilterParam{}
+	}
+
+	return &param.SubjectListFilterParam{
+		SubjectID:   req.Filter.SubjectId,
+		SubjectType: req.Filter.SubjectType,
+		RoleUID:     req.Filter.RoleUid,
+		Query:       req.Filter.Query,
+	}
+}
