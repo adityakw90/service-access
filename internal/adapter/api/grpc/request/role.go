@@ -355,3 +355,60 @@ func (r *RolePermissionFilterRequest) toRolePermissionListFilterParam() *param.R
 		Query:          r.Query,
 	}
 }
+
+// ToRoleCreateParam converts proto CreateRequest directly to domain param.
+func ToRoleCreateParam(req *role.CreateRequest) param.RoleCreateParam {
+	return param.RoleCreateParam{
+		GroupUID:    strings.TrimSpace(req.GroupUid),
+		Name:        strings.TrimSpace(req.Name),
+		Description: strings.TrimSpace(req.Description),
+	}
+}
+
+// ToRoleUpdateParam converts proto UpdateRequest directly to domain param.
+func ToRoleUpdateParam(req *role.UpdateRequest) param.RoleUpdateParam {
+	r := param.RoleUpdateParam{}
+
+	if name := strings.TrimSpace(req.Name); name != "" {
+		r.Name = &name
+	}
+	if description := strings.TrimSpace(req.Description); description != "" {
+		r.Description = &description
+	}
+
+	return r
+}
+
+// ToRoleListFilterParam converts proto ListRequest directly to domain filter param.
+func ToRoleListFilterParam(req *role.ListRequest) *param.RoleListFilterParam {
+	if req.Filter == nil {
+		return &param.RoleListFilterParam{}
+	}
+
+	r := &param.RoleListFilterParam{
+		UIDs:  req.Filter.Uids,
+		Name:  req.Filter.Name,
+		Query: req.Filter.Query,
+	}
+
+	// Domain layer only supports single group filtering - use first GroupUID if provided
+	if len(req.Filter.GroupUids) > 0 {
+		r.GroupUID = &req.Filter.GroupUids[0]
+	}
+
+	return r
+}
+
+// ToRolePermissionListFilterParam converts proto ListPermissionsRequest directly to domain filter param.
+func ToRolePermissionListFilterParam(req *role.ListPermissionsRequest) *param.RolePermissionListFilterParam {
+	if req.Filter == nil {
+		return &param.RolePermissionListFilterParam{}
+	}
+
+	return &param.RolePermissionListFilterParam{
+		PermissionUIDs: req.Filter.PermissionUids,
+		Resource:       req.Filter.Resource,
+		Action:         req.Filter.Action,
+		Query:          req.Filter.Query,
+	}
+}
