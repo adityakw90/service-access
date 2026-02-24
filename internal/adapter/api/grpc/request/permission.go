@@ -186,3 +186,52 @@ func (r *PermissionFilterRequest) toPermissionListFilterParam() *param.Permissio
 		Query:    r.Query,
 	}
 }
+
+// ToPermissionCreateParam converts proto CreateRequest directly to domain param.
+func ToPermissionCreateParam(req *permission.CreateRequest) param.PermissionCreateParam {
+	return param.PermissionCreateParam{
+		Resource:    strings.TrimSpace(req.Resource),
+		Action:      strings.TrimSpace(req.Action),
+		Description: strings.TrimSpace(req.Description),
+	}
+}
+
+// ToPermissionUpdateParam converts proto UpdateRequest directly to domain param.
+func ToPermissionUpdateParam(req *permission.UpdateRequest) param.PermissionUpdateParam {
+	r := param.PermissionUpdateParam{}
+
+	if resource := strings.TrimSpace(req.Resource); resource != "" {
+		r.Resource = &resource
+	}
+	if action := strings.TrimSpace(req.Action); action != "" {
+		r.Action = &action
+	}
+	if description := strings.TrimSpace(req.Description); description != "" {
+		r.Description = &description
+	}
+
+	return r
+}
+
+// ToPermissionListFilterParam converts proto ListRequest directly to domain filter param.
+func ToPermissionListFilterParam(req *permission.ListRequest) *param.PermissionListFilterParam {
+	if req.Filter == nil {
+		return &param.PermissionListFilterParam{}
+	}
+
+	r := &param.PermissionListFilterParam{
+		UIDs: req.Filter.Uids,
+	}
+
+	if resource := strings.TrimSpace(req.Filter.GetResource()); resource != "" {
+		r.Resource = &resource
+	}
+	if action := strings.TrimSpace(req.Filter.GetAction()); action != "" {
+		r.Action = &action
+	}
+	if query := strings.TrimSpace(req.Filter.GetQuery()); query != "" {
+		r.Query = &query
+	}
+
+	return r
+}
