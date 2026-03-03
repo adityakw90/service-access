@@ -52,7 +52,7 @@ func TestSubjectRepository_Create(t *testing.T) {
 				RoleID:      role.ID,
 			},
 			wantErr: true,
-			errMsg:  "already exists",
+			errMsg:  "subject role assignment already exists",
 		},
 	}
 

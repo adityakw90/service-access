@@ -27,7 +27,7 @@ func TestRoleRepository_Create(t *testing.T) {
 		{
 			name: "Happy Path",
 			input: model.Role{
-				UID:         "test-role-uid-001",
+				UID:         "00000000-0000-0000-0000-000000000001",
 				GroupID:     group.ID,
 				Name:        "super-admin",
 				Description: "Super admin",
@@ -42,12 +42,12 @@ func TestRoleRepository_Create(t *testing.T) {
 				Description: "Admin",
 			},
 			wantErr: true,
-			errMsg:  "invalid entity",
+			errMsg:  "missing required fields",
 		},
 		{
 			name: "Non-existent Group",
 			input: model.Role{
-				UID:         "test-role-uid-002",
+				UID:         "00000000-0000-0000-0000-000000000002",
 				GroupID:     99999,
 				Name:        "moderator",
 				Description: "Moderator",
@@ -58,7 +58,7 @@ func TestRoleRepository_Create(t *testing.T) {
 		{
 			name: "Duplicate Name in Group",
 			input: model.Role{
-				UID:         "test-role-uid-003",
+				UID:         "00000000-0000-0000-0000-000000000003",
 				GroupID:     group.ID,
 				Name:        "super-admin", // Duplicate
 				Description: "Duplicate role",
@@ -73,7 +73,7 @@ func TestRoleRepository_Create(t *testing.T) {
 			// For duplicate test, create the original first
 			if tt.name == "Duplicate Name in Group" {
 				original := &model.Role{
-					UID:         "test-role-uid-original",
+					UID:         "00000000-0000-0000-0000-000000000000",
 					GroupID:     group.ID,
 					Name:        "super-admin",
 					Description: "Original role",

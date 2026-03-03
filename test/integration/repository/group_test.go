@@ -21,7 +21,7 @@ func TestGroupRepository_Create(t *testing.T) {
 		{
 			name: "Happy Path",
 			input: model.Group{
-				UID:         "test-group-uid-001",
+				UID:         "00000000-0000-0000-0000-000000000001",
 				Name:        "editors",
 				Description: "Can edit content",
 			},
@@ -34,12 +34,12 @@ func TestGroupRepository_Create(t *testing.T) {
 				Description: "Can edit content",
 			},
 			wantErr: true,
-			errMsg:  "invalid entity",
+			errMsg:  "missing required fields",
 		},
 		{
 			name: "Duplicate Name",
 			input: model.Group{
-				UID:         "test-group-uid-002",
+				UID:         "00000000-0000-0000-0000-000000000002",
 				Name:        "admins",
 				Description: "Duplicate",
 			},
@@ -57,7 +57,7 @@ func TestGroupRepository_Create(t *testing.T) {
 			// For duplicate test, create the original first
 			if tt.name == "Duplicate Name" {
 				original := &model.Group{
-					UID:         "test-group-uid-original",
+					UID:         "00000000-0000-0000-0000-000000000000",
 					Name:        "admins",
 					Description: "Original group",
 				}

@@ -21,7 +21,7 @@ func TestPermissionRepository_Create(t *testing.T) {
 		{
 			name: "Happy Path",
 			input: model.Permission{
-				UID:         "test-perm-uid-001",
+				UID:         "00000000-0000-0000-0000-000000000001",
 				Resource:    "article",
 				Action:      "read",
 				Description: "Can read articles",
@@ -36,12 +36,12 @@ func TestPermissionRepository_Create(t *testing.T) {
 				Description: "Can read articles",
 			},
 			wantErr: true,
-			errMsg:  "invalid entity",
+			errMsg:  "missing required fields",
 		},
 		{
 			name: "Duplicate Resource and Action",
 			input: model.Permission{
-				UID:         "test-perm-uid-002",
+				UID:         "00000000-0000-0000-0000-000000000002",
 				Resource:    "article", // Will be created first
 				Action:      "read",
 				Description: "Duplicate",
@@ -60,7 +60,7 @@ func TestPermissionRepository_Create(t *testing.T) {
 			// For duplicate test, create the original first
 			if tt.name == "Duplicate Resource and Action" {
 				original := &model.Permission{
-					UID:         "test-perm-uid-original",
+					UID:         "00000000-0000-0000-0000-000000000000",
 					Resource:    "article",
 					Action:      "read",
 					Description: "Original permission",
@@ -148,7 +148,7 @@ func TestPermissionRepository_GetByUID(t *testing.T) {
 		},
 		{
 			name:    "Not Found",
-			uid:     "non-existent-uid",
+			uid:     "00000000-0000-0000-0000-999999999999",
 			wantErr: true,
 		},
 	}
@@ -199,7 +199,7 @@ func TestPermissionRepository_Update(t *testing.T) {
 			setup: func() *model.Permission {
 				return &model.Permission{
 					ID:          99999,
-					UID:         "test-uid-999",
+					UID:         "00000000-0000-0000-0000-999999999999",
 					Resource:    "x",
 					Action:      "y",
 					Description: "z",
