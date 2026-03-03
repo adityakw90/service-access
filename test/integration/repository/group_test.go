@@ -210,3 +210,156 @@ func TestGroupRepository_List(t *testing.T) {
 		})
 	}
 }
+
+func TestGroupRepository_AddPermission(t *testing.T) {
+	db := setupIntegrationTest(t)
+	ctx := context.Background()
+	repo := repository.NewGroupRepository(db)
+
+	group := createTestGroup(t, db, "readers", "Can read")
+	perm := createTestPermission(t, db, "blog", "read", "Read blogs")
+
+	uid := "test-group-perm-uid-001"
+
+	tests := []struct {
+		name         string
+		groupID      int64
+		permissionID int64
+		uid          string
+		wantErr      bool
+		errMsg       string
+	}{
+		{
+			name:         "Happy Path",
+			groupID:      group.ID,
+			permissionID: perm.ID,
+			uid:          uid,
+			wantErr:      false,
+		},
+		{
+			name:         "Non-existent Group",
+			groupID:      99999,
+			permissionID: perm.ID,
+			uid:          "test-uid-002",
+			wantErr:      true,
+			errMsg:       "group with id",
+		},
+		{
+			name:         "Non-existent Permission",
+			groupID:      group.ID,
+			permissionID: 99999,
+			uid:          "test-uid-003",
+			wantErr:      true,
+			errMsg:       "permission with id",
+		},
+		{
+			name:         "Duplicate (ON CONFLICT DO NOTHING)",
+			groupID:      group.ID,
+			permissionID: perm.ID,
+			uid:          "test-uid-004",
+			wantErr:      false, // Should not error due to ON CONFLICT
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := repo.AddPermission(ctx, tt.groupID, tt.permissionID, tt.uid)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestGroupRepository_RemovePermission(t *testing.T) {
+	db := setupIntegrationTest(t)
+	ctx := context.Background()
+	repo := repository.NewGroupRepository(db)
+
+	group := createTestGroup(t, db, "removers", "Can remove")
+	perm := createTestPermission(t, db, "comment", "delete", "Delete comments")
+
+	// Add permission first
+	err := repo.AddPermission(ctx, group.ID, perm.ID, "test-remove-uid-001")
+	require.NoError(t, err)
+
+	tests := []struct {
+		name         string
+		groupID      int64
+		permissionID int64
+		wantErr      bool
+	}{
+		{
+			name:         "Happy Path",
+			groupID:      group.ID,
+			permissionID: perm.ID,
+			wantErr:      false,
+		},
+		{
+			name:         "Non-existent Association",
+			groupID:      group.ID,
+			permissionID: 99999,
+			wantErr:      true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := repo.RemovePermission(ctx, tt.groupID, tt.permissionID)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "not found")
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestGroupRepository_ListPermission(t *testing.T) {
+	db := setupIntegrationTest(t)
+	ctx := context.Background()
+	repo := repository.NewGroupRepository(db)
+
+	group := createTestGroup(t, db, "viewers", "Can view")
+	perm1 := createTestPermission(t, db, "page", "view", "View pages")
+	perm2 := createTestPermission(t, db, "post", "view", "View posts")
+
+	// Add permissions
+	err := repo.AddPermission(ctx, group.ID, perm1.ID, "test-list-perm-uid-001")
+	require.NoError(t, err)
+	err = repo.AddPermission(ctx, group.ID, perm2.ID, "test-list-perm-uid-002")
+	require.NoError(t, err)
+
+	tests := []struct {
+		name     string
+		filter   *param.GroupPermissionListFilterParam
+		minCount int
+	}{
+		{
+			name:     "List All",
+			filter:   &param.GroupPermissionListFilterParam{},
+			minCount: 2,
+		},
+		{
+			name: "Filter By Resource",
+			filter: &param.GroupPermissionListFilterParam{
+				Resource: strPtr("page"),
+			},
+			minCount: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := repo.ListPermission(ctx, group.ID, nil, tt.filter)
+			require.NoError(t, err)
+			assert.GreaterOrEqual(t, len(result.Items), tt.minCount)
+		})
+	}
+}
