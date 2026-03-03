@@ -86,7 +86,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-// replace github.com/adityakw90/service-access-proto => /media/adit/SSD/project/MTAmedia/repo/service-access/service-access-proto
+replace github.com/adityakw90/service-access-proto => /media/adit/SSD/project/MTAmedia/repo/service-access/service-access-proto
 
 // replace github.com/adityakw90/go-cache => /media/adit/SSD/project/MTAmedia/repo/go-lib/go-cache
 

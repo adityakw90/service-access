@@ -82,7 +82,7 @@ func (m *mockRoleRepository) ReplacePermission(ctx context.Context, roleID int64
 func TestRoleService_Create(t *testing.T) {
 	tests := []struct {
 		name    string
-		setup   func(*repomocks.MockUnitOfWork, *repomocks.MockRepositoryProvider, *securitymocks.MockUIDGenerator)
+		setup   func(*repomocks.MockUnitOfWork, *repomocks.MockRepositoryProvider, *securitymocks.MockUIDGenerator, *resolvermocks.MockResolverProvider)
 		param   param.RoleCreateParam
 		want    *model.Role
 		wantErr bool
@@ -90,45 +90,81 @@ func TestRoleService_Create(t *testing.T) {
 	}{
 		{
 			name: "Happy Path",
-			setup: func(m *repomocks.MockUnitOfWork, p *repomocks.MockRepositoryProvider, uidGen *securitymocks.MockUIDGenerator) {
+			setup: func(m *repomocks.MockUnitOfWork, p *repomocks.MockRepositoryProvider, uidGen *securitymocks.MockUIDGenerator, resolver *resolvermocks.MockResolverProvider) {
 				uidGen.On("New").Return("test-uid")
-				m.On("Do", mock.Anything, mock.AnythingOfType("func(repository.RepositoryProvider) error")).Return(nil).Run(func(args mock.Arguments) {
-					fn := args.Get(1).(func(repository.RepositoryProvider) error)
+
+				// Mock resolver to return GroupID for GroupUID
+				mockGroupResolver := resolvermocks.NewMockGroupResolver(t)
+				resolver.EXPECT().Group().Return(mockGroupResolver)
+				mockGroupResolver.On("IDsByUIDs", mock.Anything, mock.AnythingOfType("[]string")).Return(map[string]int64{"group-uid-123": 123}, nil)
+
+				// Mock UnitOfWork to execute the transaction
+				m.EXPECT().Do(mock.Anything, mock.AnythingOfType("func(repository.RepositoryProvider) error")).RunAndReturn(func(ctx context.Context, fn func(repository.RepositoryProvider) error) error {
 					repos := &mockRepositories{role: &mockRoleRepository{}}
 					// Set up the mock to return nil for Create
-					repos.role.(*mockRoleRepository).On("Create", mock.Anything, mock.AnythingOfType("*model.Role")).Return(nil)
+					repos.role.(*mockRoleRepository).On("Create", mock.Anything, mock.AnythingOfType("*model.Role")).Return(nil).Run(func(args mock.Arguments) {
+						// Set the ID on the role after creation
+						role := args.Get(1).(*model.Role)
+						role.ID = 1
+					})
 
 					// Call the function with our mock repositories
-					fn(repos)
+					return fn(repos)
 				})
 			},
 			param: param.RoleCreateParam{
-				GroupID:     1,
+				GroupUID:    "group-uid-123",
 				Name:        "admin",
 				Description: "Administrator role",
 			},
 			want: &model.Role{
 				ID:          1,
 				UID:         "test-uid",
-				GroupID:     1,
+				GroupID:     123,
+				GroupUID:    "group-uid-123",
 				Name:        "admin",
 				Description: "Administrator role",
 			},
 			wantErr: false,
 		},
 		{
-			name: "UnitOfWork Error",
-			setup: func(m *repomocks.MockUnitOfWork, p *repomocks.MockRepositoryProvider, uidGen *securitymocks.MockUIDGenerator) {
-				// Don't set up UID generator expectation since it won't be called in error case
-				m.On("Do", mock.Anything, mock.AnythingOfType("func(repository.RepositoryProvider) error")).Return(errors.New("transaction error"))
+			name: "Error - Group not found",
+			setup: func(m *repomocks.MockUnitOfWork, p *repomocks.MockRepositoryProvider, uidGen *securitymocks.MockUIDGenerator, resolver *resolvermocks.MockResolverProvider) {
+				// Note: UID generator is NOT called because we return early when group is not found
+
+				// Mock resolver to return empty map (group not found)
+				mockGroupResolver := resolvermocks.NewMockGroupResolver(t)
+				resolver.EXPECT().Group().Return(mockGroupResolver)
+				mockGroupResolver.On("IDsByUIDs", mock.Anything, mock.AnythingOfType("[]string")).Return(map[string]int64{}, nil)
 			},
 			param: param.RoleCreateParam{
-				GroupID:     1,
+				GroupUID:    "non-existent-group",
 				Name:        "admin",
 				Description: "Administrator role",
 			},
 			wantErr: true,
-			errMsg:  "transaction error",
+			errMsg:  "group not found",
+		},
+		{
+			name: "Error - UnitOfWork transaction error",
+			setup: func(m *repomocks.MockUnitOfWork, p *repomocks.MockRepositoryProvider, uidGen *securitymocks.MockUIDGenerator, resolver *resolvermocks.MockResolverProvider) {
+				// Note: UID generator is NOT called because UoW.Do() returns error before executing the callback
+
+				// Mock resolver (will be called before the error)
+				mockGroupResolver := resolvermocks.NewMockGroupResolver(t)
+				resolver.EXPECT().Group().Return(mockGroupResolver)
+				mockGroupResolver.On("IDsByUIDs", mock.Anything, mock.AnythingOfType("[]string")).Return(map[string]int64{"group-uid-123": 123}, nil)
+
+				// Mock UnitOfWork to return error without executing the callback
+				m.EXPECT().Do(mock.Anything, mock.AnythingOfType("func(repository.RepositoryProvider) error")).Return(errors.New("transaction error"))
+			},
+			param: param.RoleCreateParam{
+				GroupUID:    "group-uid-123",
+				Name:        "admin",
+				Description: "Administrator role",
+			},
+			wantErr: true,
+			errMsg:  "failed to create role",
 		},
 	}
 
@@ -141,20 +177,23 @@ func TestRoleService_Create(t *testing.T) {
 			mockResolverProvider := resolvermocks.NewMockResolverProvider(t)
 			mockObserver := adapterobserver.NewNoopObserver[signal.SignalRole]()
 
-			tt.setup(mockUoW, mockRepos, mockUIDGenerator)
+			tt.setup(mockUoW, mockRepos, mockUIDGenerator, mockResolverProvider)
 
-			service := NewRoleService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, mockObserver)
+			service := NewRoleService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, mockObserver, adapterobserver.NewNoopObserver[signal.SignalRolePermission]())
 			got, err := service.Create(context.Background(), tt.param)
 
 			if tt.wantErr {
 				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errMsg)
+				if tt.errMsg != "" {
+					assert.Contains(t, err.Error(), tt.errMsg)
+				}
 				assert.Nil(t, got)
 			} else {
 				assert.NoError(t, err)
 				if got != nil {
 					assert.Equal(t, tt.want.UID, got.UID)
 					assert.Equal(t, tt.want.GroupID, got.GroupID)
+					assert.Equal(t, tt.want.GroupUID, got.GroupUID)
 					assert.Equal(t, tt.want.Name, got.Name)
 					assert.Equal(t, tt.want.Description, got.Description)
 				}

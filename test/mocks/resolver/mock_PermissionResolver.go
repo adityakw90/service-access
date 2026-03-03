@@ -140,6 +140,67 @@ func (_c *MockPermissionResolver_IDsByUIDs_Call) RunAndReturn(run func(context.C
 	return _c
 }
 
+// Invalidate provides a mock function with given fields: ctx, opts
+func (_m *MockPermissionResolver) Invalidate(ctx context.Context, opts ...param.InvalidateOpt) error {
+	_va := make([]interface{}, len(opts))
+	for _i := range opts {
+		_va[_i] = opts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Invalidate")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, ...param.InvalidateOpt) error); ok {
+		r0 = rf(ctx, opts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockPermissionResolver_Invalidate_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Invalidate'
+type MockPermissionResolver_Invalidate_Call struct {
+	*mock.Call
+}
+
+// Invalidate is a helper method to define mock.On call
+//   - ctx context.Context
+//   - opts ...param.InvalidateOpt
+func (_e *MockPermissionResolver_Expecter) Invalidate(ctx interface{}, opts ...interface{}) *MockPermissionResolver_Invalidate_Call {
+	return &MockPermissionResolver_Invalidate_Call{Call: _e.mock.On("Invalidate",
+		append([]interface{}{ctx}, opts...)...)}
+}
+
+func (_c *MockPermissionResolver_Invalidate_Call) Run(run func(ctx context.Context, opts ...param.InvalidateOpt)) *MockPermissionResolver_Invalidate_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]param.InvalidateOpt, len(args)-1)
+		for i, a := range args[1:] {
+			if a != nil {
+				variadicArgs[i] = a.(param.InvalidateOpt)
+			}
+		}
+		run(args[0].(context.Context), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockPermissionResolver_Invalidate_Call) Return(_a0 error) *MockPermissionResolver_Invalidate_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockPermissionResolver_Invalidate_Call) RunAndReturn(run func(context.Context, ...param.InvalidateOpt) error) *MockPermissionResolver_Invalidate_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ResourceActionsByIDs provides a mock function with given fields: ctx, ids
 func (_m *MockPermissionResolver) ResourceActionsByIDs(ctx context.Context, ids []int64) (map[int64]param.PermissionMapResourceAction, error) {
 	ret := _m.Called(ctx, ids)
@@ -254,63 +315,6 @@ func (_c *MockPermissionResolver_UIDsByIDs_Call) Return(_a0 map[int64]string, _a
 }
 
 func (_c *MockPermissionResolver_UIDsByIDs_Call) RunAndReturn(run func(context.Context, []int64) (map[int64]string, error)) *MockPermissionResolver_UIDsByIDs_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// Invalidate provides a mock function with given fields: ctx, opts
-func (_m *MockPermissionResolver) Invalidate(ctx context.Context, opts ...param.InvalidateOpt) error {
-	ret := _m.Called(ctx, opts)
-
-	if len(ret) == 0 {
-		panic("no return value specified for Invalidate")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, []param.InvalidateOpt) error); ok {
-		return rf(ctx, opts)
-	}
-	if rf, ok := ret.Get(0).(func(...param.InvalidateOpt) error); ok {
-		return rf(opts...)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(error)
-		}
-	}
-
-	return r0
-}
-
-// MockPermissionResolver_Invalidate_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Invalidate'
-type MockPermissionResolver_Invalidate_Call struct {
-	*mock.Call
-}
-
-// Invalidate is a helper method to define mock.On call
-//   - ctx context.Context
-//   - opts ...param.InvalidateOpt
-func (_e *MockPermissionResolver_Expecter) Invalidate(ctx interface{}, opts ...interface{}) *MockPermissionResolver_Invalidate_Call {
-	var _ca []interface{} = append([]interface{}{ctx}, opts...)
-	return &MockPermissionResolver_Invalidate_Call{Call: _e.mock.On("Invalidate", _ca...)}
-}
-
-func (_c *MockPermissionResolver_Invalidate_Call) Run(run func(ctx context.Context, opts []param.InvalidateOpt)) *MockPermissionResolver_Invalidate_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		optsArg := make([]param.InvalidateOpt, 0, len(args)-1)
-		for i := 1; i < len(args); i++ {
-			optsArg = append(optsArg, args[i].(param.InvalidateOpt))
-		}
-		run(args[0].(context.Context), optsArg)
-	})
-	return _c
-}
-
-func (_c *MockPermissionResolver_Invalidate_Call) Return(_a0 error) *MockPermissionResolver_Invalidate_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *MockPermissionResolver_Invalidate_Call) RunAndReturn(run func(context.Context, []param.InvalidateOpt) error) *MockPermissionResolver_Invalidate_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -9,7 +9,7 @@ import (
 
 // RoleCreateRequest represents validated role creation request data.
 type RoleCreateRequest struct {
-	GroupUID    string
+	GroupUID    string `validate:"required"`
 	Name        string `validate:"required"`
 	Description string
 }
@@ -198,8 +198,8 @@ func (r *RoleFilterRequest) toRoleListFilterParam() *param.RoleListFilterParam {
 
 // RoleUpdatePermissionRequest represents validated role permission update request data.
 type RoleUpdatePermissionRequest struct {
-	RoleUID             string
-	GroupPermissionUIDs []string
+	RoleUID             string `validate:"required"`
+	GroupPermissionUIDs []string `validate:"required,min=1"`
 }
 
 // RoleUpdatePermissionRequestFromPb converts a proto UpdatePermissionRequest to a RoleUpdatePermissionRequest.
@@ -222,8 +222,8 @@ func (r *RoleUpdatePermissionRequest) GetGroupPermissionUIDs() []string {
 
 // RoleAssignPermissionRequest represents validated role permission assignment request data.
 type RoleAssignPermissionRequest struct {
-	RoleUID            string
-	GroupPermissionUID string
+	RoleUID            string `validate:"required"`
+	GroupPermissionUID string `validate:"required"`
 }
 
 // RoleAssignPermissionRequestFromPb converts a proto AssignPermissionRequest to a RoleAssignPermissionRequest.
@@ -246,8 +246,8 @@ func (r *RoleAssignPermissionRequest) GetGroupPermissionUID() string {
 
 // RoleRevokePermissionRequest represents validated role permission revocation request data.
 type RoleRevokePermissionRequest struct {
-	RoleUID            string
-	GroupPermissionUID string
+	RoleUID            string `validate:"required"`
+	GroupPermissionUID string `validate:"required"`
 }
 
 // RoleRevokePermissionRequestFromPb converts a proto RevokePermissionRequest to a RoleRevokePermissionRequest.
@@ -353,5 +353,62 @@ func (r *RolePermissionFilterRequest) toRolePermissionListFilterParam() *param.R
 		Resource:       r.Resource,
 		Action:         r.Action,
 		Query:          r.Query,
+	}
+}
+
+// ToRoleCreateParam converts proto CreateRequest directly to domain param.
+func ToRoleCreateParam(req *role.CreateRequest) param.RoleCreateParam {
+	return param.RoleCreateParam{
+		GroupUID:    strings.TrimSpace(req.GroupUid),
+		Name:        strings.TrimSpace(req.Name),
+		Description: strings.TrimSpace(req.Description),
+	}
+}
+
+// ToRoleUpdateParam converts proto UpdateRequest directly to domain param.
+func ToRoleUpdateParam(req *role.UpdateRequest) param.RoleUpdateParam {
+	r := param.RoleUpdateParam{}
+
+	if name := strings.TrimSpace(req.Name); name != "" {
+		r.Name = &name
+	}
+	if description := strings.TrimSpace(req.Description); description != "" {
+		r.Description = &description
+	}
+
+	return r
+}
+
+// ToRoleListFilterParam converts proto ListRequest directly to domain filter param.
+func ToRoleListFilterParam(req *role.ListRequest) *param.RoleListFilterParam {
+	if req.Filter == nil {
+		return &param.RoleListFilterParam{}
+	}
+
+	r := &param.RoleListFilterParam{
+		UIDs:  req.Filter.Uids,
+		Name:  req.Filter.Name,
+		Query: req.Filter.Query,
+	}
+
+	// Domain layer only supports single group filtering - use first GroupUID if provided
+	if len(req.Filter.GroupUids) > 0 {
+		r.GroupUID = &req.Filter.GroupUids[0]
+	}
+
+	return r
+}
+
+// ToRolePermissionListFilterParam converts proto ListPermissionsRequest directly to domain filter param.
+func ToRolePermissionListFilterParam(req *role.ListPermissionsRequest) *param.RolePermissionListFilterParam {
+	if req.Filter == nil {
+		return &param.RolePermissionListFilterParam{}
+	}
+
+	return &param.RolePermissionListFilterParam{
+		PermissionUIDs: req.Filter.PermissionUids,
+		Resource:       req.Filter.Resource,
+		Action:         req.Filter.Action,
+		Query:          req.Filter.Query,
 	}
 }

@@ -4,17 +4,28 @@ import (
 	"context"
 	"fmt"
 
+	domainSignal "github.com/adityakw90/service-access/internal/core/domain/signal"
+	portEvent "github.com/adityakw90/service-access/internal/core/port/event"
+	portObserver "github.com/adityakw90/service-access/internal/core/port/observer"
 	"github.com/adityakw90/service-access/internal/core/port/repository"
 	"github.com/adityakw90/service-access/internal/core/port/service"
 )
 
 type accessService struct {
-	repos repository.RepositoryProvider
+	repos          repository.RepositoryProvider
+	eventPublisher portEvent.EventPublisher
+	accessObserver portObserver.ServiceObserver[domainSignal.SignalAccessCheck]
 }
 
-func NewAccessService(repos repository.RepositoryProvider) service.AccessService {
+func NewAccessService(
+	repos repository.RepositoryProvider,
+	eventPublisher portEvent.EventPublisher,
+	accessObserver portObserver.ServiceObserver[domainSignal.SignalAccessCheck],
+) service.AccessService {
 	return &accessService{
-		repos: repos,
+		repos:          repos,
+		eventPublisher: eventPublisher,
+		accessObserver: accessObserver,
 	}
 }
 

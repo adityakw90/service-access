@@ -191,20 +191,38 @@ func TestAdapter_SubjectRepository_Update(t *testing.T) {
 
 func TestAdapter_SubjectRepository_Delete(t *testing.T) {
 	tests := []struct {
-		name    string
-		data    map[string]any
-		wantErr bool
-		errMsg  string
+		name       string
+		setupMock  func(pgxmock.PgxPoolIface)
+		subjectID  string
+		subjectType string
+		roleID     int64
+		wantErr    bool
+		errMsg     string
 	}{
 		{
-			name: "Error - Delete not supported (TODO in code)",
-			data: map[string]any{
-				"subject_id":   int64(1),
-				"subject_type": "user",
-				"role_id":      int64(1),
+			name: "Happy Path - Delete existing subject role",
+			setupMock: func(mockPool pgxmock.PgxPoolIface) {
+				mockPool.ExpectExec(`DELETE FROM subject_role WHERE subject_id = \$1 AND subject_type = \$2 AND role_id = \$3`).
+					WithArgs("user-123", "user", int64(1)).
+					WillReturnResult(pgxmock.NewResult("DELETE", 1))
 			},
-			wantErr: true,
-			errMsg:  "not supported",
+			subjectID:   "user-123",
+			subjectType: "user",
+			roleID:      1,
+			wantErr:     false,
+		},
+		{
+			name: "Error - Subject role not found (0 rows affected)",
+			setupMock: func(mockPool pgxmock.PgxPoolIface) {
+				mockPool.ExpectExec(`DELETE FROM subject_role WHERE subject_id = \$1 AND subject_type = \$2 AND role_id = \$3`).
+					WithArgs("user-123", "user", int64(1)).
+					WillReturnResult(pgxmock.NewResult("DELETE", 0))
+			},
+			subjectID:   "user-123",
+			subjectType: "user",
+			roleID:      1,
+			wantErr:     true,
+			errMsg:      "subject role not found",
 		},
 	}
 
@@ -214,15 +232,20 @@ func TestAdapter_SubjectRepository_Delete(t *testing.T) {
 			require.NoError(t, err)
 			defer mockPool.Close()
 
+			tt.setupMock(mockPool)
+
 			repo := NewSubjectRepository(mockPool)
-			subjectID := tt.data["subject_id"].(int64)
-			subjectType := tt.data["subject_type"].(string)
-			roleID := tt.data["role_id"].(int64)
+			err = repo.Delete(context.Background(), tt.subjectID, tt.subjectType, tt.roleID)
 
-			err = repo.Delete(context.Background(), subjectID, subjectType, roleID)
-
-			assert.Error(t, err)
-			assert.Contains(t, err.Error(), tt.errMsg)
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errMsg != "" {
+					assert.Contains(t, err.Error(), tt.errMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.NoError(t, mockPool.ExpectationsWereMet())
 		})
 	}
 }

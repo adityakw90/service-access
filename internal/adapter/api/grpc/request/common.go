@@ -31,3 +31,34 @@ func PaginationRequestFromPb(req *common.Pagination) *PaginationRequest {
 		OrderBy: strings.TrimSpace(req.OrderBy),
 	}
 }
+
+// ToPaginationParam converts proto pagination to domain param directly.
+func ToPaginationParam(p *common.Pagination) *param.PaginationParam {
+	if p == nil {
+		return DefaultPagination()
+	}
+	page := int(p.Page)
+	limit := int(p.Limit)
+	sort := strings.TrimSpace(p.Sort)
+	orderBy := strings.TrimSpace(p.OrderBy)
+	return &param.PaginationParam{
+		Page:    &page,
+		Limit:   &limit,
+		Sort:    &sort,
+		OrderBy: &orderBy,
+	}
+}
+
+// DefaultPagination returns default pagination parameters.
+func DefaultPagination() *param.PaginationParam {
+	page := 1
+	limit := 10
+	sort := "asc"
+	orderBy := "created_at"
+	return &param.PaginationParam{
+		Page:    &page,
+		Limit:   &limit,
+		Sort:    &sort,
+		OrderBy: &orderBy,
+	}
+}

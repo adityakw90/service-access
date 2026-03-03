@@ -19,12 +19,12 @@ import (
 )
 
 type permissionService struct {
-	uow         repository.UnitOfWork
-	repos       repository.RepositoryProvider
-	publisher   portEvent.EventPublisher
+	uow          repository.UnitOfWork
+	repos        repository.RepositoryProvider
+	publisher    portEvent.EventPublisher
 	uidGenerator security.UIDGenerator
-	resolvers   resolver.ResolverProvider
-	observer    observer.ServiceObserver[signal.SignalPermission]
+	resolvers    resolver.ResolverProvider
+	observer     observer.ServiceObserver[signal.SignalPermission]
 }
 
 func NewPermissionService(
@@ -36,12 +36,12 @@ func NewPermissionService(
 	observer observer.ServiceObserver[signal.SignalPermission],
 ) service.PermissionService {
 	return &permissionService{
-		uow:         uow,
-		repos:       repos,
-		publisher:   publisher,
+		uow:          uow,
+		repos:        repos,
+		publisher:    publisher,
 		uidGenerator: uidGenerator,
-		resolvers:   resolverProvider,
-		observer:    observer,
+		resolvers:    resolverProvider,
+		observer:     observer,
 	}
 }
 
@@ -136,8 +136,14 @@ func (s *permissionService) Get(ctx context.Context, uid string) (*model.Permiss
 func (s *permissionService) List(ctx context.Context, pagination *param.PaginationParam, filter *param.PermissionListFilterParam) (*model.Permissions, error) {
 	permissions, err := s.repos.Permission().List(ctx, pagination, filter)
 	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalPermission{
+			Operation: "list",
+		}, err)
 		return nil, fmt.Errorf("failed to list permissions: %w", err)
 	}
+	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalPermission{
+		Operation: "list",
+	}, nil)
 	return &permissions, nil
 }
 

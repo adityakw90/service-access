@@ -176,8 +176,8 @@ func (r *GroupFilterRequest) toGroupListFilterParam() *param.GroupListFilterPara
 
 // GroupUpdatePermissionRequest represents validated group permission update request data.
 type GroupUpdatePermissionRequest struct {
-	GroupUID       string
-	PermissionUIDs []string
+	GroupUID       string `validate:"required"`
+	PermissionUIDs []string `validate:"required,min=1"`
 }
 
 // GroupUpdatePermissionRequestFromPb converts a proto UpdatePermissionRequest to a GroupUpdatePermissionRequest.
@@ -200,8 +200,8 @@ func (r *GroupUpdatePermissionRequest) GetPermissionUIDs() []string {
 
 // GroupAssignPermissionRequest represents validated group permission assignment request data.
 type GroupAssignPermissionRequest struct {
-	GroupUID      string
-	PermissionUID string
+	GroupUID      string `validate:"required"`
+	PermissionUID string `validate:"required"`
 }
 
 // GroupAssignPermissionRequestFromPb converts a proto AssignPermissionRequest to a GroupAssignPermissionRequest.
@@ -224,8 +224,8 @@ func (r *GroupAssignPermissionRequest) GetPermissionUID() string {
 
 // GroupRevokePermissionRequest represents validated group permission revocation request data.
 type GroupRevokePermissionRequest struct {
-	GroupUID      string
-	PermissionUID string
+	GroupUID      string `validate:"required"`
+	PermissionUID string `validate:"required"`
 }
 
 // GroupRevokePermissionRequestFromPb converts a proto RevokePermissionRequest to a GroupRevokePermissionRequest.
@@ -334,5 +334,55 @@ func (r *GroupPermissionFilterRequest) toGroupPermissionListFilterParam() *param
 		Resource:       r.Resource,
 		Action:         r.Action,
 		Query:          r.Query,
+	}
+}
+
+// ToGroupCreateParam converts proto CreateRequest directly to domain param.
+func ToGroupCreateParam(req *group.CreateRequest) param.GroupCreateParam {
+	return param.GroupCreateParam{
+		Name:        strings.TrimSpace(req.Name),
+		Description: strings.TrimSpace(req.Description),
+	}
+}
+
+// ToGroupUpdateParam converts proto UpdateRequest directly to domain param.
+func ToGroupUpdateParam(req *group.UpdateRequest) param.GroupUpdateParam {
+	r := param.GroupUpdateParam{}
+
+	if name := strings.TrimSpace(req.Name); name != "" {
+		r.Name = &name
+	}
+	if description := strings.TrimSpace(req.Description); description != "" {
+		r.Description = &description
+	}
+
+	return r
+}
+
+// ToGroupListFilterParam converts proto ListRequest directly to domain filter param.
+func ToGroupListFilterParam(req *group.ListRequest) *param.GroupListFilterParam {
+	if req.Filter == nil {
+		return &param.GroupListFilterParam{}
+	}
+
+	return &param.GroupListFilterParam{
+		UIDs:  req.Filter.Uids,
+		Name:  req.Filter.Name,
+		Query: req.Filter.Query,
+	}
+}
+
+// ToGroupPermissionListFilterParam converts proto ListPermissionsRequest directly to domain filter param.
+func ToGroupPermissionListFilterParam(req *group.ListPermissionsRequest) *param.GroupPermissionListFilterParam {
+	if req.Filter == nil {
+		return &param.GroupPermissionListFilterParam{}
+	}
+
+	return &param.GroupPermissionListFilterParam{
+		UIDs:           req.Filter.Uids,
+		PermissionUIDs: req.Filter.PermissionUids,
+		Resource:       req.Filter.Resource,
+		Action:         req.Filter.Action,
+		Query:          req.Filter.Query,
 	}
 }

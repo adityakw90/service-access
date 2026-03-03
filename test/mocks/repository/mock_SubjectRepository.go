@@ -72,7 +72,7 @@ func (_c *MockSubjectRepository_Create_Call) RunAndReturn(run func(context.Conte
 }
 
 // Delete provides a mock function with given fields: ctx, subjectID, subjectType, roleID
-func (_m *MockSubjectRepository) Delete(ctx context.Context, subjectID int64, subjectType string, roleID int64) error {
+func (_m *MockSubjectRepository) Delete(ctx context.Context, subjectID string, subjectType string, roleID int64) error {
 	ret := _m.Called(ctx, subjectID, subjectType, roleID)
 
 	if len(ret) == 0 {
@@ -80,7 +80,7 @@ func (_m *MockSubjectRepository) Delete(ctx context.Context, subjectID int64, su
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, string, int64) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, int64) error); ok {
 		r0 = rf(ctx, subjectID, subjectType, roleID)
 	} else {
 		r0 = ret.Error(0)
@@ -96,16 +96,16 @@ type MockSubjectRepository_Delete_Call struct {
 
 // Delete is a helper method to define mock.On call
 //   - ctx context.Context
-//   - subjectID int64
+//   - subjectID string
 //   - subjectType string
 //   - roleID int64
 func (_e *MockSubjectRepository_Expecter) Delete(ctx interface{}, subjectID interface{}, subjectType interface{}, roleID interface{}) *MockSubjectRepository_Delete_Call {
 	return &MockSubjectRepository_Delete_Call{Call: _e.mock.On("Delete", ctx, subjectID, subjectType, roleID)}
 }
 
-func (_c *MockSubjectRepository_Delete_Call) Run(run func(ctx context.Context, subjectID int64, subjectType string, roleID int64)) *MockSubjectRepository_Delete_Call {
+func (_c *MockSubjectRepository_Delete_Call) Run(run func(ctx context.Context, subjectID string, subjectType string, roleID int64)) *MockSubjectRepository_Delete_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(int64), args[2].(string), args[3].(int64))
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(int64))
 	})
 	return _c
 }
@@ -115,7 +115,7 @@ func (_c *MockSubjectRepository_Delete_Call) Return(_a0 error) *MockSubjectRepos
 	return _c
 }
 
-func (_c *MockSubjectRepository_Delete_Call) RunAndReturn(run func(context.Context, int64, string, int64) error) *MockSubjectRepository_Delete_Call {
+func (_c *MockSubjectRepository_Delete_Call) RunAndReturn(run func(context.Context, string, string, int64) error) *MockSubjectRepository_Delete_Call {
 	_c.Call.Return(run)
 	return _c
 }

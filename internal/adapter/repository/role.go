@@ -278,11 +278,13 @@ func (r *roleRepository) List(ctx context.Context, pagination *param.PaginationP
 func (r *roleRepository) ListPermission(ctx context.Context, roleID int64, pagination *param.PaginationParam, filter *param.RolePermissionListFilterParam) (model.RolePermissions, error) {
 	baseSQL := `
 		SELECT rp.role_id, r.uid as role_uid,
-		       rp.permission_id, p.uid as permission_uid, p.resource, p.action, p.description,
+		       rp.group_permission_id, gp.uid as group_permission_uid,
+		       p.uid as permission_uid, p.resource, p.action, p.description,
 		       rp.created_at
 		FROM role_permission rp
 		JOIN role r ON rp.role_id = r.id
-		JOIN permission p ON rp.permission_id = p.id
+		JOIN group_permission gp ON rp.group_permission_id = gp.id
+		JOIN permission p ON gp.permission_id = p.id
 		WHERE rp.role_id = $1
 	`
 	args := []interface{}{roleID}
@@ -291,17 +293,17 @@ func (r *roleRepository) ListPermission(ctx context.Context, roleID int64, pagin
 	// Apply filters
 	if filter != nil {
 		if len(filter.IDs) > 0 {
-			baseSQL += fmt.Sprintf(" AND rp.permission_id = ANY($%d)", argIdx)
+			baseSQL += fmt.Sprintf(" AND rp.group_permission_id = ANY($%d)", argIdx)
 			args = append(args, filter.IDs)
 			argIdx++
 		}
 		if len(filter.UIDs) > 0 {
-			baseSQL += fmt.Sprintf(" AND p.uid = ANY($%d)", argIdx)
+			baseSQL += fmt.Sprintf(" AND gp.uid = ANY($%d)", argIdx)
 			args = append(args, filter.UIDs)
 			argIdx++
 		}
 		if len(filter.PermissionIDs) > 0 {
-			baseSQL += fmt.Sprintf(" AND rp.permission_id = ANY($%d)", argIdx)
+			baseSQL += fmt.Sprintf(" AND gp.permission_id = ANY($%d)", argIdx)
 			args = append(args, filter.PermissionIDs)
 			argIdx++
 		}
@@ -365,7 +367,8 @@ func (r *roleRepository) ListPermission(ctx context.Context, roleID int64, pagin
 		var rp model.RolePermission
 		err := rows.Scan(
 			&rp.RoleID, &rp.RoleUID,
-			&rp.GroupPermissionID, &rp.GroupPermissionUID, &rp.PermissionResource, &rp.PermissionAction, &rp.PermissionDescription,
+			&rp.GroupPermissionID, &rp.GroupPermissionUID,
+			&rp.PermissionUID, &rp.PermissionResource, &rp.PermissionAction, &rp.PermissionDescription,
 			&rp.CreatedAt,
 		)
 		if err != nil {
@@ -379,22 +382,22 @@ func (r *roleRepository) ListPermission(ctx context.Context, roleID int64, pagin
 	}
 
 	// Get total count
-	countSQL := `SELECT COUNT(*) FROM role_permission rp JOIN permission p ON rp.permission_id = p.id WHERE rp.role_id = $1`
+	countSQL := `SELECT COUNT(*) FROM role_permission rp JOIN role r ON rp.role_id = r.id JOIN group_permission gp ON rp.group_permission_id = gp.id JOIN permission p ON gp.permission_id = p.id WHERE rp.role_id = $1`
 	countArgs := []interface{}{roleID}
 	countArgIdx := 2
 	if filter != nil {
 		if len(filter.IDs) > 0 {
-			countSQL += fmt.Sprintf(" AND rp.permission_id = ANY($%d)", countArgIdx)
+			countSQL += fmt.Sprintf(" AND rp.group_permission_id = ANY($%d)", countArgIdx)
 			countArgs = append(countArgs, filter.IDs)
 			countArgIdx++
 		}
 		if len(filter.UIDs) > 0 {
-			countSQL += fmt.Sprintf(" AND p.uid = ANY($%d)", countArgIdx)
+			countSQL += fmt.Sprintf(" AND gp.uid = ANY($%d)", countArgIdx)
 			countArgs = append(countArgs, filter.UIDs)
 			countArgIdx++
 		}
 		if len(filter.PermissionIDs) > 0 {
-			countSQL += fmt.Sprintf(" AND rp.permission_id = ANY($%d)", countArgIdx)
+			countSQL += fmt.Sprintf(" AND gp.permission_id = ANY($%d)", countArgIdx)
 			countArgs = append(countArgs, filter.PermissionIDs)
 			countArgIdx++
 		}
@@ -438,9 +441,9 @@ func (r *roleRepository) ListPermission(ctx context.Context, roleID int64, pagin
 
 func (r *roleRepository) AddPermission(ctx context.Context, roleID int64, groupPermissionID int64) error {
 	const sql = `
-		INSERT INTO role_permission (role_id, permission_id)
+		INSERT INTO role_permission (role_id, group_permission_id)
 		VALUES ($1, $2)
-		ON CONFLICT (role_id, permission_id) DO NOTHING
+		ON CONFLICT (role_id, group_permission_id) DO NOTHING
 	`
 
 	_, err := r.db.Exec(ctx, sql, roleID, groupPermissionID)
@@ -451,8 +454,8 @@ func (r *roleRepository) AddPermission(ctx context.Context, roleID int64, groupP
 			if pgErr.ConstraintName == "fk_role_permission_role" {
 				return fmt.Errorf("role with id %d not found", roleID)
 			}
-			if pgErr.ConstraintName == "fk_role_permission_permission" {
-				return fmt.Errorf("permission with id %d not found", groupPermissionID)
+			if pgErr.ConstraintName == "fk_role_permission_group_permission" {
+				return fmt.Errorf("group permission with id %d not found", groupPermissionID)
 			}
 		}
 		return fmt.Errorf("failed to add permission to role: %w", err)
@@ -462,7 +465,7 @@ func (r *roleRepository) AddPermission(ctx context.Context, roleID int64, groupP
 }
 
 func (r *roleRepository) RemovePermission(ctx context.Context, roleID int64, groupPermissionID int64) error {
-	const sql = `DELETE FROM role_permission WHERE role_id = $1 AND permission_id = $2`
+	const sql = `DELETE FROM role_permission WHERE role_id = $1 AND group_permission_id = $2`
 
 	result, err := r.db.Exec(ctx, sql, roleID, groupPermissionID)
 	if err != nil {
@@ -470,7 +473,7 @@ func (r *roleRepository) RemovePermission(ctx context.Context, roleID int64, gro
 	}
 
 	if result.RowsAffected() == 0 {
-		return fmt.Errorf("permission %d not found in role %d", groupPermissionID, roleID)
+		return fmt.Errorf("group permission %d not found in role %d", groupPermissionID, roleID)
 	}
 
 	return nil
@@ -491,7 +494,7 @@ func (r *roleRepository) ReplacePermission(ctx context.Context, roleID int64, gr
 
 	// Then, add the new permissions
 	const insertSQL = `
-		INSERT INTO role_permission (role_id, permission_id)
+		INSERT INTO role_permission (role_id, group_permission_id)
 		VALUES ($1, $2)
 	`
 	for _, groupPermissionID := range groupPermissionIDs {
@@ -502,8 +505,8 @@ func (r *roleRepository) ReplacePermission(ctx context.Context, roleID int64, gr
 				if pgErr.ConstraintName == "fk_role_permission_role" {
 					return fmt.Errorf("role with id %d not found", roleID)
 				}
-				if pgErr.ConstraintName == "fk_role_permission_permission" {
-					return fmt.Errorf("permission with id %d not found", groupPermissionID)
+				if pgErr.ConstraintName == "fk_role_permission_group_permission" {
+					return fmt.Errorf("group permission with id %d not found", groupPermissionID)
 				}
 			}
 			return fmt.Errorf("failed to add permission %d: %w", groupPermissionID, err)
