@@ -83,7 +83,7 @@ func (s *subjectService) Revoke(ctx context.Context, subjectID string, subjectTy
 		}
 
 		// Delete the subject-role assignment
-		if err := r.Subject().Delete(ctx, role.ID, subjectType, role.ID); err != nil {
+		if err := r.Subject().Delete(ctx, subjectID, subjectType, role.ID); err != nil {
 			return fmt.Errorf("failed to revoke role: %w", err)
 		}
 		return nil

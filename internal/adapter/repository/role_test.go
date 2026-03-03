@@ -559,18 +559,18 @@ func TestAdapter_RoleRepository_ListPermission(t *testing.T) {
 				countAnyArgs[i] = pgxmock.AnyArg()
 			}
 
-			// Set up data query expectations
-			dataRows := pgxmock.NewRows([]string{"role_id", "role_uid", "permission_id", "permission_uid", "resource", "action", "description", "created_at"})
+			// Set up data query expectations - updated to match new SQL with group_permission join
+			dataRows := pgxmock.NewRows([]string{"role_id", "role_uid", "group_permission_id", "group_permission_uid", "permission_uid", "resource", "action", "description", "created_at"})
 			for i := 0; i < tt.wantCount; i++ {
-				dataRows.AddRow(int64(1), "role-uid", int64(i+1), fmt.Sprintf("perm-uid-%d", i+1), fmt.Sprintf("resource-%d", i+1), fmt.Sprintf("action-%d", i+1), "description", time.Time{})
+				dataRows.AddRow(int64(1), "role-uid", int64(i+1), fmt.Sprintf("gp-uid-%d", i+1), fmt.Sprintf("perm-uid-%d", i+1), fmt.Sprintf("resource-%d", i+1), fmt.Sprintf("action-%d", i+1), "description", time.Time{})
 			}
-			mockPool.ExpectQuery(`SELECT rp\.role_id, r\.uid as role_uid, rp\.permission_id, p\.uid as permission_uid, p\.resource, p\.action, p\.description, rp\.created_at FROM role_permission rp JOIN role r ON rp\.role_id = r\.id JOIN permission p ON rp\.permission_id = p\.id WHERE rp\.role_id = \$1`).
+			mockPool.ExpectQuery(`SELECT rp\.role_id, r\.uid as role_uid, rp\.group_permission_id, gp\.uid as group_permission_uid, p\.uid as permission_uid, p\.resource, p\.action, p\.description, rp\.created_at FROM role_permission rp JOIN role r ON rp\.role_id = r\.id JOIN group_permission gp ON rp\.group_permission_id = gp\.id JOIN permission p ON gp\.permission_id = p\.id WHERE rp\.role_id = \$1`).
 				WithArgs(dataAnyArgs...).
 				WillReturnRows(dataRows)
 
-			// Set up count expectations
+			// Set up count expectations - updated to match new SQL with group_permission join
 			countRows := pgxmock.NewRows([]string{"count"}).AddRow(tt.wantTotal)
-			mockPool.ExpectQuery(`SELECT COUNT\(\*\) FROM role_permission rp JOIN permission p ON rp\.permission_id = p\.id WHERE rp\.role_id = \$1`).
+			mockPool.ExpectQuery(`SELECT COUNT\(\*\) FROM role_permission rp JOIN role r ON rp\.role_id = r\.id JOIN group_permission gp ON rp\.group_permission_id = gp\.id JOIN permission p ON gp\.permission_id = p\.id WHERE rp\.role_id = \$1`).
 				WithArgs(countAnyArgs...).
 				WillReturnRows(countRows)
 
@@ -611,7 +611,7 @@ func TestAdapter_RoleRepository_AddPermission(t *testing.T) {
 			errMsg:            "not found",
 		},
 		{
-			name:              "Error - Permission not found (foreign key)",
+			name:              "Error - Group permission not found (foreign key)",
 			roleID:            1,
 			groupPermissionID: 999,
 			wantErr:           true,
@@ -629,9 +629,9 @@ func TestAdapter_RoleRepository_AddPermission(t *testing.T) {
 
 			if tt.wantErr && tt.roleID == 999 {
 				mockPool.ExpectExec(`
-					INSERT INTO role_permission \(role_id, permission_id\)
+					INSERT INTO role_permission \(role_id, group_permission_id\)
 					VALUES \(\$1, \$2\)
-					ON CONFLICT \(role_id, permission_id\) DO NOTHING
+					ON CONFLICT \(role_id, group_permission_id\) DO NOTHING
 				`).
 					WithArgs(tt.roleID, tt.groupPermissionID).
 					WillReturnError(&pgconn.PgError{
@@ -639,19 +639,19 @@ func TestAdapter_RoleRepository_AddPermission(t *testing.T) {
 					})
 			} else if tt.wantErr && tt.groupPermissionID == 999 {
 				mockPool.ExpectExec(`
-					INSERT INTO role_permission \(role_id, permission_id\)
+					INSERT INTO role_permission \(role_id, group_permission_id\)
 					VALUES \(\$1, \$2\)
-					ON CONFLICT \(role_id, permission_id\) DO NOTHING
+					ON CONFLICT \(role_id, group_permission_id\) DO NOTHING
 				`).
 					WithArgs(tt.roleID, tt.groupPermissionID).
 					WillReturnError(&pgconn.PgError{
-						ConstraintName: "fk_role_permission_permission",
+						ConstraintName: "fk_role_permission_group_permission",
 					})
 			} else {
 				mockPool.ExpectExec(`
-					INSERT INTO role_permission \(role_id, permission_id\)
+					INSERT INTO role_permission \(role_id, group_permission_id\)
 					VALUES \(\$1, \$2\)
-					ON CONFLICT \(role_id, permission_id\) DO NOTHING
+					ON CONFLICT \(role_id, group_permission_id\) DO NOTHING
 				`).
 					WithArgs(tt.roleID, tt.groupPermissionID).
 					WillReturnResult(pgxmock.NewResult("INSERT", 1))
@@ -705,11 +705,11 @@ func TestAdapter_RoleRepository_RemovePermission(t *testing.T) {
 			repo := NewRoleRepository(mockPool)
 
 			if tt.wantErr {
-				mockPool.ExpectExec(`DELETE FROM role_permission WHERE role_id = \$1 AND permission_id = \$2`).
+				mockPool.ExpectExec(`DELETE FROM role_permission WHERE role_id = \$1 AND group_permission_id = \$2`).
 					WithArgs(tt.roleID, tt.groupPermissionID).
 					WillReturnResult(pgxmock.NewResult("DELETE", 0))
 			} else {
-				mockPool.ExpectExec(`DELETE FROM role_permission WHERE role_id = \$1 AND permission_id = \$2`).
+				mockPool.ExpectExec(`DELETE FROM role_permission WHERE role_id = \$1 AND group_permission_id = \$2`).
 					WithArgs(tt.roleID, tt.groupPermissionID).
 					WillReturnResult(pgxmock.NewResult("DELETE", 1))
 			}
@@ -774,7 +774,7 @@ func TestAdapter_RoleRepository_ReplacePermission(t *testing.T) {
 
 			// Mock inserts for each permission
 			for _, permID := range tt.groupPermissionIDs {
-				mockDB.ExpectExec(`INSERT INTO role_permission \(role_id, permission_id\) VALUES \(\$1, \$2\)`).
+				mockDB.ExpectExec(`INSERT INTO role_permission \(role_id, group_permission_id\) VALUES \(\$1, \$2\)`).
 					WithArgs(tt.roleID, permID).
 					WillReturnResult(pgxmock.NewResult("INSERT", 1))
 			}

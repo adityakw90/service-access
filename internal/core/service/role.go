@@ -47,12 +47,31 @@ func NewRoleService(
 }
 
 func (s *roleService) Create(ctx context.Context, p param.RoleCreateParam) (*model.Role, error) {
+	// Resolve GroupUID to GroupID
+	groupIDs, err := s.resolvers.Group().IDsByUIDs(ctx, []string{p.GroupUID})
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+			Operation: "create",
+		}, err)
+		return nil, domainerrors.ErrRoleCreateFailed
+	}
+
+	groupID, exists := groupIDs[p.GroupUID]
+	if !exists {
+		err := domainerrors.ErrGroupNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalRole{
+			Operation: "create",
+		}, err)
+		return nil, err
+	}
+
 	var result *model.Role
 
-	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
+	err = s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		role := &model.Role{
 			UID:         s.uidGenerator.New(),
-			GroupID:     p.GroupID,
+			GroupID:     groupID,
+			GroupUID:    p.GroupUID,
 			Name:        p.Name,
 			Description: p.Description,
 		}
@@ -64,7 +83,10 @@ func (s *roleService) Create(ctx context.Context, p param.RoleCreateParam) (*mod
 	})
 
 	if err != nil {
-		return nil, err
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+			Operation: "create",
+		}, err)
+		return nil, domainerrors.ErrRoleCreateFailed
 	}
 
 	s.publisher.Publish(ctx, event.EventRoleCreate, &event.EventRoleCreateData{
@@ -74,6 +96,13 @@ func (s *roleService) Create(ctx context.Context, p param.RoleCreateParam) (*mod
 		Description: result.Description,
 		CreatedAt:   result.CreatedAt,
 	})
+
+	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalRole{
+		UID:       &result.UID,
+		Name:      &result.Name,
+		Operation: "create",
+	}, nil)
+
 	return result, nil
 }
 
@@ -281,107 +310,242 @@ func (s *roleService) Delete(ctx context.Context, uid string) error {
 	return nil
 }
 
-func (s *roleService) AssignPermission(ctx context.Context, roleUID string, permissionUID string) error {
-	var role *model.Role
-	var groupPerm *model.GroupPermission
+func (s *roleService) AssignPermission(ctx context.Context, roleUID string, groupPermissionUID string) error {
+	// Resolve role UID to role ID
+	roleIDs, err := s.resolvers.Role().IDsByUIDs(ctx, []string{roleUID})
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+			UID:       &roleUID,
+			Operation: "assign_permission",
+		}, err)
+		return domainerrors.ErrRoleUpdateFailed
+	}
 
-	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
+	roleID, exists := roleIDs[roleUID]
+	if !exists {
+		err := domainerrors.ErrRoleNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalRole{
+			UID:       &roleUID,
+			Operation: "assign_permission",
+		}, err)
+		return err
+	}
+
+	// Resolve group permission UID to ID
+	groupPermIDs, err := s.resolvers.GroupPermission().IDsByUIDs(ctx, []string{groupPermissionUID})
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+			UID:       &roleUID,
+			Operation: "assign_permission",
+		}, err)
+		return domainerrors.ErrRoleUpdateFailed
+	}
+
+	groupPermID, exists := groupPermIDs[groupPermissionUID]
+	if !exists {
+		err := domainerrors.ErrGroupPermissionNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalRole{
+			UID:       &roleUID,
+			Operation: "assign_permission",
+		}, err)
+		return err
+	}
+
+	var role *model.Role
+	err = s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		var errUoW error
-		role, errUoW = r.Role().GetByUID(ctx, roleUID)
+		role, errUoW = r.Role().GetByID(ctx, roleID)
 		if errUoW != nil {
 			return fmt.Errorf("failed to get role: %w", errUoW)
 		}
 
-		// Get the group permission for this role's group and the permission UID
-		groupPerm, errUoW = r.Group().GetPermissionByGroupIDAndPermissionUID(ctx, role.GroupID, permissionUID)
-		if errUoW != nil {
-			return fmt.Errorf("failed to get group permission: %w", errUoW)
-		}
-
-		if err := r.Role().AddPermission(ctx, role.ID, groupPerm.ID); err != nil {
+		if err := r.Role().AddPermission(ctx, role.ID, groupPermID); err != nil {
 			return fmt.Errorf("failed to assign permission: %w", err)
 		}
 		return nil
 	})
 
 	if err != nil {
-		return err
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+			UID:       &roleUID,
+			Operation: "assign_permission",
+		}, err)
+		return domainerrors.ErrRoleUpdateFailed
 	}
 
 	s.publisher.Publish(ctx, event.EventRoleAssignPermission, &event.EventRoleAssignPermissionData{
 		RoleUID:            role.UID,
-		GroupPermissionUID: groupPerm.UID,
+		GroupPermissionUID: groupPermissionUID,
 	})
+
+	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalRole{
+		UID:       &role.UID,
+		Name:      &role.Name,
+		Operation: "assign_permission",
+	}, nil)
+
 	return nil
 }
 
-func (s *roleService) RevokePermission(ctx context.Context, roleUID string, permissionUID string) error {
-	var role *model.Role
-	var groupPerm *model.GroupPermission
+func (s *roleService) RevokePermission(ctx context.Context, roleUID string, groupPermissionUID string) error {
+	// Resolve role UID to role ID
+	roleIDs, err := s.resolvers.Role().IDsByUIDs(ctx, []string{roleUID})
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+			UID:       &roleUID,
+			Operation: "revoke_permission",
+		}, err)
+		return domainerrors.ErrRoleUpdateFailed
+	}
 
-	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
+	roleID, exists := roleIDs[roleUID]
+	if !exists {
+		err := domainerrors.ErrRoleNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalRole{
+			UID:       &roleUID,
+			Operation: "revoke_permission",
+		}, err)
+		return err
+	}
+
+	// Resolve group permission UID to ID
+	groupPermIDs, err := s.resolvers.GroupPermission().IDsByUIDs(ctx, []string{groupPermissionUID})
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+			UID:       &roleUID,
+			Operation: "revoke_permission",
+		}, err)
+		return domainerrors.ErrRoleUpdateFailed
+	}
+
+	groupPermID, exists := groupPermIDs[groupPermissionUID]
+	if !exists {
+		err := domainerrors.ErrGroupPermissionNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalRole{
+			UID:       &roleUID,
+			Operation: "revoke_permission",
+		}, err)
+		return err
+	}
+
+	var role *model.Role
+	err = s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		var errUoW error
-		role, errUoW = r.Role().GetByUID(ctx, roleUID)
+		role, errUoW = r.Role().GetByID(ctx, roleID)
 		if errUoW != nil {
 			return fmt.Errorf("failed to get role: %w", errUoW)
 		}
 
-		// Get the group permission for this role's group and the permission UID
-		groupPerm, errUoW = r.Group().GetPermissionByGroupIDAndPermissionUID(ctx, role.GroupID, permissionUID)
-		if errUoW != nil {
-			return fmt.Errorf("failed to get group permission: %w", errUoW)
-		}
-
-		if err := r.Role().RemovePermission(ctx, role.ID, groupPerm.ID); err != nil {
+		if err := r.Role().RemovePermission(ctx, role.ID, groupPermID); err != nil {
 			return fmt.Errorf("failed to revoke permission: %w", err)
 		}
 		return nil
 	})
 
 	if err != nil {
-		return err
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+			UID:       &roleUID,
+			Operation: "revoke_permission",
+		}, err)
+		return domainerrors.ErrRoleUpdateFailed
 	}
 
 	s.publisher.Publish(ctx, event.EventRoleRevokePermission, &event.EventRoleRevokePermissionData{
 		RoleUID:            role.UID,
-		GroupPermissionUID: groupPerm.UID,
+		GroupPermissionUID: groupPermissionUID,
 	})
+
+	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalRole{
+		UID:       &role.UID,
+		Name:      &role.Name,
+		Operation: "revoke_permission",
+	}, nil)
+
 	return nil
 }
 
-func (s *roleService) UpdatePermission(ctx context.Context, roleUID string, permissionUIDs []string) error {
-	var role *model.Role
+func (s *roleService) UpdatePermission(ctx context.Context, roleUID string, groupPermissionUIDs []string) error {
+	// Resolve role UID to role ID first
+	roleIDs, err := s.resolvers.Role().IDsByUIDs(ctx, []string{roleUID})
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+			UID:       &roleUID,
+			Operation: "update_permission",
+		}, err)
+		return domainerrors.ErrRoleUpdateFailed
+	}
 
-	err := s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
+	roleID, exists := roleIDs[roleUID]
+	if !exists {
+		err := domainerrors.ErrRoleNotFound
+		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalRole{
+			UID:       &roleUID,
+			Operation: "update_permission",
+		}, err)
+		return err
+	}
+
+	// Resolve group permission UIDs to IDs
+	groupPermIDs, err := s.resolvers.GroupPermission().IDsByUIDs(ctx, groupPermissionUIDs)
+	if err != nil {
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+			UID:       &roleUID,
+			Operation: "update_permission",
+		}, err)
+		return domainerrors.ErrRoleUpdateFailed
+	}
+
+	// Validate all group permissions exist
+	for _, uid := range groupPermissionUIDs {
+		if _, exists := groupPermIDs[uid]; !exists {
+			err := domainerrors.ErrGroupPermissionNotFound
+			s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalRole{
+				UID:       &roleUID,
+				Operation: "update_permission",
+			}, err)
+			return err
+		}
+	}
+
+	// Convert map to slice of IDs
+	ids := make([]int64, 0, len(groupPermIDs))
+	for _, id := range groupPermIDs {
+		ids = append(ids, id)
+	}
+
+	var role *model.Role
+	err = s.uow.Do(ctx, func(r repository.RepositoryProvider) error {
 		var errUoW error
-		role, errUoW = r.Role().GetByUID(ctx, roleUID)
+		role, errUoW = r.Role().GetByID(ctx, roleID)
 		if errUoW != nil {
 			return fmt.Errorf("failed to get role: %w", errUoW)
 		}
 
-		groupPermissionIDs := make([]int64, 0, len(permissionUIDs))
-		for _, uid := range permissionUIDs {
-			groupPerm, err := r.Group().GetPermissionByGroupIDAndPermissionUID(ctx, role.GroupID, uid)
-			if err != nil {
-				return fmt.Errorf("failed to get group permission for permission %s: %w", uid, err)
-			}
-			groupPermissionIDs = append(groupPermissionIDs, groupPerm.ID)
-		}
-
-		if err := r.Role().ReplacePermission(ctx, role.ID, groupPermissionIDs); err != nil {
+		if err := r.Role().ReplacePermission(ctx, role.ID, ids); err != nil {
 			return fmt.Errorf("failed to replace permissions: %w", err)
 		}
 		return nil
 	})
 
 	if err != nil {
-		return err
+		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+			UID:       &roleUID,
+			Operation: "update_permission",
+		}, err)
+		return domainerrors.ErrRoleUpdateFailed
 	}
 
 	s.publisher.Publish(ctx, event.EventRoleUpdatePermission, &event.EventRoleUpdatePermissionData{
 		RoleUID: role.UID,
-		UIDs:    permissionUIDs,
+		UIDs:    groupPermissionUIDs,
 	})
+
+	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalRole{
+		UID:       &role.UID,
+		Name:      &role.Name,
+		Operation: "update_permission",
+	}, nil)
+
 	return nil
 }
 

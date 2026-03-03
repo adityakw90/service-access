@@ -37,6 +37,7 @@ func NewTestPostgreConnection(t *testing.T, ctx context.Context, cfg *config.Con
 		MaxConnLifetime:       cfg.Database.MaxConnLifetime,
 		MaxConnLifetimeJitter: cfg.Database.MaxConnLifetimeJitter,
 		HealthCheckPeriod:     cfg.Database.HealthCheckPeriod,
+		QueryExecMode:         cfg.Database.QueryExecMode,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to postgres: %w", err)

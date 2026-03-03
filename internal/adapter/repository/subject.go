@@ -70,16 +70,19 @@ func (r *subjectRepository) Update(ctx context.Context, subject *model.SubjectRo
 	return nil
 }
 
-func (r *subjectRepository) Delete(ctx context.Context, subjectID int64, subjectType string, roleID int64) error {
-	// subject_role doesn't have a single id column, it has a composite key
-	// The port interface uses id, but we need to know the composite key
-	// This is a design issue - for now, let's assume id is the role_id and we need to find the specific record
-	// However, since we don't have the subject_id and subject_type, we can't properly implement this
-	// Let's return an error indicating this limitation
+func (r *subjectRepository) Delete(ctx context.Context, subjectID string, subjectType string, roleID int64) error {
+	const sql = `DELETE FROM subject_role WHERE subject_id = $1 AND subject_type = $2 AND role_id = $3`
 
-	// TODO: Interface has been updated to SubjectId SubjectType and RoleId, this feature can be implemented now.
+	result, err := r.db.Exec(ctx, sql, subjectID, subjectType, roleID)
+	if err != nil {
+		return fmt.Errorf("failed to delete subject role: %w", err)
+	}
 
-	return fmt.Errorf("delete by single id not supported for subject_role with composite key")
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("subject role not found")
+	}
+
+	return nil
 }
 
 func (r *subjectRepository) GetRoles(ctx context.Context, subjectID string, subjectType string) ([]model.SubjectRole, error) {

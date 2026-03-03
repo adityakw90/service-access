@@ -29,7 +29,7 @@ func LoadTestConfig(t *testing.T) (*config.Config, error) {
 			Port:                  dbPort,
 			User:                  getEnv("DATABASE_USER", "postgres"),
 			Password:              getEnv("DATABASE_PASSWORD", "postgres"),
-			Name:                  getEnv("DATABASE_NAME", "test_service_access"),
+			Name:                  getEnv("DATABASE_NAME", "service_db"),
 			SslMode:               getEnv("DATABASE_SSL_MODE", "disable"),
 			Timezone:              "UTC",
 			MinConns:              1,
@@ -39,6 +39,7 @@ func LoadTestConfig(t *testing.T) (*config.Config, error) {
 			MaxConnLifetime:       30 * time.Minute,
 			MaxConnLifetimeJitter: 5 * time.Minute,
 			HealthCheckPeriod:     1 * time.Minute,
+			QueryExecMode:         "cache_describe",
 		},
 		Redis: config.RedisConfig{
 			Host:              getEnv("REDIS_HOST", "localhost"),
