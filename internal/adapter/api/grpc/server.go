@@ -45,7 +45,7 @@ func NewServer(
 	permHandler := handler.NewPermissionHandler(permService, validator)
 	roleHandler := handler.NewRoleHandler(roleService, validator)
 	groupHandler := handler.NewGroupHandler(groupService, validator)
-	accessHandler := handler.NewAccessHandler(accessService)
+	accessHandler := handler.NewAccessHandler(accessService, validator)
 	subjectHandler := handler.NewSubjectHandler(subjectService, validator)
 
 	// Create gRPC server

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/adityakw90/service-access/internal/adapter/api/grpc/handler"
+	"github.com/adityakw90/service-access/internal/adapter/api/grpc/validator"
 	accessmocks "github.com/adityakw90/service-access/test/mocks/service"
 	"github.com/adityakw90/service-access-proto/gen/go/access"
 	"github.com/stretchr/testify/mock"
@@ -53,11 +54,12 @@ func TestAccessHandler_CheckAccess(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockSvc := new(accessmocks.MockAccessService)
+			v := validator.New()
 			if tt.setup != nil {
 				tt.setup(mockSvc)
 			}
 
-			h := handler.NewAccessHandler(mockSvc)
+			h := handler.NewAccessHandler(mockSvc, v)
 			got, err := h.CheckAccess(context.Background(), tt.req)
 
 			if (err != nil) != tt.wantErr {
