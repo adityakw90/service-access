@@ -95,14 +95,14 @@ func TestSubjectRepository_GetRoles(t *testing.T) {
 	subjectType := "user"
 
 	// Assign multiple roles to subject
-	_, err := repo.Create(ctx, &model.SubjectRole{
+	err := repo.Create(ctx, &model.SubjectRole{
 		SubjectID:   subjectID,
 		SubjectType: subjectType,
 		RoleID:      role1.ID,
 	})
 	require.NoError(t, err)
 
-	_, err = repo.Create(ctx, &model.SubjectRole{
+	err = repo.Create(ctx, &model.SubjectRole{
 		SubjectID:   subjectID,
 		SubjectType: subjectType,
 		RoleID:      role2.ID,
@@ -127,7 +127,7 @@ func TestSubjectRepository_Delete(t *testing.T) {
 	subjectType := "user"
 
 	// Create assignment
-	_, err := repo.Create(ctx, &model.SubjectRole{
+	err := repo.Create(ctx, &model.SubjectRole{
 		SubjectID:   subjectID,
 		SubjectType: subjectType,
 		RoleID:      role.ID,
@@ -154,21 +154,21 @@ func TestSubjectRepository_List(t *testing.T) {
 	role2 := createTestRole(t, db, group.ID, "list-subject-role-2", "List subject role 2")
 
 	// Create multiple subject role assignments
-	_, err := repo.Create(ctx, &model.SubjectRole{
+	err := repo.Create(ctx, &model.SubjectRole{
 		SubjectID:   "user-list-1",
 		SubjectType: "user",
 		RoleID:      role1.ID,
 	})
 	require.NoError(t, err)
 
-	_, err = repo.Create(ctx, &model.SubjectRole{
+	err = repo.Create(ctx, &model.SubjectRole{
 		SubjectID:   "user-list-2",
 		SubjectType: "user",
 		RoleID:      role2.ID,
 	})
 	require.NoError(t, err)
 
-	_, err = repo.Create(ctx, &model.SubjectRole{
+	err = repo.Create(ctx, &model.SubjectRole{
 		SubjectID:   "service-list-1",
 		SubjectType: "service",
 		RoleID:      role1.ID,
