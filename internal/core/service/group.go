@@ -19,12 +19,13 @@ import (
 )
 
 type groupService struct {
-	uow         repository.UnitOfWork
-	repos       repository.RepositoryProvider
-	publisher   portEvent.EventPublisher
-	uidGenerator security.UIDGenerator
-	resolvers   resolver.ResolverProvider
-	observer    observer.ServiceObserver[signal.SignalGroup]
+	uow                     repository.UnitOfWork
+	repos                   repository.RepositoryProvider
+	publisher               portEvent.EventPublisher
+	uidGenerator            security.UIDGenerator
+	resolvers               resolver.ResolverProvider
+	groupObserver           observer.ServiceObserver[signal.SignalGroup]
+	groupPermissionObserver observer.ServiceObserver[signal.SignalGroupPermission]
 }
 
 // NewGroupService creates a new GroupService.
@@ -34,15 +35,17 @@ func NewGroupService(
 	publisher portEvent.EventPublisher,
 	uidGenerator security.UIDGenerator,
 	resolverProvider resolver.ResolverProvider,
-	observer observer.ServiceObserver[signal.SignalGroup],
+	groupObserver observer.ServiceObserver[signal.SignalGroup],
+	groupPermissionObserver observer.ServiceObserver[signal.SignalGroupPermission],
 ) service.GroupService {
 	return &groupService{
-		uow:         uow,
-		repos:       repos,
-		publisher:   publisher,
-		uidGenerator: uidGenerator,
-		resolvers:   resolverProvider,
-		observer:    observer,
+		uow:                     uow,
+		repos:                   repos,
+		publisher:               publisher,
+		uidGenerator:            uidGenerator,
+		resolvers:               resolverProvider,
+		groupObserver:           groupObserver,
+		groupPermissionObserver: groupPermissionObserver,
 	}
 }
 
@@ -75,7 +78,7 @@ func (s *groupService) Create(ctx context.Context, p param.GroupCreateParam) (*m
 func (s *groupService) Get(ctx context.Context, uid string) (*model.Group, error) {
 	ids, err := s.resolvers.Group().IDsByUIDs(ctx, []string{uid})
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+		s.groupObserver.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
 			UID:       &uid,
 			Operation: "get",
 		}, err)
@@ -85,7 +88,7 @@ func (s *groupService) Get(ctx context.Context, uid string) (*model.Group, error
 	id, exists := ids[uid]
 	if !exists {
 		err := domainerrors.ErrGroupNotFound
-		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
+		s.groupObserver.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
 			UID:       &uid,
 			Operation: "get",
 		}, err)
@@ -99,21 +102,21 @@ func (s *groupService) Get(ctx context.Context, uid string) (*model.Group, error
 			// Invalidate the stale resolver mapping
 			_ = s.resolvers.Group().Invalidate(ctx, param.WithUIDs(uid))
 
-			s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
+			s.groupObserver.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
 				UID:       &uid,
 				Operation: "get",
 			}, err)
 			return nil, err
 		}
 
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+		s.groupObserver.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
 			UID:       &uid,
 			Operation: "get",
 		}, err)
 		return nil, domainerrors.ErrGroupGetFailed
 	}
 
-	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalGroup{
+	s.groupObserver.OnSignal(ctx, signal.SignalSuccess, signal.SignalGroup{
 		UID:       &uid,
 		Name:      &group.Name,
 		Operation: "get",
@@ -134,7 +137,7 @@ func (s *groupService) Update(ctx context.Context, uid string, p param.GroupUpda
 	// Resolve UID before transaction
 	ids, err := s.resolvers.Group().IDsByUIDs(ctx, []string{uid})
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+		s.groupObserver.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
 			UID:       &uid,
 			Operation: "update",
 		}, err)
@@ -144,7 +147,7 @@ func (s *groupService) Update(ctx context.Context, uid string, p param.GroupUpda
 	id, exists := ids[uid]
 	if !exists {
 		err := domainerrors.ErrGroupNotFound
-		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
+		s.groupObserver.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
 			UID:       &uid,
 			Operation: "update",
 		}, err)
@@ -178,7 +181,7 @@ func (s *groupService) Update(ctx context.Context, uid string, p param.GroupUpda
 	})
 
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+		s.groupObserver.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
 			UID:       &uid,
 			Operation: "update",
 		}, err)
@@ -189,7 +192,7 @@ func (s *groupService) Update(ctx context.Context, uid string, p param.GroupUpda
 	if invErr := s.resolvers.Group().Invalidate(ctx, param.WithUIDs(uid)); invErr != nil {
 		// Note: We don't fail the operation since the primary operation succeeded.
 		// The cache invalidation error is logged via observer for observability.
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+		s.groupObserver.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
 			UID:       &uid,
 			Operation: "cache_invalidate",
 		}, invErr)
@@ -202,7 +205,7 @@ func (s *groupService) Update(ctx context.Context, uid string, p param.GroupUpda
 		UpdatedAt:   group.UpdatedAt,
 	})
 
-	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalGroup{
+	s.groupObserver.OnSignal(ctx, signal.SignalSuccess, signal.SignalGroup{
 		UID:       &uid,
 		Name:      &group.Name,
 		Operation: "update",
@@ -215,7 +218,7 @@ func (s *groupService) Delete(ctx context.Context, uid string) error {
 	// Resolve UID before transaction
 	ids, err := s.resolvers.Group().IDsByUIDs(ctx, []string{uid})
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+		s.groupObserver.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
 			UID:       &uid,
 			Operation: "delete",
 		}, err)
@@ -225,7 +228,7 @@ func (s *groupService) Delete(ctx context.Context, uid string) error {
 	id, exists := ids[uid]
 	if !exists {
 		err := domainerrors.ErrGroupNotFound
-		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
+		s.groupObserver.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
 			UID:       &uid,
 			Operation: "delete",
 		}, err)
@@ -251,7 +254,7 @@ func (s *groupService) Delete(ctx context.Context, uid string) error {
 	})
 
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+		s.groupObserver.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
 			UID:       &uid,
 			Operation: "delete",
 		}, err)
@@ -262,7 +265,7 @@ func (s *groupService) Delete(ctx context.Context, uid string) error {
 	if invErr := s.resolvers.Group().Invalidate(ctx, param.WithUIDs(uid)); invErr != nil {
 		// Note: We don't fail the operation since the primary operation succeeded.
 		// The cache invalidation error is logged via observer for observability.
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
+		s.groupObserver.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
 			UID:       &uid,
 			Operation: "cache_invalidate",
 		}, invErr)
@@ -272,7 +275,7 @@ func (s *groupService) Delete(ctx context.Context, uid string) error {
 		UID: group.UID,
 	})
 
-	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalGroup{
+	s.groupObserver.OnSignal(ctx, signal.SignalSuccess, signal.SignalGroup{
 		UID:       &uid,
 		Name:      &group.Name,
 		Operation: "delete",
@@ -285,9 +288,10 @@ func (s *groupService) AssignPermission(ctx context.Context, groupUID string, pe
 	// Resolve group UID
 	groupIDs, err := s.resolvers.Group().IDsByUIDs(ctx, []string{groupUID})
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
-			UID:       &groupUID,
-			Operation: "assign_permission",
+		s.groupPermissionObserver.OnSignal(ctx, signal.SignalError, signal.SignalGroupPermission{
+			GroupUID:      &groupUID,
+			PermissionUID: &permissionUID,
+			Operation:     "assign_permission",
 		}, err)
 		return domainerrors.ErrGroupPermissionAssignFailed
 	}
@@ -295,9 +299,10 @@ func (s *groupService) AssignPermission(ctx context.Context, groupUID string, pe
 	groupID, exists := groupIDs[groupUID]
 	if !exists {
 		err := domainerrors.ErrGroupNotFound
-		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
-			UID:       &groupUID,
-			Operation: "assign_permission",
+		s.groupPermissionObserver.OnSignal(ctx, signal.SignalReject, signal.SignalGroupPermission{
+			GroupUID:      &groupUID,
+			PermissionUID: &permissionUID,
+			Operation:     "assign_permission",
 		}, err)
 		return err
 	}
@@ -305,9 +310,10 @@ func (s *groupService) AssignPermission(ctx context.Context, groupUID string, pe
 	// Resolve permission UID
 	permIDs, err := s.resolvers.Permission().IDsByUIDs(ctx, []string{permissionUID})
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
-			UID:       &groupUID,
-			Operation: "assign_permission",
+		s.groupPermissionObserver.OnSignal(ctx, signal.SignalError, signal.SignalGroupPermission{
+			GroupUID:      &groupUID,
+			PermissionUID: &permissionUID,
+			Operation:     "assign_permission",
 		}, err)
 		return domainerrors.ErrGroupPermissionAssignFailed
 	}
@@ -315,9 +321,10 @@ func (s *groupService) AssignPermission(ctx context.Context, groupUID string, pe
 	permissionID, exists := permIDs[permissionUID]
 	if !exists {
 		err := domainerrors.ErrPermissionNotFound
-		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
-			UID:       &groupUID,
-			Operation: "assign_permission",
+		s.groupPermissionObserver.OnSignal(ctx, signal.SignalReject, signal.SignalGroupPermission{
+			GroupUID:      &groupUID,
+			PermissionUID: &permissionUID,
+			Operation:     "assign_permission",
 		}, err)
 		return err
 	}
@@ -348,9 +355,10 @@ func (s *groupService) AssignPermission(ctx context.Context, groupUID string, pe
 	})
 
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
-			UID:       &groupUID,
-			Operation: "assign_permission",
+		s.groupPermissionObserver.OnSignal(ctx, signal.SignalError, signal.SignalGroupPermission{
+			GroupUID:      &groupUID,
+			PermissionUID: &permissionUID,
+			Operation:     "assign_permission",
 		}, err)
 		return domainerrors.ErrGroupPermissionAssignFailed
 	}
@@ -360,10 +368,10 @@ func (s *groupService) AssignPermission(ctx context.Context, groupUID string, pe
 		PermissionUID: permission.UID,
 	})
 
-	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalGroup{
-		UID:       &groupUID,
-		Name:      &group.Name,
-		Operation: "assign_permission",
+	s.groupPermissionObserver.OnSignal(ctx, signal.SignalSuccess, signal.SignalGroupPermission{
+		GroupUID:      &groupUID,
+		PermissionUID: &permissionUID,
+		Operation:     "assign_permission",
 	}, nil)
 
 	return nil
@@ -373,9 +381,10 @@ func (s *groupService) RevokePermission(ctx context.Context, groupUID string, pe
 	// Resolve group UID
 	groupIDs, err := s.resolvers.Group().IDsByUIDs(ctx, []string{groupUID})
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
-			UID:       &groupUID,
-			Operation: "revoke_permission",
+		s.groupPermissionObserver.OnSignal(ctx, signal.SignalError, signal.SignalGroupPermission{
+			GroupUID:      &groupUID,
+			PermissionUID: &permissionUID,
+			Operation:     "revoke_permission",
 		}, err)
 		return domainerrors.ErrGroupPermissionRevokeFailed
 	}
@@ -383,9 +392,10 @@ func (s *groupService) RevokePermission(ctx context.Context, groupUID string, pe
 	groupID, exists := groupIDs[groupUID]
 	if !exists {
 		err := domainerrors.ErrGroupNotFound
-		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
-			UID:       &groupUID,
-			Operation: "revoke_permission",
+		s.groupPermissionObserver.OnSignal(ctx, signal.SignalReject, signal.SignalGroupPermission{
+			GroupUID:      &groupUID,
+			PermissionUID: &permissionUID,
+			Operation:     "revoke_permission",
 		}, err)
 		return err
 	}
@@ -393,9 +403,10 @@ func (s *groupService) RevokePermission(ctx context.Context, groupUID string, pe
 	// Resolve permission UID
 	permIDs, err := s.resolvers.Permission().IDsByUIDs(ctx, []string{permissionUID})
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
-			UID:       &groupUID,
-			Operation: "revoke_permission",
+		s.groupPermissionObserver.OnSignal(ctx, signal.SignalError, signal.SignalGroupPermission{
+			GroupUID:      &groupUID,
+			PermissionUID: &permissionUID,
+			Operation:     "revoke_permission",
 		}, err)
 		return domainerrors.ErrGroupPermissionRevokeFailed
 	}
@@ -403,9 +414,10 @@ func (s *groupService) RevokePermission(ctx context.Context, groupUID string, pe
 	permissionID, exists := permIDs[permissionUID]
 	if !exists {
 		err := domainerrors.ErrPermissionNotFound
-		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
-			UID:       &groupUID,
-			Operation: "revoke_permission",
+		s.groupPermissionObserver.OnSignal(ctx, signal.SignalReject, signal.SignalGroupPermission{
+			GroupUID:      &groupUID,
+			PermissionUID: &permissionUID,
+			Operation:     "revoke_permission",
 		}, err)
 		return err
 	}
@@ -433,9 +445,10 @@ func (s *groupService) RevokePermission(ctx context.Context, groupUID string, pe
 	})
 
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
-			UID:       &groupUID,
-			Operation: "revoke_permission",
+		s.groupPermissionObserver.OnSignal(ctx, signal.SignalError, signal.SignalGroupPermission{
+			GroupUID:      &groupUID,
+			PermissionUID: &permissionUID,
+			Operation:     "revoke_permission",
 		}, err)
 		return domainerrors.ErrGroupPermissionRevokeFailed
 	}
@@ -445,10 +458,10 @@ func (s *groupService) RevokePermission(ctx context.Context, groupUID string, pe
 		PermissionUID: permission.UID,
 	})
 
-	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalGroup{
-		UID:       &groupUID,
-		Name:      &group.Name,
-		Operation: "revoke_permission",
+	s.groupPermissionObserver.OnSignal(ctx, signal.SignalSuccess, signal.SignalGroupPermission{
+		GroupUID:      &groupUID,
+		PermissionUID: &permissionUID,
+		Operation:     "revoke_permission",
 	}, nil)
 
 	return nil
@@ -458,9 +471,10 @@ func (s *groupService) UpdatePermission(ctx context.Context, groupUID string, pe
 	// Resolve group UID
 	groupIDs, err := s.resolvers.Group().IDsByUIDs(ctx, []string{groupUID})
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
-			UID:       &groupUID,
-			Operation: "update_permission",
+		s.groupPermissionObserver.OnSignal(ctx, signal.SignalError, signal.SignalGroupPermission{
+			GroupUID:       &groupUID,
+			PermissionUIDs: permissionUIDs,
+			Operation:      "update_permission",
 		}, err)
 		return domainerrors.ErrGroupPermissionUpdateFailed
 	}
@@ -468,9 +482,10 @@ func (s *groupService) UpdatePermission(ctx context.Context, groupUID string, pe
 	groupID, exists := groupIDs[groupUID]
 	if !exists {
 		err := domainerrors.ErrGroupNotFound
-		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
-			UID:       &groupUID,
-			Operation: "update_permission",
+		s.groupPermissionObserver.OnSignal(ctx, signal.SignalReject, signal.SignalGroupPermission{
+			GroupUID:       &groupUID,
+			PermissionUIDs: permissionUIDs,
+			Operation:      "update_permission",
 		}, err)
 		return err
 	}
@@ -478,9 +493,10 @@ func (s *groupService) UpdatePermission(ctx context.Context, groupUID string, pe
 	// Batch resolve permission UIDs
 	permIDs, err := s.resolvers.Permission().IDsByUIDs(ctx, permissionUIDs)
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
-			UID:       &groupUID,
-			Operation: "update_permission",
+		s.groupPermissionObserver.OnSignal(ctx, signal.SignalError, signal.SignalGroupPermission{
+			GroupUID:       &groupUID,
+			PermissionUIDs: permissionUIDs,
+			Operation:      "update_permission",
 		}, err)
 		return domainerrors.ErrGroupPermissionUpdateFailed
 	}
@@ -491,9 +507,10 @@ func (s *groupService) UpdatePermission(ctx context.Context, groupUID string, pe
 		id, exists := permIDs[uid]
 		if !exists {
 			err := domainerrors.ErrPermissionNotFound
-			s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalGroup{
-				UID:       &groupUID,
-				Operation: "update_permission",
+			s.groupPermissionObserver.OnSignal(ctx, signal.SignalReject, signal.SignalGroupPermission{
+				GroupUID:      &groupUID,
+				PermissionUID: &uid,
+				Operation:     "update_permission",
 			}, err)
 			return err
 		}
@@ -522,9 +539,10 @@ func (s *groupService) UpdatePermission(ctx context.Context, groupUID string, pe
 	})
 
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalGroup{
-			UID:       &groupUID,
-			Operation: "update_permission",
+		s.groupPermissionObserver.OnSignal(ctx, signal.SignalError, signal.SignalGroupPermission{
+			GroupUID:       &groupUID,
+			PermissionUIDs: permissionUIDs,
+			Operation:      "update_permission",
 		}, err)
 		return domainerrors.ErrGroupPermissionUpdateFailed
 	}
@@ -534,10 +552,10 @@ func (s *groupService) UpdatePermission(ctx context.Context, groupUID string, pe
 		UIDs:     permissionUIDs,
 	})
 
-	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalGroup{
-		UID:       &groupUID,
-		Name:      &group.Name,
-		Operation: "update_permission",
+	s.groupPermissionObserver.OnSignal(ctx, signal.SignalSuccess, signal.SignalGroupPermission{
+		GroupUID:       &groupUID,
+		PermissionUIDs: permissionUIDs,
+		Operation:      "update_permission",
 	}, nil)
 
 	return nil
@@ -555,6 +573,11 @@ func (s *groupService) ListPermission(ctx context.Context, groupUID string, pagi
 	if err != nil {
 		return nil, fmt.Errorf("failed to list permissions: %w", err)
 	}
+
+	s.groupPermissionObserver.OnSignal(ctx, signal.SignalSuccess, signal.SignalGroupPermission{
+		GroupUID:  &groupUID,
+		Operation: "list_permission",
+	}, nil)
 
 	return &permissions, nil
 }

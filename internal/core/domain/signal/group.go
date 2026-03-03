@@ -21,6 +21,7 @@ type SignalGroupPermission struct {
 	PermissionAction      *string
 	PermissionDescription *string
 	CreatedAt             *time.Time
+	PermissionUIDs        []string
 
 	// operation context
 	Operation string

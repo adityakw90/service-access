@@ -19,12 +19,13 @@ import (
 )
 
 type roleService struct {
-	uow         repository.UnitOfWork
-	repos       repository.RepositoryProvider
-	publisher   portEvent.EventPublisher
-	uidGenerator security.UIDGenerator
-	resolvers   resolver.ResolverProvider
-	observer    observer.ServiceObserver[signal.SignalRole]
+	uow                    repository.UnitOfWork
+	repos                  repository.RepositoryProvider
+	publisher              portEvent.EventPublisher
+	uidGenerator           security.UIDGenerator
+	resolvers              resolver.ResolverProvider
+	roleObserver           observer.ServiceObserver[signal.SignalRole]
+	rolePermissionObserver observer.ServiceObserver[signal.SignalRolePermission]
 }
 
 // NewRoleService creates a new RoleService.
@@ -34,15 +35,17 @@ func NewRoleService(
 	publisher portEvent.EventPublisher,
 	uidGenerator security.UIDGenerator,
 	resolverProvider resolver.ResolverProvider,
-	observer observer.ServiceObserver[signal.SignalRole],
+	roleObserver observer.ServiceObserver[signal.SignalRole],
+	rolePermissionObserver observer.ServiceObserver[signal.SignalRolePermission],
 ) service.RoleService {
 	return &roleService{
-		uow:         uow,
-		repos:       repos,
-		publisher:   publisher,
-		uidGenerator: uidGenerator,
-		resolvers:   resolverProvider,
-		observer:    observer,
+		uow:                    uow,
+		repos:                  repos,
+		publisher:              publisher,
+		uidGenerator:           uidGenerator,
+		resolvers:              resolverProvider,
+		roleObserver:           roleObserver,
+		rolePermissionObserver: rolePermissionObserver,
 	}
 }
 
@@ -50,7 +53,8 @@ func (s *roleService) Create(ctx context.Context, p param.RoleCreateParam) (*mod
 	// Resolve GroupUID to GroupID
 	groupIDs, err := s.resolvers.Group().IDsByUIDs(ctx, []string{p.GroupUID})
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+		s.roleObserver.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+			GroupUID:  &p.GroupUID,
 			Operation: "create",
 		}, err)
 		return nil, domainerrors.ErrRoleCreateFailed
@@ -59,7 +63,8 @@ func (s *roleService) Create(ctx context.Context, p param.RoleCreateParam) (*mod
 	groupID, exists := groupIDs[p.GroupUID]
 	if !exists {
 		err := domainerrors.ErrGroupNotFound
-		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalRole{
+		s.roleObserver.OnSignal(ctx, signal.SignalReject, signal.SignalRole{
+			GroupUID:  &p.GroupUID,
 			Operation: "create",
 		}, err)
 		return nil, err
@@ -83,7 +88,7 @@ func (s *roleService) Create(ctx context.Context, p param.RoleCreateParam) (*mod
 	})
 
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+		s.roleObserver.OnSignal(ctx, signal.SignalError, signal.SignalRole{
 			Operation: "create",
 		}, err)
 		return nil, domainerrors.ErrRoleCreateFailed
@@ -97,7 +102,7 @@ func (s *roleService) Create(ctx context.Context, p param.RoleCreateParam) (*mod
 		CreatedAt:   result.CreatedAt,
 	})
 
-	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalRole{
+	s.roleObserver.OnSignal(ctx, signal.SignalSuccess, signal.SignalRole{
 		UID:       &result.UID,
 		Name:      &result.Name,
 		Operation: "create",
@@ -109,7 +114,7 @@ func (s *roleService) Create(ctx context.Context, p param.RoleCreateParam) (*mod
 func (s *roleService) Get(ctx context.Context, uid string) (*model.Role, error) {
 	ids, err := s.resolvers.Role().IDsByUIDs(ctx, []string{uid})
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+		s.roleObserver.OnSignal(ctx, signal.SignalError, signal.SignalRole{
 			UID:       &uid,
 			Operation: "get",
 		}, err)
@@ -119,7 +124,7 @@ func (s *roleService) Get(ctx context.Context, uid string) (*model.Role, error) 
 	id, exists := ids[uid]
 	if !exists {
 		err := domainerrors.ErrRoleNotFound
-		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalRole{
+		s.roleObserver.OnSignal(ctx, signal.SignalReject, signal.SignalRole{
 			UID:       &uid,
 			Operation: "get",
 		}, err)
@@ -133,21 +138,21 @@ func (s *roleService) Get(ctx context.Context, uid string) (*model.Role, error) 
 			// Invalidate the stale resolver mapping
 			_ = s.resolvers.Role().Invalidate(ctx, param.WithUIDs(uid))
 
-			s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalRole{
+			s.roleObserver.OnSignal(ctx, signal.SignalReject, signal.SignalRole{
 				UID:       &uid,
 				Operation: "get",
 			}, err)
 			return nil, err
 		}
 
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+		s.roleObserver.OnSignal(ctx, signal.SignalError, signal.SignalRole{
 			UID:       &uid,
 			Operation: "get",
 		}, err)
 		return nil, domainerrors.ErrRoleGetFailed
 	}
 
-	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalRole{
+	s.roleObserver.OnSignal(ctx, signal.SignalSuccess, signal.SignalRole{
 		UID:       &uid,
 		Name:      &role.Name,
 		Operation: "get",
@@ -168,7 +173,7 @@ func (s *roleService) Update(ctx context.Context, uid string, p param.RoleUpdate
 	// Resolve UID before transaction
 	ids, err := s.resolvers.Role().IDsByUIDs(ctx, []string{uid})
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+		s.roleObserver.OnSignal(ctx, signal.SignalError, signal.SignalRole{
 			UID:       &uid,
 			Operation: "update",
 		}, err)
@@ -178,7 +183,7 @@ func (s *roleService) Update(ctx context.Context, uid string, p param.RoleUpdate
 	id, exists := ids[uid]
 	if !exists {
 		err := domainerrors.ErrRoleNotFound
-		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalRole{
+		s.roleObserver.OnSignal(ctx, signal.SignalReject, signal.SignalRole{
 			UID:       &uid,
 			Operation: "update",
 		}, err)
@@ -209,7 +214,7 @@ func (s *roleService) Update(ctx context.Context, uid string, p param.RoleUpdate
 	})
 
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+		s.roleObserver.OnSignal(ctx, signal.SignalError, signal.SignalRole{
 			UID:       &uid,
 			Operation: "update",
 		}, err)
@@ -220,7 +225,7 @@ func (s *roleService) Update(ctx context.Context, uid string, p param.RoleUpdate
 	if invErr := s.resolvers.Role().Invalidate(ctx, param.WithUIDs(uid)); invErr != nil {
 		// Note: We don't fail the operation since the primary operation succeeded.
 		// The cache invalidation error is logged via observer for observability.
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+		s.roleObserver.OnSignal(ctx, signal.SignalError, signal.SignalRole{
 			UID:       &uid,
 			Operation: "cache_invalidate",
 		}, invErr)
@@ -233,7 +238,7 @@ func (s *roleService) Update(ctx context.Context, uid string, p param.RoleUpdate
 		UpdatedAt:   role.UpdatedAt,
 	})
 
-	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalRole{
+	s.roleObserver.OnSignal(ctx, signal.SignalSuccess, signal.SignalRole{
 		UID:       &uid,
 		Name:      &role.Name,
 		Operation: "update",
@@ -246,7 +251,7 @@ func (s *roleService) Delete(ctx context.Context, uid string) error {
 	// Resolve UID before transaction
 	ids, err := s.resolvers.Role().IDsByUIDs(ctx, []string{uid})
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+		s.roleObserver.OnSignal(ctx, signal.SignalError, signal.SignalRole{
 			UID:       &uid,
 			Operation: "delete",
 		}, err)
@@ -256,7 +261,7 @@ func (s *roleService) Delete(ctx context.Context, uid string) error {
 	id, exists := ids[uid]
 	if !exists {
 		err := domainerrors.ErrRoleNotFound
-		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalRole{
+		s.roleObserver.OnSignal(ctx, signal.SignalReject, signal.SignalRole{
 			UID:       &uid,
 			Operation: "delete",
 		}, err)
@@ -280,7 +285,7 @@ func (s *roleService) Delete(ctx context.Context, uid string) error {
 	})
 
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+		s.roleObserver.OnSignal(ctx, signal.SignalError, signal.SignalRole{
 			UID:       &uid,
 			Operation: "delete",
 		}, err)
@@ -291,7 +296,7 @@ func (s *roleService) Delete(ctx context.Context, uid string) error {
 	if invErr := s.resolvers.Role().Invalidate(ctx, param.WithUIDs(uid)); invErr != nil {
 		// Note: We don't fail the operation since the primary operation succeeded.
 		// The cache invalidation error is logged via observer for observability.
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
+		s.roleObserver.OnSignal(ctx, signal.SignalError, signal.SignalRole{
 			UID:       &uid,
 			Operation: "cache_invalidate",
 		}, invErr)
@@ -301,7 +306,7 @@ func (s *roleService) Delete(ctx context.Context, uid string) error {
 		UID: role.UID,
 	})
 
-	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalRole{
+	s.roleObserver.OnSignal(ctx, signal.SignalSuccess, signal.SignalRole{
 		UID:       &uid,
 		Name:      &role.Name,
 		Operation: "delete",
@@ -314,9 +319,10 @@ func (s *roleService) AssignPermission(ctx context.Context, roleUID string, grou
 	// Resolve role UID to role ID
 	roleIDs, err := s.resolvers.Role().IDsByUIDs(ctx, []string{roleUID})
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
-			UID:       &roleUID,
-			Operation: "assign_permission",
+		s.rolePermissionObserver.OnSignal(ctx, signal.SignalError, signal.SignalRolePermission{
+			RoleUID:            &roleUID,
+			GroupPermissionUID: &groupPermissionUID,
+			Operation:          "assign_permission",
 		}, err)
 		return domainerrors.ErrRoleUpdateFailed
 	}
@@ -324,9 +330,10 @@ func (s *roleService) AssignPermission(ctx context.Context, roleUID string, grou
 	roleID, exists := roleIDs[roleUID]
 	if !exists {
 		err := domainerrors.ErrRoleNotFound
-		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalRole{
-			UID:       &roleUID,
-			Operation: "assign_permission",
+		s.rolePermissionObserver.OnSignal(ctx, signal.SignalReject, signal.SignalRolePermission{
+			RoleUID:            &roleUID,
+			GroupPermissionUID: &groupPermissionUID,
+			Operation:          "assign_permission",
 		}, err)
 		return err
 	}
@@ -334,9 +341,10 @@ func (s *roleService) AssignPermission(ctx context.Context, roleUID string, grou
 	// Resolve group permission UID to ID
 	groupPermIDs, err := s.resolvers.GroupPermission().IDsByUIDs(ctx, []string{groupPermissionUID})
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
-			UID:       &roleUID,
-			Operation: "assign_permission",
+		s.rolePermissionObserver.OnSignal(ctx, signal.SignalError, signal.SignalRolePermission{
+			RoleUID:            &roleUID,
+			GroupPermissionUID: &groupPermissionUID,
+			Operation:          "assign_permission",
 		}, err)
 		return domainerrors.ErrRoleUpdateFailed
 	}
@@ -344,9 +352,10 @@ func (s *roleService) AssignPermission(ctx context.Context, roleUID string, grou
 	groupPermID, exists := groupPermIDs[groupPermissionUID]
 	if !exists {
 		err := domainerrors.ErrGroupPermissionNotFound
-		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalRole{
-			UID:       &roleUID,
-			Operation: "assign_permission",
+		s.rolePermissionObserver.OnSignal(ctx, signal.SignalReject, signal.SignalRolePermission{
+			RoleUID:            &roleUID,
+			GroupPermissionUID: &groupPermissionUID,
+			Operation:          "assign_permission",
 		}, err)
 		return err
 	}
@@ -366,9 +375,10 @@ func (s *roleService) AssignPermission(ctx context.Context, roleUID string, grou
 	})
 
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
-			UID:       &roleUID,
-			Operation: "assign_permission",
+		s.rolePermissionObserver.OnSignal(ctx, signal.SignalError, signal.SignalRolePermission{
+			RoleUID:            &roleUID,
+			GroupPermissionUID: &groupPermissionUID,
+			Operation:          "assign_permission",
 		}, err)
 		return domainerrors.ErrRoleUpdateFailed
 	}
@@ -378,10 +388,10 @@ func (s *roleService) AssignPermission(ctx context.Context, roleUID string, grou
 		GroupPermissionUID: groupPermissionUID,
 	})
 
-	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalRole{
-		UID:       &role.UID,
-		Name:      &role.Name,
-		Operation: "assign_permission",
+	s.rolePermissionObserver.OnSignal(ctx, signal.SignalSuccess, signal.SignalRolePermission{
+		RoleUID:            &role.UID,
+		GroupPermissionUID: &groupPermissionUID,
+		Operation:          "assign_permission",
 	}, nil)
 
 	return nil
@@ -391,9 +401,10 @@ func (s *roleService) RevokePermission(ctx context.Context, roleUID string, grou
 	// Resolve role UID to role ID
 	roleIDs, err := s.resolvers.Role().IDsByUIDs(ctx, []string{roleUID})
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
-			UID:       &roleUID,
-			Operation: "revoke_permission",
+		s.rolePermissionObserver.OnSignal(ctx, signal.SignalError, signal.SignalRolePermission{
+			RoleUID:            &roleUID,
+			GroupPermissionUID: &groupPermissionUID,
+			Operation:          "revoke_permission",
 		}, err)
 		return domainerrors.ErrRoleUpdateFailed
 	}
@@ -401,9 +412,10 @@ func (s *roleService) RevokePermission(ctx context.Context, roleUID string, grou
 	roleID, exists := roleIDs[roleUID]
 	if !exists {
 		err := domainerrors.ErrRoleNotFound
-		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalRole{
-			UID:       &roleUID,
-			Operation: "revoke_permission",
+		s.rolePermissionObserver.OnSignal(ctx, signal.SignalReject, signal.SignalRolePermission{
+			RoleUID:            &roleUID,
+			GroupPermissionUID: &groupPermissionUID,
+			Operation:          "revoke_permission",
 		}, err)
 		return err
 	}
@@ -411,9 +423,10 @@ func (s *roleService) RevokePermission(ctx context.Context, roleUID string, grou
 	// Resolve group permission UID to ID
 	groupPermIDs, err := s.resolvers.GroupPermission().IDsByUIDs(ctx, []string{groupPermissionUID})
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
-			UID:       &roleUID,
-			Operation: "revoke_permission",
+		s.rolePermissionObserver.OnSignal(ctx, signal.SignalError, signal.SignalRolePermission{
+			RoleUID:            &roleUID,
+			GroupPermissionUID: &groupPermissionUID,
+			Operation:          "revoke_permission",
 		}, err)
 		return domainerrors.ErrRoleUpdateFailed
 	}
@@ -421,9 +434,10 @@ func (s *roleService) RevokePermission(ctx context.Context, roleUID string, grou
 	groupPermID, exists := groupPermIDs[groupPermissionUID]
 	if !exists {
 		err := domainerrors.ErrGroupPermissionNotFound
-		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalRole{
-			UID:       &roleUID,
-			Operation: "revoke_permission",
+		s.rolePermissionObserver.OnSignal(ctx, signal.SignalReject, signal.SignalRolePermission{
+			RoleUID:            &roleUID,
+			GroupPermissionUID: &groupPermissionUID,
+			Operation:          "revoke_permission",
 		}, err)
 		return err
 	}
@@ -443,9 +457,10 @@ func (s *roleService) RevokePermission(ctx context.Context, roleUID string, grou
 	})
 
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
-			UID:       &roleUID,
-			Operation: "revoke_permission",
+		s.rolePermissionObserver.OnSignal(ctx, signal.SignalError, signal.SignalRolePermission{
+			RoleUID:            &roleUID,
+			GroupPermissionUID: &groupPermissionUID,
+			Operation:          "revoke_permission",
 		}, err)
 		return domainerrors.ErrRoleUpdateFailed
 	}
@@ -455,10 +470,10 @@ func (s *roleService) RevokePermission(ctx context.Context, roleUID string, grou
 		GroupPermissionUID: groupPermissionUID,
 	})
 
-	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalRole{
-		UID:       &role.UID,
-		Name:      &role.Name,
-		Operation: "revoke_permission",
+	s.rolePermissionObserver.OnSignal(ctx, signal.SignalSuccess, signal.SignalRolePermission{
+		RoleUID:            &role.UID,
+		GroupPermissionUID: &groupPermissionUID,
+		Operation:          "revoke_permission",
 	}, nil)
 
 	return nil
@@ -468,9 +483,10 @@ func (s *roleService) UpdatePermission(ctx context.Context, roleUID string, grou
 	// Resolve role UID to role ID first
 	roleIDs, err := s.resolvers.Role().IDsByUIDs(ctx, []string{roleUID})
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
-			UID:       &roleUID,
-			Operation: "update_permission",
+		s.rolePermissionObserver.OnSignal(ctx, signal.SignalError, signal.SignalRolePermission{
+			RoleUID:             &roleUID,
+			GroupPermissionUIDs: groupPermissionUIDs,
+			Operation:           "update_permission",
 		}, err)
 		return domainerrors.ErrRoleUpdateFailed
 	}
@@ -478,9 +494,10 @@ func (s *roleService) UpdatePermission(ctx context.Context, roleUID string, grou
 	roleID, exists := roleIDs[roleUID]
 	if !exists {
 		err := domainerrors.ErrRoleNotFound
-		s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalRole{
-			UID:       &roleUID,
-			Operation: "update_permission",
+		s.rolePermissionObserver.OnSignal(ctx, signal.SignalReject, signal.SignalRolePermission{
+			RoleUID:             &roleUID,
+			GroupPermissionUIDs: groupPermissionUIDs,
+			Operation:           "update_permission",
 		}, err)
 		return err
 	}
@@ -488,9 +505,10 @@ func (s *roleService) UpdatePermission(ctx context.Context, roleUID string, grou
 	// Resolve group permission UIDs to IDs
 	groupPermIDs, err := s.resolvers.GroupPermission().IDsByUIDs(ctx, groupPermissionUIDs)
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
-			UID:       &roleUID,
-			Operation: "update_permission",
+		s.rolePermissionObserver.OnSignal(ctx, signal.SignalError, signal.SignalRolePermission{
+			RoleUID:             &roleUID,
+			GroupPermissionUIDs: groupPermissionUIDs,
+			Operation:           "update_permission",
 		}, err)
 		return domainerrors.ErrRoleUpdateFailed
 	}
@@ -499,9 +517,10 @@ func (s *roleService) UpdatePermission(ctx context.Context, roleUID string, grou
 	for _, uid := range groupPermissionUIDs {
 		if _, exists := groupPermIDs[uid]; !exists {
 			err := domainerrors.ErrGroupPermissionNotFound
-			s.observer.OnSignal(ctx, signal.SignalReject, signal.SignalRole{
-				UID:       &roleUID,
-				Operation: "update_permission",
+			s.rolePermissionObserver.OnSignal(ctx, signal.SignalReject, signal.SignalRolePermission{
+				RoleUID:            &roleUID,
+				GroupPermissionUID: &uid,
+				Operation:          "update_permission",
 			}, err)
 			return err
 		}
@@ -528,9 +547,10 @@ func (s *roleService) UpdatePermission(ctx context.Context, roleUID string, grou
 	})
 
 	if err != nil {
-		s.observer.OnSignal(ctx, signal.SignalError, signal.SignalRole{
-			UID:       &roleUID,
-			Operation: "update_permission",
+		s.rolePermissionObserver.OnSignal(ctx, signal.SignalError, signal.SignalRolePermission{
+			RoleUID:             &roleUID,
+			GroupPermissionUIDs: groupPermissionUIDs,
+			Operation:           "update_permission",
 		}, err)
 		return domainerrors.ErrRoleUpdateFailed
 	}
@@ -540,10 +560,10 @@ func (s *roleService) UpdatePermission(ctx context.Context, roleUID string, grou
 		UIDs:    groupPermissionUIDs,
 	})
 
-	s.observer.OnSignal(ctx, signal.SignalSuccess, signal.SignalRole{
-		UID:       &role.UID,
-		Name:      &role.Name,
-		Operation: "update_permission",
+	s.rolePermissionObserver.OnSignal(ctx, signal.SignalSuccess, signal.SignalRolePermission{
+		RoleUID:             &role.UID,
+		GroupPermissionUIDs: groupPermissionUIDs,
+		Operation:           "update_permission",
 	}, nil)
 
 	return nil
@@ -561,6 +581,11 @@ func (s *roleService) ListPermission(ctx context.Context, roleUID string, pagina
 	if err != nil {
 		return nil, fmt.Errorf("failed to list permissions: %w", err)
 	}
+
+	s.rolePermissionObserver.OnSignal(ctx, signal.SignalSuccess, signal.SignalRolePermission{
+		RoleUID:   &role.UID,
+		Operation: "list_permission",
+	}, nil)
 
 	return &permissions, nil
 }

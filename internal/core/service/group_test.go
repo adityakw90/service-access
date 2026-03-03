@@ -156,7 +156,7 @@ func TestGroupService_Create(t *testing.T) {
 
 			tt.setup(mockUoW, mockRepos, mockUIDGenerator)
 
-			service := NewGroupService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, mockObserver)
+			service := NewGroupService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, mockObserver, adapterobserver.NewNoopObserver[signal.SignalGroupPermission]())
 			got, err := service.Create(context.Background(), tt.param)
 
 			if tt.wantErr {
@@ -237,7 +237,7 @@ func TestGroupService_Get(t *testing.T) {
 
 			tt.setup(mockRepos)
 
-			service := NewGroupService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, mockObserver)
+			service := NewGroupService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, mockObserver, adapterobserver.NewNoopObserver[signal.SignalGroupPermission]())
 			got, err := service.Get(context.Background(), tt.uid)
 
 			if tt.wantErr {
@@ -288,7 +288,7 @@ func TestGroupService_List(t *testing.T) {
 
 			tt.setup(mockRepos)
 
-			service := NewGroupService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, mockObserver)
+			service := NewGroupService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, mockObserver, adapterobserver.NewNoopObserver[signal.SignalGroupPermission]())
 			got, err := service.List(context.Background(), nil, nil)
 
 			if tt.wantErr {

@@ -15,7 +15,6 @@ import (
 	"github.com/adityakw90/service-access/internal/adapter/resolver"
 	"github.com/adityakw90/service-access/internal/adapter/security"
 	"github.com/adityakw90/service-access/internal/config"
-	domainSignal "github.com/adityakw90/service-access/internal/core/domain/signal"
 	portEvent "github.com/adityakw90/service-access/internal/core/port/event"
 	"github.com/adityakw90/service-access/internal/core/service"
 	"github.com/adityakw90/service-access/internal/infra"
@@ -274,17 +273,53 @@ func main() {
 
 	// initialize observer
 	// TODO: change to real observer after implemented
-	groupObserver := observer.NewNoopObserver[domainSignal.SignalGroup]()
-	permissionObserver := observer.NewNoopObserver[domainSignal.SignalPermission]()
-	roleObserver := observer.NewNoopObserver[domainSignal.SignalRole]()
+	permissionObserver := observer.NewPermissionObserver(iMon.Logger, iMon.Tracer)
+	groupObserver := observer.NewGroupObserver(iMon.Logger, iMon.Tracer)
+	groupPermissionObserver := observer.NewGroupPermissionObserver(iMon.Logger, iMon.Tracer)
+	roleObserver := observer.NewRoleObserver(iMon.Logger, iMon.Tracer)
+	rolePermissionObserver := observer.NewRolePermissionObserver(iMon.Logger, iMon.Tracer)
+	subjectObserver := observer.NewSubjectObserver(iMon.Logger, iMon.Tracer)
+	accessObserver := observer.NewAccessObserver(iMon.Logger, iMon.Tracer)
 
 	// initialize service
 	uidGen := security.NewUIDGenerator()
-	groupService := service.NewGroupService(uow, repoProvider, eventPublisher, uidGen, resolverProvider, groupObserver)
-	permissionService := service.NewPermissionService(uow, repoProvider, eventPublisher, uidGen, resolverProvider, permissionObserver)
-	roleService := service.NewRoleService(uow, repoProvider, eventPublisher, uidGen, resolverProvider, roleObserver)
-	subjectService := service.NewSubjectService(uow, repoProvider, eventPublisher)
-	accessService := service.NewAccessService(repoProvider)
+	permissionService := service.NewPermissionService(
+		uow,
+		repoProvider,
+		eventPublisher,
+		uidGen,
+		resolverProvider,
+		permissionObserver,
+	)
+	groupService := service.NewGroupService(
+		uow,
+		repoProvider,
+		eventPublisher,
+		uidGen,
+		resolverProvider,
+		groupObserver,
+		groupPermissionObserver,
+	)
+	roleService := service.NewRoleService(
+		uow,
+		repoProvider,
+		eventPublisher,
+		uidGen,
+		resolverProvider,
+		roleObserver,
+		rolePermissionObserver,
+	)
+	subjectService := service.NewSubjectService(
+		uow,
+		repoProvider,
+		eventPublisher,
+		subjectObserver,
+	)
+	accessService := service.NewAccessService(
+		repoProvider,
+		eventPublisher,
+		accessObserver,
+	)
 
 	// setup gRpc Server
 	srv := grpcAdapter.NewServer(
