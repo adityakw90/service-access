@@ -21,6 +21,7 @@ import (
 
 type Server struct {
 	server         *grpc.Server
+	listener       net.Listener
 	permHandler    *handler.PermissionHandler
 	roleHandler    *handler.RoleHandler
 	groupHandler   *handler.GroupHandler
@@ -85,7 +86,8 @@ func (s *Server) RegisterServices() {
 }
 
 func (s *Server) Start(address string) error {
-	listener, err := net.Listen("tcp", address)
+	var err error
+	s.listener, err = net.Listen("tcp", address)
 	if err != nil {
 		return err
 	}
@@ -98,11 +100,24 @@ func (s *Server) Start(address string) error {
 		"addr": address,
 	})
 
-	return s.server.Serve(listener)
+	return s.server.Serve(s.listener)
 }
 
 func (s *Server) Stop() {
-	s.server.GracefulStop()
+	if s.server != nil {
+		s.server.GracefulStop()
+	}
+	if s.listener != nil {
+		s.listener.Close()
+	}
+}
+
+// Addr returns the server address.
+func (s *Server) Addr() string {
+	if s.listener != nil {
+		return s.listener.Addr().String()
+	}
+	return ""
 }
 
 func (s *Server) GetPermissionHandler() *handler.PermissionHandler {
