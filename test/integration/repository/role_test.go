@@ -164,11 +164,9 @@ func TestRoleRepository_List(t *testing.T) {
 	repo := repository.NewRoleRepository(db)
 
 	group1 := createTestGroup(t, db, "group-alpha", "Alpha")
-	group2 := createTestGroup(t, db, "group-beta", "Beta")
 
 	role1 := createTestRole(t, db, group1.ID, "role-alpha-1", "Alpha role 1")
 	role2 := createTestRole(t, db, group1.ID, "role-alpha-2", "Alpha role 2")
-	role3 := createTestRole(t, db, group2.ID, "role-beta-1", "Beta role 1")
 
 	tests := []struct {
 		name       string
@@ -184,7 +182,7 @@ func TestRoleRepository_List(t *testing.T) {
 		{
 			name: "Filter By GroupID",
 			filter: &param.RoleListFilterParam{
-				GroupID: intPtr(group1.ID),
+				GroupID: int64Ptr(group1.ID),
 			},
 			minCount:   2,
 			shouldFind: []string{role1.UID, role2.UID},
