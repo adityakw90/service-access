@@ -8,6 +8,7 @@ import (
 
 	"github.com/adityakw90/go-monitoring"
 	"github.com/adityakw90/service-access/internal/core/domain/signal"
+	"github.com/adityakw90/service-access/pkg/util"
 )
 
 func TestAdapter_Observer_NewPermissionObserver(t *testing.T) {
@@ -75,13 +76,13 @@ func TestAdapter_Observer_PermissionObserver_OnSignal_Success(t *testing.T) {
 			sig:  signal.SignalSuccess,
 			data: signal.SignalPermission{
 				Operation: "update",
-				UID:        stringPtr("perm-123"),
-				Resource:   stringPtr("documents"),
+				UID:       util.Ptr("perm-123"),
+				Resource:  util.Ptr("documents"),
 			},
 			wantKeys: []string{"signal", "operation", "permission.uid", "permission.resource"},
 			wantVals: map[string]any{
-				"operation":         "update",
-				"permission.uid":    "perm-123",
+				"operation":           "update",
+				"permission.uid":      "perm-123",
 				"permission.resource": "documents",
 			},
 		},
@@ -89,20 +90,20 @@ func TestAdapter_Observer_PermissionObserver_OnSignal_Success(t *testing.T) {
 			name: "permission signal with all fields",
 			sig:  signal.SignalStart,
 			data: signal.SignalPermission{
-				Operation:  "delete",
-				UID:         stringPtr("perm-456"),
-				Resource:    stringPtr("admin"),
-				Action:      stringPtr("delete"),
-				Description: stringPtr("admin delete permission"),
+				Operation:   "delete",
+				UID:         util.Ptr("perm-456"),
+				Resource:    util.Ptr("admin"),
+				Action:      util.Ptr("delete"),
+				Description: util.Ptr("admin delete permission"),
 				CreatedAt:   &past,
 				UpdatedAt:   &now,
 			},
 			wantKeys: []string{"signal", "operation", "permission.uid", "permission.resource", "permission.action", "permission.description", "permission.created_at", "permission.updated_at"},
 			wantVals: map[string]any{
-				"operation":           "delete",
-				"permission.uid":      "perm-456",
-				"permission.resource": "admin",
-				"permission.action":   "delete",
+				"operation":              "delete",
+				"permission.uid":         "perm-456",
+				"permission.resource":    "admin",
+				"permission.action":      "delete",
 				"permission.description": "admin delete permission",
 			},
 		},
@@ -111,8 +112,8 @@ func TestAdapter_Observer_PermissionObserver_OnSignal_Success(t *testing.T) {
 			sig:  signal.SignalReject,
 			data: signal.SignalPermission{
 				Operation: "validate",
-				CreatedAt:  &now,
-				UpdatedAt:  &past,
+				CreatedAt: &now,
+				UpdatedAt: &past,
 			},
 			wantKeys: []string{"signal", "operation", "permission.created_at", "permission.updated_at"},
 			wantVals: map[string]any{
@@ -177,7 +178,7 @@ func TestAdapter_Observer_PermissionObserver_OnSignal_WithError(t *testing.T) {
 			sig:  signal.SignalFail,
 			data: signal.SignalPermission{
 				Operation: "create",
-				UID:        stringPtr("perm-123"),
+				UID:       util.Ptr("perm-123"),
 			},
 			err:     errors.New("database connection failed"),
 			wantMsg: "service signal",
@@ -187,7 +188,7 @@ func TestAdapter_Observer_PermissionObserver_OnSignal_WithError(t *testing.T) {
 			sig:  signal.SignalReject,
 			data: signal.SignalPermission{
 				Operation: "update",
-				Resource:   stringPtr(""),
+				Resource:  util.Ptr(""),
 			},
 			err:     errors.New("invalid resource"),
 			wantMsg: "service signal",
@@ -258,9 +259,9 @@ func TestAdapter_Observer_PermissionObserver_AllSignalTypes(t *testing.T) {
 
 			data := signal.SignalPermission{
 				Operation: "test-operation",
-				UID:        stringPtr("test-perm"),
-				Resource:   stringPtr("test-resource"),
-				Action:     stringPtr("test-action"),
+				UID:       util.Ptr("test-perm"),
+				Resource:  util.Ptr("test-resource"),
+				Action:    util.Ptr("test-action"),
 			}
 			obs.OnSignal(ctx, sig, data, nil)
 

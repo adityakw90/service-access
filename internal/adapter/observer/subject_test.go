@@ -8,6 +8,7 @@ import (
 
 	"github.com/adityakw90/go-monitoring"
 	"github.com/adityakw90/service-access/internal/core/domain/signal"
+	"github.com/adityakw90/service-access/pkg/util"
 )
 
 func TestAdapter_Observer_NewSubjectObserver(t *testing.T) {
@@ -74,9 +75,9 @@ func TestAdapter_Observer_SubjectObserver_OnSignal_Success(t *testing.T) {
 			name: "subject signal with subject_id and type",
 			sig:  signal.SignalSuccess,
 			data: signal.SignalSubject{
-				Operation:  "revoke",
-				SubjectID:  stringPtr("user-123"),
-				SubjectType: stringPtr("user"),
+				Operation:   "revoke",
+				SubjectID:   util.Ptr("user-123"),
+				SubjectType: util.Ptr("user"),
 			},
 			wantKeys: []string{"signal", "operation", "subject_id", "subject_type"},
 			wantVals: map[string]any{
@@ -89,10 +90,10 @@ func TestAdapter_Observer_SubjectObserver_OnSignal_Success(t *testing.T) {
 			name: "subject signal with role_uid",
 			sig:  signal.SignalStart,
 			data: signal.SignalSubject{
-				Operation:  "assign",
-				SubjectID:  stringPtr("service-456"),
-				SubjectType: stringPtr("service"),
-				RoleUID:     stringPtr("role-admin"),
+				Operation:   "assign",
+				SubjectID:   util.Ptr("service-456"),
+				SubjectType: util.Ptr("service"),
+				RoleUID:     util.Ptr("role-admin"),
 			},
 			wantKeys: []string{"signal", "operation", "subject_id", "subject_type", "role_uid"},
 			wantVals: map[string]any{
@@ -107,9 +108,9 @@ func TestAdapter_Observer_SubjectObserver_OnSignal_Success(t *testing.T) {
 			sig:  signal.SignalReject,
 			data: signal.SignalSubject{
 				Operation:   "unassign",
-				SubjectID:   stringPtr("user-789"),
-				SubjectType: stringPtr("user"),
-				RoleUID:     stringPtr("role-editor"),
+				SubjectID:   util.Ptr("user-789"),
+				SubjectType: util.Ptr("user"),
+				RoleUID:     util.Ptr("role-editor"),
 				AssignedAt:  &now,
 			},
 			wantKeys: []string{"signal", "operation", "subject_id", "subject_type", "role_uid", "assigned_at"},
@@ -190,8 +191,8 @@ func TestAdapter_Observer_SubjectObserver_OnSignal_WithError(t *testing.T) {
 			sig:  signal.SignalFail,
 			data: signal.SignalSubject{
 				Operation: "assign",
-				SubjectID: stringPtr("user-123"),
-				RoleUID:   stringPtr("role-admin"),
+				SubjectID: util.Ptr("user-123"),
+				RoleUID:   util.Ptr("role-admin"),
 			},
 			err:     errors.New("database connection failed"),
 			wantMsg: "service signal",
@@ -201,7 +202,7 @@ func TestAdapter_Observer_SubjectObserver_OnSignal_WithError(t *testing.T) {
 			sig:  signal.SignalReject,
 			data: signal.SignalSubject{
 				Operation: "revoke",
-				SubjectID: stringPtr(""),
+				SubjectID: util.Ptr(""),
 			},
 			err:     errors.New("invalid subject ID"),
 			wantMsg: "service signal",
@@ -272,9 +273,9 @@ func TestAdapter_Observer_SubjectObserver_AllSignalTypes(t *testing.T) {
 
 			data := signal.SignalSubject{
 				Operation:   "test-operation",
-				SubjectID:   stringPtr("test-subject"),
-				SubjectType: stringPtr("user"),
-				RoleUID:     stringPtr("test-role"),
+				SubjectID:   util.Ptr("test-subject"),
+				SubjectType: util.Ptr("user"),
+				RoleUID:     util.Ptr("test-role"),
 			}
 			obs.OnSignal(ctx, sig, data, nil)
 
@@ -358,7 +359,7 @@ func TestAdapter_Observer_SubjectObserver_DifferentSubjectTypes(t *testing.T) {
 				Operation:   "assign",
 				SubjectID:   &tt.subjectID,
 				SubjectType: &tt.subjectType,
-				RoleUID:     stringPtr("role-test"),
+				RoleUID:     util.Ptr("role-test"),
 			}
 			obs.OnSignal(ctx, signal.SignalStart, data, nil)
 

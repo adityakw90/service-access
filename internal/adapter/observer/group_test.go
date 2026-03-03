@@ -8,6 +8,7 @@ import (
 
 	"github.com/adityakw90/go-monitoring"
 	"github.com/adityakw90/service-access/internal/core/domain/signal"
+	"github.com/adityakw90/service-access/pkg/util"
 )
 
 func TestAdapter_Observer_NewGroupObserver(t *testing.T) {
@@ -113,8 +114,8 @@ func TestAdapter_Observer_GroupObserver_OnSignal_Success(t *testing.T) {
 			sig:  signal.SignalSuccess,
 			data: signal.SignalGroup{
 				Operation: "update",
-				UID:        stringPtr("group-123"),
-				Name:       stringPtr("admins"),
+				UID:       util.Ptr("group-123"),
+				Name:      util.Ptr("admins"),
 			},
 			wantKeys: []string{"signal", "operation", "group.uid", "group.name"},
 			wantVals: map[string]any{
@@ -127,18 +128,18 @@ func TestAdapter_Observer_GroupObserver_OnSignal_Success(t *testing.T) {
 			name: "group signal with all fields",
 			sig:  signal.SignalStart,
 			data: signal.SignalGroup{
-				Operation:  "delete",
-				UID:        stringPtr("group-456"),
-				Name:       stringPtr("editors"),
-				Description: stringPtr("content editors group"),
-				CreatedAt:  &past,
-				UpdatedAt:  &now,
+				Operation:   "delete",
+				UID:         util.Ptr("group-456"),
+				Name:        util.Ptr("editors"),
+				Description: util.Ptr("content editors group"),
+				CreatedAt:   &past,
+				UpdatedAt:   &now,
 			},
 			wantKeys: []string{"signal", "operation", "group.uid", "group.name", "group.description", "group.created_at", "group.updated_at"},
 			wantVals: map[string]any{
-				"operation":        "delete",
-				"group.uid":       "group-456",
-				"group.name":      "editors",
+				"operation":         "delete",
+				"group.uid":         "group-456",
+				"group.name":        "editors",
 				"group.description": "content editors group",
 			},
 		},
@@ -147,8 +148,8 @@ func TestAdapter_Observer_GroupObserver_OnSignal_Success(t *testing.T) {
 			sig:  signal.SignalReject,
 			data: signal.SignalGroup{
 				Operation: "validate",
-				CreatedAt:  &now,
-				UpdatedAt:  &past,
+				CreatedAt: &now,
+				UpdatedAt: &past,
 			},
 			wantKeys: []string{"signal", "operation", "group.created_at", "group.updated_at"},
 			wantVals: map[string]any{
@@ -225,10 +226,10 @@ func TestAdapter_Observer_GroupPermissionObserver_OnSignal_Success(t *testing.T)
 			name: "group permission signal with group_uid and permission_uid",
 			sig:  signal.SignalSuccess,
 			data: signal.SignalGroupPermission{
-				Operation:      "detach",
-				UID:            stringPtr("gp-123"),
-				GroupUID:       stringPtr("group-123"),
-				PermissionUID:  stringPtr("perm-456"),
+				Operation:     "detach",
+				UID:           util.Ptr("gp-123"),
+				GroupUID:      util.Ptr("group-123"),
+				PermissionUID: util.Ptr("perm-456"),
 			},
 			wantKeys: []string{"signal", "operation", "group_permission.uid", "group_permission.group_uid", "group_permission.permission_uid"},
 			wantVals: map[string]any{
@@ -243,22 +244,22 @@ func TestAdapter_Observer_GroupPermissionObserver_OnSignal_Success(t *testing.T)
 			sig:  signal.SignalStart,
 			data: signal.SignalGroupPermission{
 				Operation:             "attach",
-				UID:                   stringPtr("gp-789"),
-				GroupUID:              stringPtr("group-abc"),
-				PermissionUID:         stringPtr("perm-def"),
-				PermissionResource:    stringPtr("documents"),
-				PermissionAction:      stringPtr("write"),
-				PermissionDescription: stringPtr("document write permission"),
+				UID:                   util.Ptr("gp-789"),
+				GroupUID:              util.Ptr("group-abc"),
+				PermissionUID:         util.Ptr("perm-def"),
+				PermissionResource:    util.Ptr("documents"),
+				PermissionAction:      util.Ptr("write"),
+				PermissionDescription: util.Ptr("document write permission"),
 				CreatedAt:             &now,
 			},
 			wantKeys: []string{"signal", "operation", "group_permission.uid", "group_permission.group_uid", "group_permission.permission_uid", "group_permission.permission_resource", "group_permission.permission_action", "group_permission.permission_description", "group_permission.created_at"},
 			wantVals: map[string]any{
 				"operation":                               "attach",
-				"group_permission.uid":                   "gp-789",
-				"group_permission.group_uid":             "group-abc",
-				"group_permission.permission_uid":        "perm-def",
-				"group_permission.permission_resource":   "documents",
-				"group_permission.permission_action":     "write",
+				"group_permission.uid":                    "gp-789",
+				"group_permission.group_uid":              "group-abc",
+				"group_permission.permission_uid":         "perm-def",
+				"group_permission.permission_resource":    "documents",
+				"group_permission.permission_action":      "write",
 				"group_permission.permission_description": "document write permission",
 			},
 		},
@@ -267,7 +268,7 @@ func TestAdapter_Observer_GroupPermissionObserver_OnSignal_Success(t *testing.T)
 			sig:  signal.SignalReject,
 			data: signal.SignalGroupPermission{
 				Operation:      "bulk-attach",
-				GroupUID:       stringPtr("group-123"),
+				GroupUID:       util.Ptr("group-123"),
 				PermissionUIDs: []string{"perm-1", "perm-2", "perm-3"},
 			},
 			wantKeys: []string{"signal", "operation", "group_permission.group_uid", "group_permission.permission_uids"},
@@ -334,7 +335,7 @@ func TestAdapter_Observer_GroupObserver_OnSignal_WithError(t *testing.T) {
 			sig:  signal.SignalFail,
 			data: signal.SignalGroup{
 				Operation: "create",
-				UID:        stringPtr("group-123"),
+				UID:       util.Ptr("group-123"),
 			},
 			err:     errors.New("database connection failed"),
 			wantMsg: "service signal",
@@ -344,7 +345,7 @@ func TestAdapter_Observer_GroupObserver_OnSignal_WithError(t *testing.T) {
 			sig:  signal.SignalReject,
 			data: signal.SignalGroup{
 				Operation: "update",
-				Name:       stringPtr(""),
+				Name:      util.Ptr(""),
 			},
 			err:     errors.New("invalid group name"),
 			wantMsg: "service signal",
@@ -410,8 +411,8 @@ func TestAdapter_Observer_GroupPermissionObserver_OnSignal_WithError(t *testing.
 			sig:  signal.SignalFail,
 			data: signal.SignalGroupPermission{
 				Operation:     "attach",
-				GroupUID:      stringPtr("group-123"),
-				PermissionUID: stringPtr("perm-456"),
+				GroupUID:      util.Ptr("group-123"),
+				PermissionUID: util.Ptr("perm-456"),
 			},
 			err:     errors.New("permission not found"),
 			wantMsg: "service signal",
@@ -421,7 +422,7 @@ func TestAdapter_Observer_GroupPermissionObserver_OnSignal_WithError(t *testing.
 			sig:  signal.SignalReject,
 			data: signal.SignalGroupPermission{
 				Operation: "detach",
-				GroupUID:  stringPtr(""),
+				GroupUID:  util.Ptr(""),
 			},
 			err:     errors.New("invalid group UID"),
 			wantMsg: "service signal",
@@ -486,10 +487,10 @@ func TestAdapter_Observer_GroupObserver_AllSignalTypes(t *testing.T) {
 			ctx := context.Background()
 
 			data := signal.SignalGroup{
-				Operation:  "test-operation",
-				UID:        stringPtr("test-group"),
-				Name:       stringPtr("test-name"),
-				Description: stringPtr("test description"),
+				Operation:   "test-operation",
+				UID:         util.Ptr("test-group"),
+				Name:        util.Ptr("test-name"),
+				Description: util.Ptr("test description"),
 			}
 			obs.OnSignal(ctx, sig, data, nil)
 
@@ -524,10 +525,10 @@ func TestAdapter_Observer_GroupPermissionObserver_AllSignalTypes(t *testing.T) {
 
 			data := signal.SignalGroupPermission{
 				Operation:          "test-operation",
-				GroupUID:           stringPtr("test-group"),
-				PermissionUID:      stringPtr("test-perm"),
-				PermissionResource: stringPtr("test-resource"),
-				PermissionAction:   stringPtr("test-action"),
+				GroupUID:           util.Ptr("test-group"),
+				PermissionUID:      util.Ptr("test-perm"),
+				PermissionResource: util.Ptr("test-resource"),
+				PermissionAction:   util.Ptr("test-action"),
 			}
 			obs.OnSignal(ctx, sig, data, nil)
 
@@ -617,7 +618,7 @@ func TestAdapter_Observer_GroupPermissionObserver_PermissionUIDs(t *testing.T) {
 
 	data := signal.SignalGroupPermission{
 		Operation:      "bulk-attach",
-		GroupUID:       stringPtr("group-123"),
+		GroupUID:       util.Ptr("group-123"),
 		PermissionUIDs: []string{"perm-1", "perm-2", "perm-3"},
 	}
 	obs.OnSignal(ctx, signal.SignalStart, data, nil)

@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"testing"
-	"time"
 
 	"github.com/adityakw90/go-monitoring"
 	"github.com/adityakw90/service-access/internal/core/domain/signal"
+	"github.com/adityakw90/service-access/pkg/util"
 )
 
 type testError struct {
@@ -89,7 +89,7 @@ func TestAdapter_Observer_AccessObserver_OnSignal_Success(t *testing.T) {
 				SubjectType: "service",
 				Resource:    "api",
 				Action:      "write",
-				Allowed:     boolPtr(true),
+				Allowed:     util.Ptr(true),
 			},
 			wantKeys: []string{"signal", "subject_id", "subject_type", "resource", "action", "allowed"},
 			wantVals: map[string]interface{}{
@@ -108,8 +108,8 @@ func TestAdapter_Observer_AccessObserver_OnSignal_Success(t *testing.T) {
 				SubjectType: "user",
 				Resource:    "admin",
 				Action:      "delete",
-				Allowed:     boolPtr(false),
-				Reason:      stringPtr("insufficient permissions"),
+				Allowed:     util.Ptr(false),
+				Reason:      util.Ptr("insufficient permissions"),
 			},
 			wantKeys: []string{"signal", "subject_id", "subject_type", "resource", "action", "allowed", "reason"},
 			wantVals: map[string]interface{}{
@@ -129,7 +129,7 @@ func TestAdapter_Observer_AccessObserver_OnSignal_Success(t *testing.T) {
 				SubjectType: "service",
 				Resource:    "metrics",
 				Action:      "collect",
-				Reason:      stringPtr("rate limit exceeded"),
+				Reason:      util.Ptr("rate limit exceeded"),
 			},
 			wantKeys: []string{"signal", "subject_id", "subject_type", "resource", "action", "reason"},
 			wantVals: map[string]interface{}{
@@ -295,17 +295,4 @@ func TestAdapter_Observer_AccessObserver_AllSignalTypes(t *testing.T) {
 			}
 		})
 	}
-}
-
-// Helper functions
-func boolPtr(b bool) *bool {
-	return &b
-}
-
-func stringPtr(s string) *string {
-	return &s
-}
-
-func timePtr(t time.Time) *time.Time {
-	return &t
 }

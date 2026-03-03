@@ -8,6 +8,7 @@ import (
 
 	"github.com/adityakw90/go-monitoring"
 	"github.com/adityakw90/service-access/internal/core/domain/signal"
+	"github.com/adityakw90/service-access/pkg/util"
 )
 
 func TestAdapter_Observer_NewRoleObserver(t *testing.T) {
@@ -113,13 +114,13 @@ func TestAdapter_Observer_RoleObserver_OnSignal_Success(t *testing.T) {
 			sig:  signal.SignalSuccess,
 			data: signal.SignalRole{
 				Operation: "update",
-				UID:        stringPtr("role-123"),
-				GroupUID:   stringPtr("group-456"),
+				UID:       util.Ptr("role-123"),
+				GroupUID:  util.Ptr("group-456"),
 			},
 			wantKeys: []string{"signal", "operation", "role.uid", "role.group_uid"},
 			wantVals: map[string]any{
-				"operation":     "update",
-				"role.uid":     "role-123",
+				"operation":      "update",
+				"role.uid":       "role-123",
 				"role.group_uid": "group-456",
 			},
 		},
@@ -127,20 +128,20 @@ func TestAdapter_Observer_RoleObserver_OnSignal_Success(t *testing.T) {
 			name: "role signal with all fields",
 			sig:  signal.SignalStart,
 			data: signal.SignalRole{
-				Operation:  "delete",
-				UID:        stringPtr("role-789"),
-				GroupUID:   stringPtr("group-abc"),
-				Name:       stringPtr("editors"),
-				Description: stringPtr("content editors role"),
-				CreatedAt:  &past,
-				UpdatedAt:  &now,
+				Operation:   "delete",
+				UID:         util.Ptr("role-789"),
+				GroupUID:    util.Ptr("group-abc"),
+				Name:        util.Ptr("editors"),
+				Description: util.Ptr("content editors role"),
+				CreatedAt:   &past,
+				UpdatedAt:   &now,
 			},
 			wantKeys: []string{"signal", "operation", "role.uid", "role.group_uid", "role.name", "role.description", "role.created_at", "role.updated_at"},
 			wantVals: map[string]any{
-				"operation":         "delete",
-				"role.uid":        "role-789",
-				"role.group_uid":  "group-abc",
-				"role.name":       "editors",
+				"operation":        "delete",
+				"role.uid":         "role-789",
+				"role.group_uid":   "group-abc",
+				"role.name":        "editors",
 				"role.description": "content editors role",
 			},
 		},
@@ -149,8 +150,8 @@ func TestAdapter_Observer_RoleObserver_OnSignal_Success(t *testing.T) {
 			sig:  signal.SignalReject,
 			data: signal.SignalRole{
 				Operation: "validate",
-				CreatedAt:  &now,
-				UpdatedAt:  &past,
+				CreatedAt: &now,
+				UpdatedAt: &past,
 			},
 			wantKeys: []string{"signal", "operation", "role.created_at", "role.updated_at"},
 			wantVals: map[string]any{
@@ -228,14 +229,14 @@ func TestAdapter_Observer_RolePermissionObserver_OnSignal_Success(t *testing.T) 
 			sig:  signal.SignalSuccess,
 			data: signal.SignalRolePermission{
 				Operation:     "detach",
-				RoleUID:       stringPtr("role-123"),
-				PermissionUID: stringPtr("perm-456"),
+				RoleUID:       util.Ptr("role-123"),
+				PermissionUID: util.Ptr("perm-456"),
 			},
 			wantKeys: []string{"signal", "operation", "role_permission.group_uid", "role_permission.permission_uid"},
 			wantVals: map[string]any{
-				"operation":                          "detach",
-				"role_permission.group_uid":        "role-123",
-				"role_permission.permission_uid":   "perm-456",
+				"operation":                      "detach",
+				"role_permission.group_uid":      "role-123",
+				"role_permission.permission_uid": "perm-456",
 			},
 		},
 		{
@@ -243,17 +244,17 @@ func TestAdapter_Observer_RolePermissionObserver_OnSignal_Success(t *testing.T) 
 			sig:  signal.SignalStart,
 			data: signal.SignalRolePermission{
 				Operation:             "attach",
-				RoleUID:               stringPtr("role-789"),
-				GroupPermissionUID:    stringPtr("gp-abc"),
-				PermissionUID:         stringPtr("perm-def"),
-				PermissionResource:    stringPtr("documents"),
-				PermissionAction:      stringPtr("write"),
-				PermissionDescription: stringPtr("document write permission"),
+				RoleUID:               util.Ptr("role-789"),
+				GroupPermissionUID:    util.Ptr("gp-abc"),
+				PermissionUID:         util.Ptr("perm-def"),
+				PermissionResource:    util.Ptr("documents"),
+				PermissionAction:      util.Ptr("write"),
+				PermissionDescription: util.Ptr("document write permission"),
 				CreatedAt:             &now,
 			},
 			wantKeys: []string{"signal", "operation", "role_permission.group_uid", "role_permission.group_permission_uid", "role_permission.permission_uid", "role_permission.permission_resource", "role_permission.permission_action", "role_permission.permission_description", "role_permission.created_at"},
 			wantVals: map[string]any{
-				"operation":                                "attach",
+				"operation":                              "attach",
 				"role_permission.group_uid":              "role-789",
 				"role_permission.group_permission_uid":   "gp-abc",
 				"role_permission.permission_uid":         "perm-def",
@@ -267,12 +268,12 @@ func TestAdapter_Observer_RolePermissionObserver_OnSignal_Success(t *testing.T) 
 			sig:  signal.SignalReject,
 			data: signal.SignalRolePermission{
 				Operation:           "bulk-attach",
-				RoleUID:             stringPtr("role-123"),
+				RoleUID:             util.Ptr("role-123"),
 				GroupPermissionUIDs: []string{"gp-1", "gp-2", "gp-3"},
 			},
 			wantKeys: []string{"signal", "operation", "role_permission.group_uid", "role_permission.group_permission_uids"},
 			wantVals: map[string]any{
-				"operation":                  "bulk-attach",
+				"operation":                 "bulk-attach",
 				"role_permission.group_uid": "role-123",
 			},
 		},
@@ -281,12 +282,12 @@ func TestAdapter_Observer_RolePermissionObserver_OnSignal_Success(t *testing.T) 
 			sig:  signal.SignalFail,
 			data: signal.SignalRolePermission{
 				Operation:      "bulk-detach",
-				RoleUID:        stringPtr("role-456"),
+				RoleUID:        util.Ptr("role-456"),
 				PermissionUIDs: []string{"perm-1", "perm-2", "perm-3"},
 			},
 			wantKeys: []string{"signal", "operation", "role_permission.group_uid", "role_permission.permission_uids"},
 			wantVals: map[string]any{
-				"operation":                  "bulk-detach",
+				"operation":                 "bulk-detach",
 				"role_permission.group_uid": "role-456",
 			},
 		},
@@ -348,7 +349,7 @@ func TestAdapter_Observer_RoleObserver_OnSignal_WithError(t *testing.T) {
 			sig:  signal.SignalFail,
 			data: signal.SignalRole{
 				Operation: "create",
-				UID:        stringPtr("role-123"),
+				UID:       util.Ptr("role-123"),
 			},
 			err:     errors.New("database connection failed"),
 			wantMsg: "service signal",
@@ -358,7 +359,7 @@ func TestAdapter_Observer_RoleObserver_OnSignal_WithError(t *testing.T) {
 			sig:  signal.SignalReject,
 			data: signal.SignalRole{
 				Operation: "update",
-				Name:       stringPtr(""),
+				Name:      util.Ptr(""),
 			},
 			err:     errors.New("invalid role name"),
 			wantMsg: "service signal",
@@ -424,8 +425,8 @@ func TestAdapter_Observer_RolePermissionObserver_OnSignal_WithError(t *testing.T
 			sig:  signal.SignalFail,
 			data: signal.SignalRolePermission{
 				Operation:     "attach",
-				RoleUID:       stringPtr("role-123"),
-				PermissionUID: stringPtr("perm-456"),
+				RoleUID:       util.Ptr("role-123"),
+				PermissionUID: util.Ptr("perm-456"),
 			},
 			err:     errors.New("permission not found"),
 			wantMsg: "service signal",
@@ -435,7 +436,7 @@ func TestAdapter_Observer_RolePermissionObserver_OnSignal_WithError(t *testing.T
 			sig:  signal.SignalReject,
 			data: signal.SignalRolePermission{
 				Operation: "detach",
-				RoleUID:   stringPtr(""),
+				RoleUID:   util.Ptr(""),
 			},
 			err:     errors.New("invalid role UID"),
 			wantMsg: "service signal",
@@ -500,11 +501,11 @@ func TestAdapter_Observer_RoleObserver_AllSignalTypes(t *testing.T) {
 			ctx := context.Background()
 
 			data := signal.SignalRole{
-				Operation:  "test-operation",
-				UID:        stringPtr("test-role"),
-				GroupUID:   stringPtr("test-group"),
-				Name:       stringPtr("test-name"),
-				Description: stringPtr("test description"),
+				Operation:   "test-operation",
+				UID:         util.Ptr("test-role"),
+				GroupUID:    util.Ptr("test-group"),
+				Name:        util.Ptr("test-name"),
+				Description: util.Ptr("test description"),
 			}
 			obs.OnSignal(ctx, sig, data, nil)
 
@@ -539,11 +540,11 @@ func TestAdapter_Observer_RolePermissionObserver_AllSignalTypes(t *testing.T) {
 
 			data := signal.SignalRolePermission{
 				Operation:          "test-operation",
-				RoleUID:            stringPtr("test-role"),
-				GroupPermissionUID: stringPtr("test-gp"),
-				PermissionUID:      stringPtr("test-perm"),
-				PermissionResource: stringPtr("test-resource"),
-				PermissionAction:   stringPtr("test-action"),
+				RoleUID:            util.Ptr("test-role"),
+				GroupPermissionUID: util.Ptr("test-gp"),
+				PermissionUID:      util.Ptr("test-perm"),
+				PermissionResource: util.Ptr("test-resource"),
+				PermissionAction:   util.Ptr("test-action"),
 			}
 			obs.OnSignal(ctx, sig, data, nil)
 
@@ -633,7 +634,7 @@ func TestAdapter_Observer_RolePermissionObserver_GroupPermissionUIDs(t *testing.
 
 	data := signal.SignalRolePermission{
 		Operation:           "bulk-attach",
-		RoleUID:             stringPtr("role-123"),
+		RoleUID:             util.Ptr("role-123"),
 		GroupPermissionUIDs: []string{"gp-1", "gp-2", "gp-3"},
 	}
 	obs.OnSignal(ctx, signal.SignalStart, data, nil)
@@ -658,7 +659,7 @@ func TestAdapter_Observer_RolePermissionObserver_PermissionUIDs(t *testing.T) {
 
 	data := signal.SignalRolePermission{
 		Operation:      "bulk-attach",
-		RoleUID:        stringPtr("role-123"),
+		RoleUID:        util.Ptr("role-123"),
 		PermissionUIDs: []string{"perm-1", "perm-2", "perm-3"},
 	}
 	obs.OnSignal(ctx, signal.SignalStart, data, nil)
