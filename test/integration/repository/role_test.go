@@ -215,3 +215,138 @@ func TestRoleRepository_List(t *testing.T) {
 		})
 	}
 }
+
+func TestRoleRepository_AddPermission(t *testing.T) {
+	db := setupIntegrationTest(t)
+	ctx := context.Background()
+	repo := repository.NewRoleRepository(db)
+	groupRepo := repository.NewGroupRepository(db)
+
+	group := createTestGroup(t, db, "perm-test-group", "Permission test group")
+	role := createTestRole(t, db, group.ID, "perm-test-role", "Permission test role")
+	perm := createTestPermission(t, db, "test-resource", "test-action", "Test permission")
+
+	// Add permission to group first
+	groupPermUID := "test-group-perm-uid"
+	err := groupRepo.AddPermission(ctx, group.ID, perm.ID, groupPermUID)
+	require.NoError(t, err)
+
+	// Get the group permission ID
+	groupPerms, err := groupRepo.ListPermission(ctx, group.ID, nil, &param.GroupPermissionListFilterParam{})
+	require.NoError(t, err)
+	require.Greater(t, len(groupPerms.Items), 0)
+	groupPermID := groupPerms.Items[0].ID
+
+	tests := []struct {
+		name              string
+		roleID            int64
+		groupPermissionID int64
+		wantErr           bool
+		errMsg            string
+	}{
+		{
+			name:              "Happy Path",
+			roleID:            role.ID,
+			groupPermissionID: groupPermID,
+			wantErr:           false,
+		},
+		{
+			name:              "Non-existent Role",
+			roleID:            99999,
+			groupPermissionID: groupPermID,
+			wantErr:           true,
+			errMsg:            "role with id",
+		},
+		{
+			name:              "Non-existent Group Permission",
+			roleID:            role.ID,
+			groupPermissionID: 99999,
+			wantErr:           true,
+			errMsg:            "group permission with id",
+		},
+		{
+			name:              "Duplicate (ON CONFLICT DO NOTHING)",
+			roleID:            role.ID,
+			groupPermissionID: groupPermID,
+			wantErr:           false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := repo.AddPermission(ctx, tt.roleID, tt.groupPermissionID)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestRoleRepository_RemovePermission(t *testing.T) {
+	db := setupIntegrationTest(t)
+	ctx := context.Background()
+	repo := repository.NewRoleRepository(db)
+	groupRepo := repository.NewGroupRepository(db)
+
+	group := createTestGroup(t, db, "remove-test-group", "Remove test group")
+	role := createTestRole(t, db, group.ID, "remove-test-role", "Remove test role")
+	perm := createTestPermission(t, db, "remove-resource", "remove-action", "Remove test permission")
+
+	// Add permission to group and role
+	groupPermUID := "test-remove-group-perm-uid"
+	err := groupRepo.AddPermission(ctx, group.ID, perm.ID, groupPermUID)
+	require.NoError(t, err)
+
+	groupPerms, err := groupRepo.ListPermission(ctx, group.ID, nil, &param.GroupPermissionListFilterParam{})
+	require.NoError(t, err)
+	groupPermID := groupPerms.Items[0].ID
+
+	err = repo.AddPermission(ctx, role.ID, groupPermID)
+	require.NoError(t, err)
+
+	// Test removal
+	err = repo.RemovePermission(ctx, role.ID, groupPermID)
+	require.NoError(t, err)
+
+	// Verify removal (should error when trying to remove again)
+	err = repo.RemovePermission(ctx, role.ID, groupPermID)
+	assert.Error(t, err)
+}
+
+func TestRoleRepository_ListPermission(t *testing.T) {
+	db := setupIntegrationTest(t)
+	ctx := context.Background()
+	repo := repository.NewRoleRepository(db)
+	groupRepo := repository.NewGroupRepository(db)
+
+	group := createTestGroup(t, db, "list-perm-group", "List permission group")
+	role := createTestRole(t, db, group.ID, "list-perm-role", "List permission role")
+	perm1 := createTestPermission(t, db, "list-resource-1", "list-action-1", "List test permission 1")
+	perm2 := createTestPermission(t, db, "list-resource-2", "list-action-2", "List test permission 2")
+
+	// Add permissions to group
+	err := groupRepo.AddPermission(ctx, group.ID, perm1.ID, "test-list-group-perm-uid-1")
+	require.NoError(t, err)
+	err = groupRepo.AddPermission(ctx, group.ID, perm2.ID, "test-list-group-perm-uid-2")
+	require.NoError(t, err)
+
+	// Get group permission IDs
+	groupPerms, err := groupRepo.ListPermission(ctx, group.ID, nil, &param.GroupPermissionListFilterParam{})
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(groupPerms.Items), 2)
+
+	// Add permissions to role
+	for _, gp := range groupPerms.Items {
+		err = repo.AddPermission(ctx, role.ID, gp.ID)
+		require.NoError(t, err)
+	}
+
+	// List role permissions
+	result, err := repo.ListPermission(ctx, role.ID, nil, &param.RolePermissionListFilterParam{})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(result.Items), 2)
+}
