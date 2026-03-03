@@ -8,12 +8,13 @@ import (
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	testutil "github.com/adityakw90/service-access/test/util"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 )
 
 // setupIntegrationTest creates a PostgreSQL connection and truncates all tables.
 // Returns a database connection pool that will be cleaned up automatically.
-func setupIntegrationTest(t *testing.T) *repository.dbExecutor {
+func setupIntegrationTest(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 
 	ctx := context.Background()
@@ -28,7 +29,7 @@ func setupIntegrationTest(t *testing.T) *repository.dbExecutor {
 
 // createTestPermission creates a test permission with the given parameters.
 // Returns the created permission with ID, UID, and timestamps populated.
-func createTestPermission(t *testing.T, db interface{}, resource, action, description string) *model.Permission {
+func createTestPermission(t *testing.T, db *pgxpool.Pool, resource, action, description string) *model.Permission {
 	t.Helper()
 
 	ctx := context.Background()
@@ -49,7 +50,7 @@ func createTestPermission(t *testing.T, db interface{}, resource, action, descri
 
 // createTestGroup creates a test group with the given parameters.
 // Returns the created group with ID, UID, and timestamps populated.
-func createTestGroup(t *testing.T, db interface{}, name, description string) *model.Group {
+func createTestGroup(t *testing.T, db *pgxpool.Pool, name, description string) *model.Group {
 	t.Helper()
 
 	ctx := context.Background()
@@ -69,7 +70,7 @@ func createTestGroup(t *testing.T, db interface{}, name, description string) *mo
 
 // createTestRole creates a test role with the given parameters.
 // Returns the created role with ID, UID, and timestamps populated.
-func createTestRole(t *testing.T, db interface{}, groupID int64, name, description string) *model.Role {
+func createTestRole(t *testing.T, db *pgxpool.Pool, groupID int64, name, description string) *model.Role {
 	t.Helper()
 
 	ctx := context.Background()
@@ -90,7 +91,7 @@ func createTestRole(t *testing.T, db interface{}, groupID int64, name, descripti
 
 // createTestSubjectRole creates a test subject role assignment.
 // Returns the created subject role with AssignedAt populated.
-func createTestSubjectRole(t *testing.T, db interface{}, subjectID, subjectType string, roleID int64) *model.SubjectRole {
+func createTestSubjectRole(t *testing.T, db *pgxpool.Pool, subjectID, subjectType string, roleID int64) *model.SubjectRole {
 	t.Helper()
 
 	ctx := context.Background()
