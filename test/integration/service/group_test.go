@@ -1,4 +1,4 @@
-package integration
+package service
 
 import (
 	"context"
@@ -7,8 +7,8 @@ import (
 
 	"github.com/adityakw90/service-access/internal/adapter/observer"
 	"github.com/adityakw90/service-access/internal/adapter/publisher"
-	adapterResolver "github.com/adityakw90/service-access/internal/adapter/resolver"
 	"github.com/adityakw90/service-access/internal/adapter/repository"
+	adapterResolver "github.com/adityakw90/service-access/internal/adapter/resolver"
 	"github.com/adityakw90/service-access/internal/adapter/security"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
 	"github.com/adityakw90/service-access/internal/core/domain/signal"
@@ -60,4 +60,3 @@ func TestIntegration_GroupService_Create(t *testing.T) {
 	assert.NotEmpty(t, group.UID)
 	assert.Equal(t, "test-group", group.Name)
 }
-
