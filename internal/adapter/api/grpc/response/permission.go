@@ -1,11 +1,8 @@
 package response
 
 import (
-	"time"
-
 	"github.com/adityakw90/service-access-proto/gen/go/permission"
 	"github.com/adityakw90/service-access/internal/core/domain/model"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // ToProtoPermission converts domain Permission to proto Permission.
@@ -34,16 +31,5 @@ func ToProtoPermissionList(perms *model.Permissions, meta *model.Meta) *permissi
 	return &permission.ListResponse{
 		Items: items,
 		Meta:  ToProtoMeta(meta),
-	}
-}
-
-// toProtoTimestampPB converts time.Time to protobuf timestamp.
-func toProtoTimestampPB(t time.Time) *timestamppb.Timestamp {
-	if t.IsZero() {
-		return nil
-	}
-	return &timestamppb.Timestamp{
-		Seconds: t.Unix(),
-		Nanos:   int32(t.Nanosecond()),
 	}
 }

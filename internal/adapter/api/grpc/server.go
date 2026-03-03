@@ -14,18 +14,20 @@ import (
 	grouppb "github.com/adityakw90/service-access-proto/gen/go/group"
 	permissionpb "github.com/adityakw90/service-access-proto/gen/go/permission"
 	rolepb "github.com/adityakw90/service-access-proto/gen/go/role"
+	subjectpb "github.com/adityakw90/service-access-proto/gen/go/subject"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
 type Server struct {
-	server        *grpc.Server
-	permHandler   *handler.PermissionHandler
-	roleHandler   *handler.RoleHandler
-	groupHandler  *handler.GroupHandler
-	accessHandler *handler.AccessHandler
-	m             *monitoring.Monitoring
-	regOnce       sync.Once
+	server         *grpc.Server
+	permHandler    *handler.PermissionHandler
+	roleHandler    *handler.RoleHandler
+	groupHandler   *handler.GroupHandler
+	accessHandler  *handler.AccessHandler
+	subjectHandler *handler.SubjectHandler
+	m              *monitoring.Monitoring
+	regOnce        sync.Once
 }
 
 func NewServer(
@@ -42,7 +44,8 @@ func NewServer(
 	permHandler := handler.NewPermissionHandler(permService, validator)
 	roleHandler := handler.NewRoleHandler(roleService, validator)
 	groupHandler := handler.NewGroupHandler(groupService, validator)
-	accessHandler := handler.NewAccessHandler(accessService, subjectService, validator)
+	accessHandler := handler.NewAccessHandler(accessService)
+	subjectHandler := handler.NewSubjectHandler(subjectService, validator)
 
 	// Create gRPC server
 	server := grpc.NewServer(
@@ -59,11 +62,13 @@ func NewServer(
 	)
 
 	return &Server{
-		server:        server,
-		permHandler:   permHandler,
-		roleHandler:   roleHandler,
-		groupHandler:  groupHandler,
-		accessHandler: accessHandler,
+		server:         server,
+		permHandler:    permHandler,
+		roleHandler:    roleHandler,
+		groupHandler:   groupHandler,
+		accessHandler:  accessHandler,
+		subjectHandler: subjectHandler,
+		m:              mon,
 	}
 }
 
@@ -74,6 +79,7 @@ func (s *Server) RegisterServices() {
 		rolepb.RegisterRoleServiceServer(s.server, s.roleHandler)
 		grouppb.RegisterGroupServiceServer(s.server, s.groupHandler)
 		accesspb.RegisterAccessControlServiceServer(s.server, s.accessHandler)
+		subjectpb.RegisterSubjectServiceServer(s.server, s.subjectHandler)
 		reflection.Register(s.server)
 	})
 }
@@ -88,6 +94,9 @@ func (s *Server) Start(address string) error {
 	})
 
 	s.RegisterServices()
+	s.m.Logger.Info("register service", map[string]interface{}{
+		"addr": address,
+	})
 
 	return s.server.Serve(listener)
 }
@@ -110,4 +119,8 @@ func (s *Server) GetGroupHandler() *handler.GroupHandler {
 
 func (s *Server) GetAccessHandler() *handler.AccessHandler {
 	return s.accessHandler
+}
+
+func (s *Server) GetSubjectHandler() *handler.SubjectHandler {
+	return s.subjectHandler
 }
