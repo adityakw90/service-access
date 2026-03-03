@@ -9,6 +9,8 @@ import (
 	"github.com/adityakw90/service-access/internal/adapter/api/grpc/validator"
 	"github.com/adityakw90/service-access-proto/gen/go/common"
 	"github.com/adityakw90/service-access-proto/gen/go/group"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // GroupHandler must embed UnimplementedGroupServiceServer for forward compatibility
@@ -26,9 +28,14 @@ func NewGroupHandler(groupService service.GroupService, v *validator.Validator) 
 }
 
 func (h *GroupHandler) Create(ctx context.Context, req *group.CreateRequest) (*group.CreateResponse, error) {
-	param := request.ToGroupCreateParam(req)
+	// Convert and validate request using the request package
+	groupReq := request.GroupCreateRequestFromPb(req)
 
-	domainGroup, err := h.groupService.Create(ctx, param)
+	if err := h.validator.Struct(groupReq); err != nil {
+		return nil, status.Error(codes.InvalidArgument, validator.ValidationErrors(err))
+	}
+
+	domainGroup, err := h.groupService.Create(ctx, request.ToGroupCreateParam(req))
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +44,14 @@ func (h *GroupHandler) Create(ctx context.Context, req *group.CreateRequest) (*g
 }
 
 func (h *GroupHandler) Get(ctx context.Context, req *group.GetRequest) (*group.Group, error) {
-	domainGroup, err := h.groupService.Get(ctx, req.Uid)
+	// Convert and validate request
+	groupReq := request.GroupGetRequestFromPb(req)
+
+	if err := h.validator.Struct(groupReq); err != nil {
+		return nil, status.Error(codes.InvalidArgument, validator.ValidationErrors(err))
+	}
+
+	domainGroup, err := h.groupService.Get(ctx, groupReq.UID)
 	if err != nil {
 		return nil, err
 	}
@@ -58,9 +72,14 @@ func (h *GroupHandler) List(ctx context.Context, req *group.ListRequest) (*group
 }
 
 func (h *GroupHandler) Update(ctx context.Context, req *group.UpdateRequest) (*common.Success, error) {
-	param := request.ToGroupUpdateParam(req)
+	// Convert and validate request
+	groupReq := request.GroupUpdateRequestFromPb(req)
 
-	err := h.groupService.Update(ctx, req.Uid, param)
+	if err := h.validator.Struct(groupReq); err != nil {
+		return nil, status.Error(codes.InvalidArgument, validator.ValidationErrors(err))
+	}
+
+	err := h.groupService.Update(ctx, groupReq.UID, request.ToGroupUpdateParam(req))
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +88,14 @@ func (h *GroupHandler) Update(ctx context.Context, req *group.UpdateRequest) (*c
 }
 
 func (h *GroupHandler) Delete(ctx context.Context, req *group.DeleteRequest) (*common.Success, error) {
-	err := h.groupService.Delete(ctx, req.Uid)
+	// Convert and validate request
+	groupReq := request.GroupDeleteRequestFromPb(req)
+
+	if err := h.validator.Struct(groupReq); err != nil {
+		return nil, status.Error(codes.InvalidArgument, validator.ValidationErrors(err))
+	}
+
+	err := h.groupService.Delete(ctx, groupReq.UID)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +116,14 @@ func (h *GroupHandler) ListPermissions(ctx context.Context, req *group.ListPermi
 }
 
 func (h *GroupHandler) UpdatePermission(ctx context.Context, req *group.UpdatePermissionRequest) (*common.Success, error) {
-	err := h.groupService.UpdatePermission(ctx, req.GroupUid, req.PermissionUids)
+	// Convert and validate request
+	groupReq := request.GroupUpdatePermissionRequestFromPb(req)
+
+	if err := h.validator.Struct(groupReq); err != nil {
+		return nil, status.Error(codes.InvalidArgument, validator.ValidationErrors(err))
+	}
+
+	err := h.groupService.UpdatePermission(ctx, groupReq.GroupUID, groupReq.PermissionUIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +132,14 @@ func (h *GroupHandler) UpdatePermission(ctx context.Context, req *group.UpdatePe
 }
 
 func (h *GroupHandler) AssignPermission(ctx context.Context, req *group.AssignPermissionRequest) (*common.Success, error) {
-	err := h.groupService.AssignPermission(ctx, req.GroupUid, req.PermissionUid)
+	// Convert and validate request
+	groupReq := request.GroupAssignPermissionRequestFromPb(req)
+
+	if err := h.validator.Struct(groupReq); err != nil {
+		return nil, status.Error(codes.InvalidArgument, validator.ValidationErrors(err))
+	}
+
+	err := h.groupService.AssignPermission(ctx, groupReq.GroupUID, groupReq.PermissionUID)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +148,14 @@ func (h *GroupHandler) AssignPermission(ctx context.Context, req *group.AssignPe
 }
 
 func (h *GroupHandler) RevokePermission(ctx context.Context, req *group.RevokePermissionRequest) (*common.Success, error) {
-	err := h.groupService.RevokePermission(ctx, req.GroupUid, req.PermissionUid)
+	// Convert and validate request
+	groupReq := request.GroupRevokePermissionRequestFromPb(req)
+
+	if err := h.validator.Struct(groupReq); err != nil {
+		return nil, status.Error(codes.InvalidArgument, validator.ValidationErrors(err))
+	}
+
+	err := h.groupService.RevokePermission(ctx, groupReq.GroupUID, groupReq.PermissionUID)
 	if err != nil {
 		return nil, err
 	}

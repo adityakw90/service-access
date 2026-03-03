@@ -9,6 +9,8 @@ import (
 	"github.com/adityakw90/service-access/internal/adapter/api/grpc/validator"
 	"github.com/adityakw90/service-access-proto/gen/go/common"
 	"github.com/adityakw90/service-access-proto/gen/go/permission"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // PermissionHandler must embed UnimplementedPermissionServiceServer for forward compatibility
@@ -26,9 +28,14 @@ func NewPermissionHandler(permService service.PermissionService, v *validator.Va
 }
 
 func (h *PermissionHandler) Create(ctx context.Context, req *permission.CreateRequest) (*permission.CreateResponse, error) {
-	param := request.ToPermissionCreateParam(req)
+	// Convert and validate request using the request package
+	permReq := request.PermissionCreateRequestFromPb(req)
 
-	domainPerm, err := h.permService.Create(ctx, param)
+	if err := h.validator.Struct(permReq); err != nil {
+		return nil, status.Error(codes.InvalidArgument, validator.ValidationErrors(err))
+	}
+
+	domainPerm, err := h.permService.Create(ctx, request.ToPermissionCreateParam(req))
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +44,14 @@ func (h *PermissionHandler) Create(ctx context.Context, req *permission.CreateRe
 }
 
 func (h *PermissionHandler) Get(ctx context.Context, req *permission.GetRequest) (*permission.Permission, error) {
-	domainPerm, err := h.permService.Get(ctx, req.Uid)
+	// Convert and validate request
+	permReq := request.PermissionGetRequestFromPb(req)
+
+	if err := h.validator.Struct(permReq); err != nil {
+		return nil, status.Error(codes.InvalidArgument, validator.ValidationErrors(err))
+	}
+
+	domainPerm, err := h.permService.Get(ctx, permReq.UID)
 	if err != nil {
 		return nil, err
 	}
@@ -58,9 +72,14 @@ func (h *PermissionHandler) List(ctx context.Context, req *permission.ListReques
 }
 
 func (h *PermissionHandler) Update(ctx context.Context, req *permission.UpdateRequest) (*common.Success, error) {
-	param := request.ToPermissionUpdateParam(req)
+	// Convert and validate request
+	permReq := request.PermissionUpdateRequestFromPb(req)
 
-	err := h.permService.Update(ctx, req.Uid, param)
+	if err := h.validator.Struct(permReq); err != nil {
+		return nil, status.Error(codes.InvalidArgument, validator.ValidationErrors(err))
+	}
+
+	err := h.permService.Update(ctx, permReq.UID, request.ToPermissionUpdateParam(req))
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +88,14 @@ func (h *PermissionHandler) Update(ctx context.Context, req *permission.UpdateRe
 }
 
 func (h *PermissionHandler) Delete(ctx context.Context, req *permission.DeleteRequest) (*common.Success, error) {
-	err := h.permService.Delete(ctx, req.Uid)
+	// Convert and validate request
+	permReq := request.PermissionDeleteRequestFromPb(req)
+
+	if err := h.validator.Struct(permReq); err != nil {
+		return nil, status.Error(codes.InvalidArgument, validator.ValidationErrors(err))
+	}
+
+	err := h.permService.Delete(ctx, permReq.UID)
 	if err != nil {
 		return nil, err
 	}

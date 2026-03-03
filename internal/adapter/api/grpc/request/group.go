@@ -176,8 +176,8 @@ func (r *GroupFilterRequest) toGroupListFilterParam() *param.GroupListFilterPara
 
 // GroupUpdatePermissionRequest represents validated group permission update request data.
 type GroupUpdatePermissionRequest struct {
-	GroupUID       string
-	PermissionUIDs []string
+	GroupUID       string `validate:"required"`
+	PermissionUIDs []string `validate:"required,min=1"`
 }
 
 // GroupUpdatePermissionRequestFromPb converts a proto UpdatePermissionRequest to a GroupUpdatePermissionRequest.
@@ -200,8 +200,8 @@ func (r *GroupUpdatePermissionRequest) GetPermissionUIDs() []string {
 
 // GroupAssignPermissionRequest represents validated group permission assignment request data.
 type GroupAssignPermissionRequest struct {
-	GroupUID      string
-	PermissionUID string
+	GroupUID      string `validate:"required"`
+	PermissionUID string `validate:"required"`
 }
 
 // GroupAssignPermissionRequestFromPb converts a proto AssignPermissionRequest to a GroupAssignPermissionRequest.
@@ -224,8 +224,8 @@ func (r *GroupAssignPermissionRequest) GetPermissionUID() string {
 
 // GroupRevokePermissionRequest represents validated group permission revocation request data.
 type GroupRevokePermissionRequest struct {
-	GroupUID      string
-	PermissionUID string
+	GroupUID      string `validate:"required"`
+	PermissionUID string `validate:"required"`
 }
 
 // GroupRevokePermissionRequestFromPb converts a proto RevokePermissionRequest to a GroupRevokePermissionRequest.

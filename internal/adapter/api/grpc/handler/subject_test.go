@@ -1,6 +1,7 @@
 package handler_test
 
 import (
+	"github.com/adityakw90/service-access/internal/adapter/api/grpc/validator"
 	"context"
 	"errors"
 	"testing"
@@ -159,7 +160,7 @@ func TestSubjectHandler_AssignRole(t *testing.T) {
 				tt.setup(mockSvc)
 			}
 
-			h := handler.NewSubjectHandler(mockSvc, nil)
+			h := handler.NewSubjectHandler(mockSvc, validator.New())
 			got, err := h.AssignRole(context.Background(), tt.req)
 
 			if (err != nil) != tt.wantErr {
@@ -317,7 +318,7 @@ func TestSubjectHandler_RevokeRole(t *testing.T) {
 				tt.setup(mockSvc)
 			}
 
-			h := handler.NewSubjectHandler(mockSvc, nil)
+			h := handler.NewSubjectHandler(mockSvc, validator.New())
 			got, err := h.RevokeRole(context.Background(), tt.req)
 
 			if (err != nil) != tt.wantErr {
@@ -495,7 +496,7 @@ func TestSubjectHandler_List(t *testing.T) {
 				tt.setup(mockSvc)
 			}
 
-			h := handler.NewSubjectHandler(mockSvc, nil)
+			h := handler.NewSubjectHandler(mockSvc, validator.New())
 			got, err := h.List(context.Background(), tt.req)
 
 			if (err != nil) != tt.wantErr {

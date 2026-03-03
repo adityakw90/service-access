@@ -9,6 +9,8 @@ import (
 	"github.com/adityakw90/service-access/internal/adapter/api/grpc/validator"
 	"github.com/adityakw90/service-access-proto/gen/go/common"
 	"github.com/adityakw90/service-access-proto/gen/go/subject"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // SubjectHandler must embed UnimplementedSubjectServiceServer for forward compatibility
@@ -26,7 +28,14 @@ func NewSubjectHandler(subjectSvc service.SubjectService, v *validator.Validator
 }
 
 func (h *SubjectHandler) AssignRole(ctx context.Context, req *subject.AssignRoleRequest) (*common.Success, error) {
-	err := h.subjectService.Assign(ctx, req.SubjectId, req.SubjectType, req.RoleUid)
+	// Convert and validate request using the request package
+	subjectReq := request.AssignRoleRequestFromPb(req)
+
+	if err := h.validator.Struct(subjectReq); err != nil {
+		return nil, status.Error(codes.InvalidArgument, validator.ValidationErrors(err))
+	}
+
+	err := h.subjectService.Assign(ctx, subjectReq.SubjectID, subjectReq.SubjectType, subjectReq.RoleUID)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +44,14 @@ func (h *SubjectHandler) AssignRole(ctx context.Context, req *subject.AssignRole
 }
 
 func (h *SubjectHandler) RevokeRole(ctx context.Context, req *subject.RevokeRoleRequest) (*common.Success, error) {
-	err := h.subjectService.Revoke(ctx, req.SubjectId, req.SubjectType, req.RoleUid)
+	// Convert and validate request using the request package
+	subjectReq := request.RevokeRoleRequestFromPb(req)
+
+	if err := h.validator.Struct(subjectReq); err != nil {
+		return nil, status.Error(codes.InvalidArgument, validator.ValidationErrors(err))
+	}
+
+	err := h.subjectService.Revoke(ctx, subjectReq.SubjectID, subjectReq.SubjectType, subjectReq.RoleUID)
 	if err != nil {
 		return nil, err
 	}

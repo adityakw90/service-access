@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/adityakw90/service-access/internal/adapter/api/grpc/handler"
+	"github.com/adityakw90/service-access/internal/adapter/api/grpc/validator"
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	domainErrors "github.com/adityakw90/service-access/internal/core/domain/errors"
 	servicemocks "github.com/adityakw90/service-access/test/mocks/service"
@@ -57,7 +58,7 @@ func TestPermissionHandler_Create(t *testing.T) {
 				tt.setup(mockSvc)
 			}
 
-			h := handler.NewPermissionHandler(mockSvc, nil)
+			h := handler.NewPermissionHandler(mockSvc, validator.New())
 			got, err := h.Create(context.Background(), tt.req)
 
 			if (err != nil) != tt.wantErr {
@@ -107,7 +108,7 @@ func TestPermissionHandler_Get(t *testing.T) {
 				tt.setup(mockSvc)
 			}
 
-			h := handler.NewPermissionHandler(mockSvc, nil)
+			h := handler.NewPermissionHandler(mockSvc, validator.New())
 			got, err := h.Get(context.Background(), tt.req)
 
 			if (err != nil) != tt.wantErr {
@@ -152,7 +153,7 @@ func TestPermissionHandler_List(t *testing.T) {
 				tt.setup(mockSvc)
 			}
 
-			h := handler.NewPermissionHandler(mockSvc, nil)
+			h := handler.NewPermissionHandler(mockSvc, validator.New())
 			got, err := h.List(context.Background(), tt.req)
 
 			if (err != nil) != tt.wantErr {
@@ -191,7 +192,7 @@ func TestPermissionHandler_Update(t *testing.T) {
 				tt.setup(mockSvc)
 			}
 
-			h := handler.NewPermissionHandler(mockSvc, nil)
+			h := handler.NewPermissionHandler(mockSvc, validator.New())
 			_, err := h.Update(context.Background(), tt.req)
 
 			if (err != nil) != tt.wantErr {
@@ -225,7 +226,7 @@ func TestPermissionHandler_Delete(t *testing.T) {
 				tt.setup(mockSvc)
 			}
 
-			h := handler.NewPermissionHandler(mockSvc, nil)
+			h := handler.NewPermissionHandler(mockSvc, validator.New())
 			_, err := h.Delete(context.Background(), tt.req)
 
 			if (err != nil) != tt.wantErr {

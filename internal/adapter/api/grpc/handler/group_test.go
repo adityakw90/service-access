@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/adityakw90/service-access/internal/adapter/api/grpc/handler"
+	"github.com/adityakw90/service-access/internal/adapter/api/grpc/validator"
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	servicemocks "github.com/adityakw90/service-access/test/mocks/service"
 	"github.com/adityakw90/service-access-proto/gen/go/group"
@@ -37,11 +38,12 @@ func TestGroupHandler_Create(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockSvc := new(servicemocks.MockGroupService)
+			v := validator.New()
 			if tt.setup != nil {
 				tt.setup(mockSvc)
 			}
 
-			h := handler.NewGroupHandler(mockSvc, nil)
+			h := handler.NewGroupHandler(mockSvc, v)
 			got, err := h.Create(context.Background(), tt.req)
 
 			if (err != nil) != tt.wantErr {
@@ -82,11 +84,12 @@ func TestGroupHandler_List(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockSvc := new(servicemocks.MockGroupService)
+			v := validator.New()
 			if tt.setup != nil {
 				tt.setup(mockSvc)
 			}
 
-			h := handler.NewGroupHandler(mockSvc, nil)
+			h := handler.NewGroupHandler(mockSvc, v)
 			got, err := h.List(context.Background(), tt.req)
 
 			if (err != nil) != tt.wantErr {
@@ -124,11 +127,12 @@ func TestGroupHandler_AssignPermission(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockSvc := new(servicemocks.MockGroupService)
+			v := validator.New()
 			if tt.setup != nil {
 				tt.setup(mockSvc)
 			}
 
-			h := handler.NewGroupHandler(mockSvc, nil)
+			h := handler.NewGroupHandler(mockSvc, v)
 			_, err := h.AssignPermission(context.Background(), tt.req)
 
 			if (err != nil) != tt.wantErr {

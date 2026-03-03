@@ -1,6 +1,7 @@
 package handler_test
 
 import (
+	"github.com/adityakw90/service-access/internal/adapter/api/grpc/validator"
 	"context"
 	"testing"
 
@@ -54,7 +55,7 @@ func TestRoleHandler_Create(t *testing.T) {
 				tt.setup(mockSvc)
 			}
 
-			h := handler.NewRoleHandler(mockSvc, nil)
+			h := handler.NewRoleHandler(mockSvc, validator.New())
 			got, err := h.Create(context.Background(), tt.req)
 
 			if (err != nil) != tt.wantErr {
@@ -99,7 +100,7 @@ func TestRoleHandler_List(t *testing.T) {
 				tt.setup(mockSvc)
 			}
 
-			h := handler.NewRoleHandler(mockSvc, nil)
+			h := handler.NewRoleHandler(mockSvc, validator.New())
 			got, err := h.List(context.Background(), tt.req)
 
 			if (err != nil) != tt.wantErr {
@@ -141,7 +142,7 @@ func TestRoleHandler_AssignPermission(t *testing.T) {
 				tt.setup(mockSvc)
 			}
 
-			h := handler.NewRoleHandler(mockSvc, nil)
+			h := handler.NewRoleHandler(mockSvc, validator.New())
 			_, err := h.AssignPermission(context.Background(), tt.req)
 
 			if (err != nil) != tt.wantErr {

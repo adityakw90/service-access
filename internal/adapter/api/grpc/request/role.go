@@ -9,7 +9,7 @@ import (
 
 // RoleCreateRequest represents validated role creation request data.
 type RoleCreateRequest struct {
-	GroupUID    string
+	GroupUID    string `validate:"required"`
 	Name        string `validate:"required"`
 	Description string
 }
@@ -198,8 +198,8 @@ func (r *RoleFilterRequest) toRoleListFilterParam() *param.RoleListFilterParam {
 
 // RoleUpdatePermissionRequest represents validated role permission update request data.
 type RoleUpdatePermissionRequest struct {
-	RoleUID             string
-	GroupPermissionUIDs []string
+	RoleUID             string `validate:"required"`
+	GroupPermissionUIDs []string `validate:"required,min=1"`
 }
 
 // RoleUpdatePermissionRequestFromPb converts a proto UpdatePermissionRequest to a RoleUpdatePermissionRequest.
@@ -222,8 +222,8 @@ func (r *RoleUpdatePermissionRequest) GetGroupPermissionUIDs() []string {
 
 // RoleAssignPermissionRequest represents validated role permission assignment request data.
 type RoleAssignPermissionRequest struct {
-	RoleUID            string
-	GroupPermissionUID string
+	RoleUID            string `validate:"required"`
+	GroupPermissionUID string `validate:"required"`
 }
 
 // RoleAssignPermissionRequestFromPb converts a proto AssignPermissionRequest to a RoleAssignPermissionRequest.
@@ -246,8 +246,8 @@ func (r *RoleAssignPermissionRequest) GetGroupPermissionUID() string {
 
 // RoleRevokePermissionRequest represents validated role permission revocation request data.
 type RoleRevokePermissionRequest struct {
-	RoleUID            string
-	GroupPermissionUID string
+	RoleUID            string `validate:"required"`
+	GroupPermissionUID string `validate:"required"`
 }
 
 // RoleRevokePermissionRequestFromPb converts a proto RevokePermissionRequest to a RoleRevokePermissionRequest.
