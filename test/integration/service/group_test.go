@@ -45,9 +45,10 @@ func TestIntegration_GroupService_Create(t *testing.T) {
 
 	// Create noop observer
 	groupObserver := observer.NewNoopObserver[signal.SignalGroup]()
+	groupPermissionObserver := observer.NewNoopObserver[signal.SignalGroupPermission]()
 
 	// Create service with all dependencies
-	groupService := service.NewGroupService(uow, repos, noopPublisher, uidGenerator, resolverProvider, groupObserver)
+	groupService := service.NewGroupService(uow, repos, noopPublisher, uidGenerator, resolverProvider, groupObserver, groupPermissionObserver)
 
 	// Test: create group
 	group, err := groupService.Create(ctx, param.GroupCreateParam{

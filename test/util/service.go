@@ -107,7 +107,11 @@ func SetupTestServices(t *testing.T, ctx context.Context) (*TestServices, error)
 	// Initialize observers (no-op for tests)
 	permissionObserver := adapterobserver.NewNoopObserver[signal.SignalPermission]()
 	groupObserver := adapterobserver.NewNoopObserver[signal.SignalGroup]()
+	groupPermissionObserver := adapterobserver.NewNoopObserver[signal.SignalGroupPermission]()
 	roleObserver := adapterobserver.NewNoopObserver[signal.SignalRole]()
+	rolePermissionObserver := adapterobserver.NewNoopObserver[signal.SignalRolePermission]()
+	subjectObserver := adapterobserver.NewNoopObserver[signal.SignalSubject]()
+	accessObserver := adapterobserver.NewNoopObserver[signal.SignalAccessCheck]()
 
 	// Initialize services
 	permissionService := service.NewPermissionService(
@@ -126,6 +130,7 @@ func SetupTestServices(t *testing.T, ctx context.Context) (*TestServices, error)
 		uidGenerator,
 		resolverProvider,
 		groupObserver,
+		groupPermissionObserver,
 	)
 
 	roleService := service.NewRoleService(
@@ -135,15 +140,21 @@ func SetupTestServices(t *testing.T, ctx context.Context) (*TestServices, error)
 		uidGenerator,
 		resolverProvider,
 		roleObserver,
+		rolePermissionObserver,
 	)
 
 	subjectService := service.NewSubjectService(
 		uow,
 		repoProvider,
 		eventPublisher,
+		subjectObserver,
 	)
 
-	accessService := service.NewAccessService(repoProvider)
+	accessService := service.NewAccessService(
+		repoProvider,
+		eventPublisher,
+		accessObserver,
+	)
 
 	return &TestServices{
 		Cfg:               cfg,
