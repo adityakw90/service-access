@@ -227,7 +227,7 @@ func TestRoleRepository_AddPermission(t *testing.T) {
 	perm := createTestPermission(t, db, "test-resource", "test-action", "Test permission")
 
 	// Add permission to group first
-	groupPermUID := "test-group-perm-uid"
+	groupPermUID := "00000000-0000-0000-0000-000000000001"
 	err := groupRepo.AddPermission(ctx, group.ID, perm.ID, groupPermUID)
 	require.NoError(t, err)
 
@@ -297,7 +297,7 @@ func TestRoleRepository_RemovePermission(t *testing.T) {
 	perm := createTestPermission(t, db, "remove-resource", "remove-action", "Remove test permission")
 
 	// Add permission to group and role
-	groupPermUID := "test-remove-group-perm-uid"
+	groupPermUID := "00000000-0000-0000-0000-000000000002"
 	err := groupRepo.AddPermission(ctx, group.ID, perm.ID, groupPermUID)
 	require.NoError(t, err)
 
@@ -329,9 +329,9 @@ func TestRoleRepository_ListPermission(t *testing.T) {
 	perm2 := createTestPermission(t, db, "list-resource-2", "list-action-2", "List test permission 2")
 
 	// Add permissions to group
-	err := groupRepo.AddPermission(ctx, group.ID, perm1.ID, "test-list-group-perm-uid-1")
+	err := groupRepo.AddPermission(ctx, group.ID, perm1.ID, "00000000-0000-0000-0000-000000000003")
 	require.NoError(t, err)
-	err = groupRepo.AddPermission(ctx, group.ID, perm2.ID, "test-list-group-perm-uid-2")
+	err = groupRepo.AddPermission(ctx, group.ID, perm2.ID, "00000000-0000-0000-0000-000000000004")
 	require.NoError(t, err)
 
 	// Get group permission IDs
