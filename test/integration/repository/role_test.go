@@ -16,53 +16,77 @@ func TestRoleRepository_Create(t *testing.T) {
 	ctx := context.Background()
 	repo := repository.NewRoleRepository(db)
 
-	group := createTestGroup(t, db, "admin-group", "Admin group")
-
 	tests := []struct {
 		name    string
+		setup   func() (model.Role, *model.Group)
 		input   model.Role
 		wantErr bool
 		errMsg  string
 	}{
 		{
 			name: "Happy Path",
-			input: model.Role{
-				UID:         "00000000-0000-0000-0000-000000000001",
-				GroupID:     group.ID,
-				Name:        "super-admin",
-				Description: "Super admin",
+			setup: func() (model.Role, *model.Group) {
+				group := createTestGroup(t, db, "admin-group", "Admin group")
+				return model.Role{
+					UID:         "00000000-0000-0000-0000-000000000001",
+					GroupID:     group.ID,
+					Name:        "super-admin",
+					Description: "Super admin",
+				}, group
 			},
+			input:   model.Role{},
 			wantErr: false,
 		},
 		{
 			name: "Empty UID",
-			input: model.Role{
-				GroupID:     group.ID,
-				Name:        "admin",
-				Description: "Admin",
+			setup: func() (model.Role, *model.Group) {
+				group := createTestGroup(t, db, "empty-uid-group", "Empty UID group")
+				return model.Role{
+					GroupID:     group.ID,
+					Name:        "admin",
+					Description: "Admin",
+				}, group
 			},
+			input:   model.Role{},
 			wantErr: true,
 			errMsg:  "missing required fields",
 		},
 		{
 			name: "Non-existent Group",
-			input: model.Role{
-				UID:         "00000000-0000-0000-0000-000000000002",
-				GroupID:     99999,
-				Name:        "moderator",
-				Description: "Moderator",
+			setup: func() (model.Role, *model.Group) {
+				return model.Role{
+					UID:         "00000000-0000-0000-0000-000000000002",
+					GroupID:     99999,
+					Name:        "moderator",
+					Description: "Moderator",
+				}, nil
 			},
+			input:   model.Role{},
 			wantErr: true,
 			errMsg:  "group with id",
 		},
 		{
 			name: "Duplicate Name in Group",
-			input: model.Role{
-				UID:         "00000000-0000-0000-0000-000000000003",
-				GroupID:     group.ID,
-				Name:        "super-admin", // Duplicate
-				Description: "Duplicate role",
+			setup: func() (model.Role, *model.Group) {
+				group := createTestGroup(t, db, "dupe-test-group", "Duplicate test group")
+				// Create the original role first
+				original := &model.Role{
+					UID:     "00000000-0000-0000-0000-000000000000",
+					GroupID: group.ID,
+					Name:    "super-admin",
+					Description: "Original role",
+				}
+				err := repo.Create(ctx, original)
+				require.NoError(t, err)
+
+				return model.Role{
+					UID:         "00000000-0000-0000-0000-000000000003",
+					GroupID:     group.ID,
+					Name:        "super-admin", // Duplicate
+					Description: "Duplicate role",
+				}, group
 			},
+			input:   model.Role{},
 			wantErr: true,
 			errMsg:  "already exists",
 		},
@@ -70,26 +94,25 @@ func TestRoleRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// For duplicate test, create the original first
-			if tt.name == "Duplicate Name in Group" {
-				original := &model.Role{
-					UID:         "00000000-0000-0000-0000-000000000000",
-					GroupID:     group.ID,
-					Name:        "super-admin",
-					Description: "Original role",
-				}
-				err := repo.Create(ctx, original)
-				require.NoError(t, err)
+			db := setupIntegrationTest(t)
+			ctx := context.Background()
+			repo := repository.NewRoleRepository(db)
+
+			var input model.Role
+			if tt.setup != nil {
+				input, _ = tt.setup()
+			} else {
+				input = tt.input
 			}
 
-			err := repo.Create(ctx, &tt.input)
+			err := repo.Create(ctx, &input)
 
 			if tt.wantErr {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errMsg)
 			} else {
 				require.NoError(t, err)
-				assert.NotZero(t, tt.input.ID)
+				assert.NotZero(t, input.ID)
 			}
 		})
 	}
