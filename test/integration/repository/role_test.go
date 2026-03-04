@@ -7,25 +7,22 @@ import (
 	"github.com/adityakw90/service-access/internal/adapter/repository"
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRoleRepository_Create(t *testing.T) {
-	db := setupIntegrationTest(t)
-	ctx := context.Background()
-	repo := repository.NewRoleRepository(db)
-
 	tests := []struct {
 		name    string
-		setup   func() (model.Role, *model.Group)
+		setup   func(*pgxpool.Pool) (model.Role, *model.Group)
 		input   model.Role
 		wantErr bool
 		errMsg  string
 	}{
 		{
 			name: "Happy Path",
-			setup: func() (model.Role, *model.Group) {
+			setup: func(db *pgxpool.Pool) (model.Role, *model.Group) {
 				group := createTestGroup(t, db, "admin-group", "Admin group")
 				return model.Role{
 					UID:         "00000000-0000-0000-0000-000000000001",
@@ -39,7 +36,7 @@ func TestRoleRepository_Create(t *testing.T) {
 		},
 		{
 			name: "Empty UID",
-			setup: func() (model.Role, *model.Group) {
+			setup: func(db *pgxpool.Pool) (model.Role, *model.Group) {
 				group := createTestGroup(t, db, "empty-uid-group", "Empty UID group")
 				return model.Role{
 					GroupID:     group.ID,
@@ -53,7 +50,7 @@ func TestRoleRepository_Create(t *testing.T) {
 		},
 		{
 			name: "Non-existent Group",
-			setup: func() (model.Role, *model.Group) {
+			setup: func(db *pgxpool.Pool) (model.Role, *model.Group) {
 				return model.Role{
 					UID:         "00000000-0000-0000-0000-000000000002",
 					GroupID:     99999,
@@ -67,9 +64,11 @@ func TestRoleRepository_Create(t *testing.T) {
 		},
 		{
 			name: "Duplicate Name in Group",
-			setup: func() (model.Role, *model.Group) {
+			setup: func(db *pgxpool.Pool) (model.Role, *model.Group) {
 				group := createTestGroup(t, db, "dupe-test-group", "Duplicate test group")
 				// Create the original role first
+				ctx := context.Background()
+				repo := repository.NewRoleRepository(db)
 				original := &model.Role{
 					UID:     "00000000-0000-0000-0000-000000000000",
 					GroupID: group.ID,
@@ -100,7 +99,7 @@ func TestRoleRepository_Create(t *testing.T) {
 
 			var input model.Role
 			if tt.setup != nil {
-				input, _ = tt.setup()
+				input, _ = tt.setup(db)
 			} else {
 				input = tt.input
 			}
