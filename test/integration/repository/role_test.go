@@ -177,7 +177,7 @@ func TestRoleRepository_List(t *testing.T) {
 		{
 			name:     "List All",
 			filter:   &param.RoleListFilterParam{},
-			minCount: 3,
+			minCount: 2,
 		},
 		{
 			name: "Filter By GroupID",

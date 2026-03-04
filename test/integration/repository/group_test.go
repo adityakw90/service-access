@@ -219,7 +219,7 @@ func TestGroupRepository_AddPermission(t *testing.T) {
 	group := createTestGroup(t, db, "readers", "Can read")
 	perm := createTestPermission(t, db, "blog", "read", "Read blogs")
 
-	uid := "test-group-perm-uid-001"
+	uid := "00000000-0000-0000-0000-000000000001"
 
 	tests := []struct {
 		name         string
@@ -240,7 +240,7 @@ func TestGroupRepository_AddPermission(t *testing.T) {
 			name:         "Non-existent Group",
 			groupID:      99999,
 			permissionID: perm.ID,
-			uid:          "test-uid-002",
+			uid:          "00000000-0000-0000-0000-000000000002",
 			wantErr:      true,
 			errMsg:       "group with id",
 		},
@@ -248,7 +248,7 @@ func TestGroupRepository_AddPermission(t *testing.T) {
 			name:         "Non-existent Permission",
 			groupID:      group.ID,
 			permissionID: 99999,
-			uid:          "test-uid-003",
+			uid:          "00000000-0000-0000-0000-000000000003",
 			wantErr:      true,
 			errMsg:       "permission with id",
 		},
@@ -256,7 +256,7 @@ func TestGroupRepository_AddPermission(t *testing.T) {
 			name:         "Duplicate (ON CONFLICT DO NOTHING)",
 			groupID:      group.ID,
 			permissionID: perm.ID,
-			uid:          "test-uid-004",
+			uid:          "00000000-0000-0000-0000-000000000004",
 			wantErr:      false, // Should not error due to ON CONFLICT
 		},
 	}
@@ -284,7 +284,7 @@ func TestGroupRepository_RemovePermission(t *testing.T) {
 	perm := createTestPermission(t, db, "comment", "delete", "Delete comments")
 
 	// Add permission first
-	err := repo.AddPermission(ctx, group.ID, perm.ID, "test-remove-uid-001")
+	err := repo.AddPermission(ctx, group.ID, perm.ID, "00000000-0000-0000-0000-000000000005")
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -331,9 +331,9 @@ func TestGroupRepository_ListPermission(t *testing.T) {
 	perm2 := createTestPermission(t, db, "post", "view", "View posts")
 
 	// Add permissions
-	err := repo.AddPermission(ctx, group.ID, perm1.ID, "test-list-perm-uid-001")
+	err := repo.AddPermission(ctx, group.ID, perm1.ID, "00000000-0000-0000-0000-000000000006")
 	require.NoError(t, err)
-	err = repo.AddPermission(ctx, group.ID, perm2.ID, "test-list-perm-uid-002")
+	err = repo.AddPermission(ctx, group.ID, perm2.ID, "00000000-0000-0000-0000-000000000007")
 	require.NoError(t, err)
 
 	tests := []struct {
