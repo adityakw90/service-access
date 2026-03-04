@@ -176,7 +176,7 @@ func (r *GroupFilterRequest) toGroupListFilterParam() *param.GroupListFilterPara
 
 // GroupUpdatePermissionRequest represents validated group permission update request data.
 type GroupUpdatePermissionRequest struct {
-	GroupUID       string `validate:"required"`
+	GroupUID       string   `validate:"required"`
 	PermissionUIDs []string `validate:"required,min=1"`
 }
 

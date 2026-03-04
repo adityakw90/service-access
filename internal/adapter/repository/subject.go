@@ -11,6 +11,14 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+// allowedOrderBySubject maps OrderBy string values to their typed enum for validation.
+var allowedOrderBySubject = map[string]param.SubjectOrderBy{
+	"subject_id":   param.OrderBySubjectID,
+	"subject_type": param.OrderBySubjectType,
+	"role_id":      param.OrderBySubjectRoleID,
+	"assigned_at":  param.OrderBySubjectAssignedAt,
+}
+
 type subjectRepository struct {
 	db dbExecutor
 }
@@ -157,14 +165,12 @@ func (r *subjectRepository) List(ctx context.Context, pagination *param.Paginati
 	}
 
 	// Apply sorting
-	orderBy := "sr.assigned_at DESC"
-	if pagination != nil && pagination.OrderBy != nil {
-		orderBy = "sr." + *pagination.OrderBy
-		if pagination.Sort != nil {
-			orderBy += " " + *pagination.Sort
-		} else {
-			orderBy += " ASC"
-		}
+	orderByValue := r.validateOrderBy(pagination, "assigned_at")
+	orderBy := "sr." + orderByValue
+	if pagination != nil && pagination.Sort != nil {
+		orderBy += " " + *pagination.Sort
+	} else {
+		orderBy += " DESC"
 	}
 	baseSQL += " ORDER BY " + orderBy
 
@@ -249,4 +255,14 @@ func (r *subjectRepository) List(ctx context.Context, pagination *param.Paginati
 			Limit: limit,
 		},
 	}, nil
+}
+
+// validateOrderBy validates the OrderBy value against allowed Subject columns using O(1) map lookup.
+func (r *subjectRepository) validateOrderBy(pagination *param.PaginationParam, defaultOrderBy string) string {
+	if pagination != nil && pagination.OrderBy != nil {
+		if _, ok := allowedOrderBySubject[*pagination.OrderBy]; ok {
+			return *pagination.OrderBy
+		}
+	}
+	return defaultOrderBy
 }

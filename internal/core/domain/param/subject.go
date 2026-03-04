@@ -1,5 +1,15 @@
 package param
 
+// SubjectOrderBy represents allowed OrderBy column values for Subject.
+type SubjectOrderBy string
+
+const (
+	OrderBySubjectID         SubjectOrderBy = "subject_id"
+	OrderBySubjectType       SubjectOrderBy = "subject_type"
+	OrderBySubjectRoleID     SubjectOrderBy = "role_id"
+	OrderBySubjectAssignedAt SubjectOrderBy = "assigned_at"
+)
+
 type SubjectAssignRoleParam struct {
 	SubjectID   string
 	SubjectType string

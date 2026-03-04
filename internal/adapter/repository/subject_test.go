@@ -320,6 +320,30 @@ func TestAdapter_SubjectRepository_List(t *testing.T) {
 			wantCount: 0,
 			wantTotal: 0,
 		},
+		{
+			name: "Happy Path - Invalid OrderBy falls back to default",
+			pagination: &param.PaginationParam{
+				Page:    func() *int { i := 1; return &i }(),
+				Limit:   func() *int { i := 10; return &i }(),
+				OrderBy: func() *string { s := "created_at"; return &s }(),
+			},
+			filter:    nil,
+			wantErr:   false,
+			wantCount: 2,
+			wantTotal: 2,
+		},
+		{
+			name: "Happy Path - Valid OrderBy uses specified column",
+			pagination: &param.PaginationParam{
+				Page:    func() *int { i := 1; return &i }(),
+				Limit:   func() *int { i := 10; return &i }(),
+				OrderBy: func() *string { s := "subject_id"; return &s }(),
+			},
+			filter:    nil,
+			wantErr:   false,
+			wantCount: 2,
+			wantTotal: 2,
+		},
 	}
 
 	for _, tt := range tests {

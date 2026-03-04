@@ -13,6 +13,17 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+// allowedOrderByPermission maps OrderBy string values to their typed enum for validation.
+var allowedOrderByPermission = map[string]param.PermissionOrderBy{
+	"id":          param.OrderByPermissionID,
+	"uid":         param.OrderByPermissionUID,
+	"resource":    param.OrderByPermissionResource,
+	"action":      param.OrderByPermissionAction,
+	"description": param.OrderByPermissionDescription,
+	"created_at":  param.OrderByPermissionCreatedAt,
+	"updated_at":  param.OrderByPermissionUpdatedAt,
+}
+
 type permissionRepository struct {
 	db dbExecutor
 }
@@ -164,16 +175,13 @@ func (r *permissionRepository) List(ctx context.Context, pagination *param.Pagin
 	}
 
 	// Apply sorting
-	orderBy := "created_at DESC"
-	if pagination != nil && pagination.OrderBy != nil {
-		orderBy = *pagination.OrderBy
-		if pagination.Sort != nil {
-			orderBy += " " + *pagination.Sort
-		} else {
-			orderBy += " ASC"
-		}
+	orderByValue := r.validateOrderBy(pagination, "created_at")
+	if pagination != nil && pagination.Sort != nil {
+		orderByValue += " " + *pagination.Sort
+	} else {
+		orderByValue += " DESC"
 	}
-	baseSQL += " ORDER BY " + orderBy
+	baseSQL += " ORDER BY " + orderByValue
 
 	// Apply pagination
 	limit := 10
@@ -256,4 +264,14 @@ func (r *permissionRepository) List(ctx context.Context, pagination *param.Pagin
 			Limit: limit,
 		},
 	}, nil
+}
+
+// validateOrderBy validates the OrderBy value against allowed columns using O(1) map lookup.
+func (r *permissionRepository) validateOrderBy(pagination *param.PaginationParam, defaultOrderBy string) string {
+	if pagination != nil && pagination.OrderBy != nil {
+		if _, ok := allowedOrderByPermission[*pagination.OrderBy]; ok {
+			return *pagination.OrderBy
+		}
+	}
+	return defaultOrderBy
 }

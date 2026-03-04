@@ -177,6 +177,7 @@ func TestSubjectRepository_List(t *testing.T) {
 
 	tests := []struct {
 		name       string
+		pagination *param.PaginationParam
 		filter     *param.SubjectListFilterParam
 		minCount   int
 		shouldFind []string // Subject IDs that should be in results
@@ -222,11 +223,33 @@ func TestSubjectRepository_List(t *testing.T) {
 			},
 			minCount: 2,
 		},
+		{
+			name: "With Default Pagination (created_at OrderBy should fallback)",
+			pagination: &param.PaginationParam{
+				Page:    func() *int { i := 1; return &i }(),
+				Limit:   func() *int { i := 10; return &i }(),
+				Sort:    func() *string { s := "asc"; return &s }(),
+				OrderBy: func() *string { s := "created_at"; return &s }(), // Invalid column - should fallback to assigned_at
+			},
+			filter:   &param.SubjectListFilterParam{},
+			minCount: 3,
+		},
+		{
+			name: "With Valid OrderBy (subject_id)",
+			pagination: &param.PaginationParam{
+				Page:    func() *int { i := 1; return &i }(),
+				Limit:   func() *int { i := 10; return &i }(),
+				Sort:    func() *string { s := "asc"; return &s }(),
+				OrderBy: func() *string { s := "subject_id"; return &s }(), // Valid column
+			},
+			filter:   &param.SubjectListFilterParam{},
+			minCount: 3,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.List(ctx, nil, tt.filter)
+			result, err := repo.List(ctx, tt.pagination, tt.filter)
 			require.NoError(t, err)
 			assert.GreaterOrEqual(t, len(result.Items), tt.minCount)
 

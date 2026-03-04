@@ -1,5 +1,27 @@
 package param
 
+// RoleOrderBy represents allowed OrderBy column values for Role.
+type RoleOrderBy string
+
+const (
+	OrderByRoleID          RoleOrderBy = "id"
+	OrderByRoleUID         RoleOrderBy = "uid"
+	OrderByRoleGroupID     RoleOrderBy = "group_id"
+	OrderByRoleName        RoleOrderBy = "name"
+	OrderByRoleDescription RoleOrderBy = "description"
+	OrderByRoleCreatedAt   RoleOrderBy = "created_at"
+	OrderByRoleUpdatedAt   RoleOrderBy = "updated_at"
+)
+
+// RolePermissionOrderBy represents allowed OrderBy column values for RolePermission.
+type RolePermissionOrderBy string
+
+const (
+	OrderByRolePermissionRoleID            RolePermissionOrderBy = "role_id"
+	OrderByRolePermissionGroupPermissionID RolePermissionOrderBy = "group_permission_id"
+	OrderByRolePermissionCreatedAt         RolePermissionOrderBy = "created_at"
+)
+
 // RoleCreateParam represents the parameters for creating a role.
 type RoleCreateParam struct {
 	GroupID     int64

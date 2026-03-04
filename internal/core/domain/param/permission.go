@@ -1,5 +1,18 @@
 package param
 
+// PermissionOrderBy represents allowed OrderBy column values for Permission.
+type PermissionOrderBy string
+
+const (
+	OrderByPermissionID          PermissionOrderBy = "id"
+	OrderByPermissionUID         PermissionOrderBy = "uid"
+	OrderByPermissionResource    PermissionOrderBy = "resource"
+	OrderByPermissionAction      PermissionOrderBy = "action"
+	OrderByPermissionDescription PermissionOrderBy = "description"
+	OrderByPermissionCreatedAt   PermissionOrderBy = "created_at"
+	OrderByPermissionUpdatedAt   PermissionOrderBy = "updated_at"
+)
+
 // PermissionCreateParam represents the parameters for creating a permission.
 type PermissionCreateParam struct {
 	Resource    string

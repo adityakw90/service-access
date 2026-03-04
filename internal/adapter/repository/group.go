@@ -13,6 +13,23 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+// allowedOrderByGroup maps OrderBy string values to their typed enum for validation.
+var allowedOrderByGroup = map[string]param.GroupOrderBy{
+	"id":          param.OrderByGroupID,
+	"uid":         param.OrderByGroupUID,
+	"name":        param.OrderByGroupName,
+	"description": param.OrderByGroupDescription,
+	"created_at":  param.OrderByGroupCreatedAt,
+	"updated_at":  param.OrderByGroupUpdatedAt,
+}
+
+// allowedOrderByGroupPermission maps OrderBy string values to their typed enum for validation.
+var allowedOrderByGroupPermission = map[string]param.GroupPermissionOrderBy{
+	"group_id":      param.OrderByGroupPermissionGroupID,
+	"permission_id": param.OrderByGroupPermissionPermissionID,
+	"created_at":    param.OrderByGroupPermissionCreatedAt,
+}
+
 type groupRepository struct {
 	db dbExecutor
 }
@@ -157,16 +174,13 @@ func (r *groupRepository) List(ctx context.Context, pagination *param.Pagination
 	}
 
 	// Apply sorting
-	orderBy := "created_at DESC"
-	if pagination != nil && pagination.OrderBy != nil {
-		orderBy = *pagination.OrderBy
-		if pagination.Sort != nil {
-			orderBy += " " + *pagination.Sort
-		} else {
-			orderBy += " ASC"
-		}
+	orderByValue := r.validateOrderBy(pagination, "created_at")
+	if pagination != nil && pagination.Sort != nil {
+		orderByValue += " " + *pagination.Sort
+	} else {
+		orderByValue += " DESC"
 	}
-	baseSQL += " ORDER BY " + orderBy
+	baseSQL += " ORDER BY " + orderByValue
 
 	// Apply pagination
 	limit := 10
@@ -299,14 +313,12 @@ func (r *groupRepository) ListPermission(ctx context.Context, groupID int64, pag
 	}
 
 	// Apply sorting
-	orderBy := "gp.created_at DESC"
-	if pagination != nil && pagination.OrderBy != nil {
-		orderBy = "gp." + *pagination.OrderBy
-		if pagination.Sort != nil {
-			orderBy += " " + *pagination.Sort
-		} else {
-			orderBy += " ASC"
-		}
+	orderByValue := r.validateOrderByGroupPermission(pagination, "created_at")
+	orderBy := "gp." + orderByValue
+	if pagination != nil && pagination.Sort != nil {
+		orderBy += " " + *pagination.Sort
+	} else {
+		orderBy += " DESC"
 	}
 	baseSQL += " ORDER BY " + orderBy
 
@@ -540,4 +552,24 @@ func (r *groupRepository) ReplacePermission(ctx context.Context, groupID int64, 
 	}
 
 	return nil
+}
+
+// validateOrderBy validates the OrderBy value against allowed Group columns using O(1) map lookup.
+func (r *groupRepository) validateOrderBy(pagination *param.PaginationParam, defaultOrderBy string) string {
+	if pagination != nil && pagination.OrderBy != nil {
+		if _, ok := allowedOrderByGroup[*pagination.OrderBy]; ok {
+			return *pagination.OrderBy
+		}
+	}
+	return defaultOrderBy
+}
+
+// validateOrderByGroupPermission validates the OrderBy value against allowed GroupPermission columns using O(1) map lookup.
+func (r *groupRepository) validateOrderByGroupPermission(pagination *param.PaginationParam, defaultOrderBy string) string {
+	if pagination != nil && pagination.OrderBy != nil {
+		if _, ok := allowedOrderByGroupPermission[*pagination.OrderBy]; ok {
+			return *pagination.OrderBy
+		}
+	}
+	return defaultOrderBy
 }
