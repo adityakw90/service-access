@@ -265,3 +265,74 @@ func TestSubjectRepository_List(t *testing.T) {
 		})
 	}
 }
+
+func TestSubjectRepository_GetAllRoles(t *testing.T) {
+	db := setupIntegrationTest(t)
+	ctx := context.Background()
+	repo := repository.NewSubjectRepository(db)
+
+	group := createTestGroup(t, db, "get-all-roles-group", "Get all roles group")
+	role1 := createTestRole(t, db, group.ID, "get-all-role-1", "Get all role 1")
+	role2 := createTestRole(t, db, group.ID, "get-all-role-2", "Get all role 2")
+	role3 := createTestRole(t, db, group.ID, "get-all-role-3", "Get all role 3")
+
+	subjectID := "user-get-all-roles"
+	subjectType := "user"
+
+	// Assign multiple roles to subject
+	err := repo.Create(ctx, &model.SubjectRole{
+		SubjectID:   subjectID,
+		SubjectType: subjectType,
+		RoleID:      role1.ID,
+	})
+	require.NoError(t, err)
+
+	err = repo.Create(ctx, &model.SubjectRole{
+		SubjectID:   subjectID,
+		SubjectType: subjectType,
+		RoleID:      role2.ID,
+	})
+	require.NoError(t, err)
+
+	err = repo.Create(ctx, &model.SubjectRole{
+		SubjectID:   subjectID,
+		SubjectType: subjectType,
+		RoleID:      role3.ID,
+	})
+	require.NoError(t, err)
+
+	// GetAllRoles should return distinct Role objects (not SubjectRole)
+	roles, err := repo.GetAllRoles(ctx, subjectID, subjectType)
+	require.NoError(t, err)
+	assert.Equal(t, 3, len(roles))
+
+	// Verify Role structure (not SubjectRole)
+	for _, role := range roles {
+		assert.NotZero(t, role.ID)
+		assert.NotZero(t, role.UID)
+		assert.NotZero(t, role.GroupID)
+		assert.NotZero(t, role.GroupUID)
+		assert.NotZero(t, role.Name)
+		assert.NotZero(t, role.Description)
+		assert.NotZero(t, role.CreatedAt)
+		assert.NotZero(t, role.UpdatedAt)
+	}
+
+	// Verify order by UID
+	for i := 1; i < len(roles); i++ {
+		assert.True(t, roles[i].UID >= roles[i-1].UID, "Roles should be sorted by UID")
+	}
+}
+
+func TestSubjectRepository_GetAllRoles_Empty(t *testing.T) {
+	db := setupIntegrationTest(t)
+	ctx := context.Background()
+	repo := repository.NewSubjectRepository(db)
+
+	subjectID := "user-nonexistent"
+	subjectType := "user"
+
+	roles, err := repo.GetAllRoles(ctx, subjectID, subjectType)
+	require.NoError(t, err)
+	assert.Equal(t, 0, len(roles))
+}
