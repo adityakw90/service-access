@@ -511,3 +511,540 @@ func TestSubjectHandler_List(t *testing.T) {
 		})
 	}
 }
+
+func TestSubjectHandler_Get(t *testing.T) {
+	now := time.Now()
+
+	tests := []struct {
+		name        string
+		req         *subject.GetSubjectRequest
+		setup       func(*subjectmocks.MockSubjectService)
+		wantErr     bool
+		validateResp func(*testing.T, *subject.GetSubjectResponse)
+	}{
+		{
+			name: "Happy Path - Get Full Profile",
+			req: &subject.GetSubjectRequest{
+				SubjectId:   "user-123",
+				SubjectType: "user",
+			},
+			setup: func(m *subjectmocks.MockSubjectService) {
+				m.EXPECT().GetFullProfile(mock.Anything, "user-123", "user").Return(
+					&model.SubjectProfile{
+						Groups: []model.Group{
+							{UID: "group-1", Name: "Admin", CreatedAt: now, UpdatedAt: now},
+							{UID: "group-2", Name: "Editors", CreatedAt: now, UpdatedAt: now},
+						},
+						Roles: []model.Role{
+							{UID: "role-1", GroupUID: "group-1", Name: "SuperAdmin", CreatedAt: now, UpdatedAt: now},
+							{UID: "role-2", GroupUID: "group-2", Name: "Editor", CreatedAt: now, UpdatedAt: now},
+						},
+						Permissions: []model.Permission{
+							{UID: "perm-1", Resource: "article", Action: "create", CreatedAt: now, UpdatedAt: now},
+							{UID: "perm-2", Resource: "article", Action: "delete", CreatedAt: now, UpdatedAt: now},
+						},
+					},
+					nil,
+				)
+			},
+			wantErr: false,
+			validateResp: func(t *testing.T, got *subject.GetSubjectResponse) {
+				if got.TotalGroup != 2 {
+					t.Errorf("Get() TotalGroup = %d, want 2", got.TotalGroup)
+				}
+				if got.TotalRole != 2 {
+					t.Errorf("Get() TotalRole = %d, want 2", got.TotalRole)
+				}
+				if got.TotalPermission != 2 {
+					t.Errorf("Get() TotalPermission = %d, want 2", got.TotalPermission)
+				}
+				if len(got.Groups) != 2 {
+					t.Errorf("Get() groups count = %d, want 2", len(got.Groups))
+				}
+				if len(got.Roles) != 2 {
+					t.Errorf("Get() roles count = %d, want 2", len(got.Roles))
+				}
+				if len(got.Permissions) != 2 {
+					t.Errorf("Get() permissions count = %d, want 2", len(got.Permissions))
+				}
+			},
+		},
+		{
+			name: "Happy Path - Empty Profile",
+			req: &subject.GetSubjectRequest{
+				SubjectId:   "user-999",
+				SubjectType: "user",
+			},
+			setup: func(m *subjectmocks.MockSubjectService) {
+				m.EXPECT().GetFullProfile(mock.Anything, "user-999", "user").Return(
+					&model.SubjectProfile{
+						Groups:      []model.Group{},
+						Roles:       []model.Role{},
+						Permissions: []model.Permission{},
+					},
+					nil,
+				)
+			},
+			wantErr: false,
+			validateResp: func(t *testing.T, got *subject.GetSubjectResponse) {
+				if got.TotalGroup != 0 {
+					t.Errorf("Get() TotalGroup = %d, want 0", got.TotalGroup)
+				}
+				if got.TotalRole != 0 {
+					t.Errorf("Get() TotalRole = %d, want 0", got.TotalRole)
+				}
+				if got.TotalPermission != 0 {
+					t.Errorf("Get() TotalPermission = %d, want 0", got.TotalPermission)
+				}
+			},
+		},
+		{
+			name: "Missing Subject ID",
+			req: &subject.GetSubjectRequest{
+				SubjectId:   "",
+				SubjectType: "user",
+			},
+			setup: func(m *subjectmocks.MockSubjectService) {
+				// Validation should prevent service call
+				m.EXPECT().GetFullProfile(mock.Anything, mock.Anything, mock.Anything).Return(
+					nil,
+					errors.New("should not be called"),
+				).Maybe()
+			},
+			wantErr: true,
+		},
+		{
+			name: "Missing Subject Type",
+			req: &subject.GetSubjectRequest{
+				SubjectId:   "user-123",
+				SubjectType: "",
+			},
+			setup: func(m *subjectmocks.MockSubjectService) {
+				// Validation should prevent service call
+				m.EXPECT().GetFullProfile(mock.Anything, mock.Anything, mock.Anything).Return(
+					nil,
+					errors.New("should not be called"),
+				).Maybe()
+			},
+			wantErr: true,
+		},
+		{
+			name: "Service Error - Subject Not Found",
+			req: &subject.GetSubjectRequest{
+				SubjectId:   "nonexistent",
+				SubjectType: "user",
+			},
+			setup: func(m *subjectmocks.MockSubjectService) {
+				m.EXPECT().GetFullProfile(mock.Anything, "nonexistent", "user").Return(
+					nil,
+					errors.New("subject not found"),
+				)
+			},
+			wantErr: true,
+		},
+		{
+			name: "Service Error - Database Error",
+			req: &subject.GetSubjectRequest{
+				SubjectId:   "user-123",
+				SubjectType: "user",
+			},
+			setup: func(m *subjectmocks.MockSubjectService) {
+				m.EXPECT().GetFullProfile(mock.Anything, "user-123", "user").Return(
+					nil,
+					errors.New("database connection failed"),
+				)
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockSvc := new(subjectmocks.MockSubjectService)
+			if tt.setup != nil {
+				tt.setup(mockSvc)
+			}
+
+			h := handler.NewSubjectHandler(mockSvc, validator.New())
+			got, err := h.Get(context.Background(), tt.req)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr && tt.validateResp != nil {
+				tt.validateResp(t, got)
+			}
+		})
+	}
+}
+
+func TestSubjectHandler_ListGroup(t *testing.T) {
+	now := time.Now()
+
+	tests := []struct {
+		name        string
+		req         *subject.GetSubjectRequest
+		setup       func(*subjectmocks.MockSubjectService)
+		wantErr     bool
+		validateResp func(*testing.T, *subject.ListGroupResponse)
+	}{
+		{
+			name: "Happy Path - List Groups",
+			req: &subject.GetSubjectRequest{
+				SubjectId:   "user-123",
+				SubjectType: "user",
+			},
+			setup: func(m *subjectmocks.MockSubjectService) {
+				m.EXPECT().GetGroups(mock.Anything, "user-123", "user").Return(
+					[]model.Group{
+						{UID: "group-1", Name: "Admin", CreatedAt: now, UpdatedAt: now},
+						{UID: "group-2", Name: "Editors", CreatedAt: now, UpdatedAt: now},
+					},
+					nil,
+				)
+			},
+			wantErr: false,
+			validateResp: func(t *testing.T, got *subject.ListGroupResponse) {
+				if got.Total != 2 {
+					t.Errorf("ListGroup() Total = %d, want 2", got.Total)
+				}
+				if len(got.Groups) != 2 {
+					t.Errorf("ListGroup() groups count = %d, want 2", len(got.Groups))
+				}
+			},
+		},
+		{
+			name: "Happy Path - No Groups",
+			req: &subject.GetSubjectRequest{
+				SubjectId:   "user-999",
+				SubjectType: "user",
+			},
+			setup: func(m *subjectmocks.MockSubjectService) {
+				m.EXPECT().GetGroups(mock.Anything, "user-999", "user").Return(
+					[]model.Group{},
+					nil,
+				)
+			},
+			wantErr: false,
+			validateResp: func(t *testing.T, got *subject.ListGroupResponse) {
+				if got.Total != 0 {
+					t.Errorf("ListGroup() Total = %d, want 0", got.Total)
+				}
+				if len(got.Groups) != 0 {
+					t.Errorf("ListGroup() groups count = %d, want 0", len(got.Groups))
+				}
+			},
+		},
+		{
+			name: "Missing Subject ID",
+			req: &subject.GetSubjectRequest{
+				SubjectId:   "",
+				SubjectType: "user",
+			},
+			setup: func(m *subjectmocks.MockSubjectService) {
+				m.EXPECT().GetGroups(mock.Anything, "", "user").Return(
+					nil,
+					errors.New("should not be called"),
+				).Maybe()
+			},
+			wantErr: true,
+		},
+		{
+			name: "Missing Subject Type",
+			req: &subject.GetSubjectRequest{
+				SubjectId:   "user-123",
+				SubjectType: "",
+			},
+			setup: func(m *subjectmocks.MockSubjectService) {
+				m.EXPECT().GetGroups(mock.Anything, "user-123", "").Return(
+					nil,
+					errors.New("should not be called"),
+				).Maybe()
+			},
+			wantErr: true,
+		},
+		{
+			name: "Service Error - Database Error",
+			req: &subject.GetSubjectRequest{
+				SubjectId:   "user-123",
+				SubjectType: "user",
+			},
+			setup: func(m *subjectmocks.MockSubjectService) {
+				m.EXPECT().GetGroups(mock.Anything, "user-123", "user").Return(
+					nil,
+					errors.New("database connection failed"),
+				)
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockSvc := new(subjectmocks.MockSubjectService)
+			if tt.setup != nil {
+				tt.setup(mockSvc)
+			}
+
+			h := handler.NewSubjectHandler(mockSvc, validator.New())
+			got, err := h.ListGroup(context.Background(), tt.req)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ListGroup() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr && tt.validateResp != nil {
+				tt.validateResp(t, got)
+			}
+		})
+	}
+}
+
+func TestSubjectHandler_ListRole(t *testing.T) {
+	now := time.Now()
+
+	tests := []struct {
+		name        string
+		req         *subject.GetSubjectRequest
+		setup       func(*subjectmocks.MockSubjectService)
+		wantErr     bool
+		validateResp func(*testing.T, *subject.ListRoleResponse)
+	}{
+		{
+			name: "Happy Path - List Roles",
+			req: &subject.GetSubjectRequest{
+				SubjectId:   "user-123",
+				SubjectType: "user",
+			},
+			setup: func(m *subjectmocks.MockSubjectService) {
+				m.EXPECT().GetRoles(mock.Anything, "user-123", "user").Return(
+					[]model.Role{
+						{UID: "role-1", GroupUID: "group-1", Name: "SuperAdmin", CreatedAt: now, UpdatedAt: now},
+						{UID: "role-2", GroupUID: "group-2", Name: "Editor", CreatedAt: now, UpdatedAt: now},
+					},
+					nil,
+				)
+			},
+			wantErr: false,
+			validateResp: func(t *testing.T, got *subject.ListRoleResponse) {
+				if got.Total != 2 {
+					t.Errorf("ListRole() Total = %d, want 2", got.Total)
+				}
+				if len(got.Roles) != 2 {
+					t.Errorf("ListRole() roles count = %d, want 2", len(got.Roles))
+				}
+			},
+		},
+		{
+			name: "Happy Path - No Roles",
+			req: &subject.GetSubjectRequest{
+				SubjectId:   "user-999",
+				SubjectType: "user",
+			},
+			setup: func(m *subjectmocks.MockSubjectService) {
+				m.EXPECT().GetRoles(mock.Anything, "user-999", "user").Return(
+					[]model.Role{},
+					nil,
+				)
+			},
+			wantErr: false,
+			validateResp: func(t *testing.T, got *subject.ListRoleResponse) {
+				if got.Total != 0 {
+					t.Errorf("ListRole() Total = %d, want 0", got.Total)
+				}
+				if len(got.Roles) != 0 {
+					t.Errorf("ListRole() roles count = %d, want 0", len(got.Roles))
+				}
+			},
+		},
+		{
+			name: "Missing Subject ID",
+			req: &subject.GetSubjectRequest{
+				SubjectId:   "",
+				SubjectType: "user",
+			},
+			setup: func(m *subjectmocks.MockSubjectService) {
+				m.EXPECT().GetRoles(mock.Anything, "", "user").Return(
+					nil,
+					errors.New("should not be called"),
+				).Maybe()
+			},
+			wantErr: true,
+		},
+		{
+			name: "Missing Subject Type",
+			req: &subject.GetSubjectRequest{
+				SubjectId:   "user-123",
+				SubjectType: "",
+			},
+			setup: func(m *subjectmocks.MockSubjectService) {
+				m.EXPECT().GetRoles(mock.Anything, "user-123", "").Return(
+					nil,
+					errors.New("should not be called"),
+				).Maybe()
+			},
+			wantErr: true,
+		},
+		{
+			name: "Service Error - Database Error",
+			req: &subject.GetSubjectRequest{
+				SubjectId:   "user-123",
+				SubjectType: "user",
+			},
+			setup: func(m *subjectmocks.MockSubjectService) {
+				m.EXPECT().GetRoles(mock.Anything, "user-123", "user").Return(
+					nil,
+					errors.New("database connection failed"),
+				)
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockSvc := new(subjectmocks.MockSubjectService)
+			if tt.setup != nil {
+				tt.setup(mockSvc)
+			}
+
+			h := handler.NewSubjectHandler(mockSvc, validator.New())
+			got, err := h.ListRole(context.Background(), tt.req)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ListRole() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr && tt.validateResp != nil {
+				tt.validateResp(t, got)
+			}
+		})
+	}
+}
+
+func TestSubjectHandler_ListPermission(t *testing.T) {
+	now := time.Now()
+
+	tests := []struct {
+		name        string
+		req         *subject.GetSubjectRequest
+		setup       func(*subjectmocks.MockSubjectService)
+		wantErr     bool
+		validateResp func(*testing.T, *subject.ListPermissionResponse)
+	}{
+		{
+			name: "Happy Path - List Permissions",
+			req: &subject.GetSubjectRequest{
+				SubjectId:   "user-123",
+				SubjectType: "user",
+			},
+			setup: func(m *subjectmocks.MockSubjectService) {
+				m.EXPECT().GetPermissions(mock.Anything, "user-123", "user").Return(
+					[]model.Permission{
+						{UID: "perm-1", Resource: "article", Action: "create", CreatedAt: now, UpdatedAt: now},
+						{UID: "perm-2", Resource: "article", Action: "delete", CreatedAt: now, UpdatedAt: now},
+					},
+					nil,
+				)
+			},
+			wantErr: false,
+			validateResp: func(t *testing.T, got *subject.ListPermissionResponse) {
+				if got.Total != 2 {
+					t.Errorf("ListPermission() Total = %d, want 2", got.Total)
+				}
+				if len(got.Permissions) != 2 {
+					t.Errorf("ListPermission() permissions count = %d, want 2", len(got.Permissions))
+				}
+			},
+		},
+		{
+			name: "Happy Path - No Permissions",
+			req: &subject.GetSubjectRequest{
+				SubjectId:   "user-999",
+				SubjectType: "user",
+			},
+			setup: func(m *subjectmocks.MockSubjectService) {
+				m.EXPECT().GetPermissions(mock.Anything, "user-999", "user").Return(
+					[]model.Permission{},
+					nil,
+				)
+			},
+			wantErr: false,
+			validateResp: func(t *testing.T, got *subject.ListPermissionResponse) {
+				if got.Total != 0 {
+					t.Errorf("ListPermission() Total = %d, want 0", got.Total)
+				}
+				if len(got.Permissions) != 0 {
+					t.Errorf("ListPermission() permissions count = %d, want 0", len(got.Permissions))
+				}
+			},
+		},
+		{
+			name: "Missing Subject ID",
+			req: &subject.GetSubjectRequest{
+				SubjectId:   "",
+				SubjectType: "user",
+			},
+			setup: func(m *subjectmocks.MockSubjectService) {
+				m.EXPECT().GetPermissions(mock.Anything, "", "user").Return(
+					nil,
+					errors.New("should not be called"),
+				).Maybe()
+			},
+			wantErr: true,
+		},
+		{
+			name: "Missing Subject Type",
+			req: &subject.GetSubjectRequest{
+				SubjectId:   "user-123",
+				SubjectType: "",
+			},
+			setup: func(m *subjectmocks.MockSubjectService) {
+				m.EXPECT().GetPermissions(mock.Anything, "user-123", "").Return(
+					nil,
+					errors.New("should not be called"),
+				).Maybe()
+			},
+			wantErr: true,
+		},
+		{
+			name: "Service Error - Database Error",
+			req: &subject.GetSubjectRequest{
+				SubjectId:   "user-123",
+				SubjectType: "user",
+			},
+			setup: func(m *subjectmocks.MockSubjectService) {
+				m.EXPECT().GetPermissions(mock.Anything, "user-123", "user").Return(
+					nil,
+					errors.New("database connection failed"),
+				)
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockSvc := new(subjectmocks.MockSubjectService)
+			if tt.setup != nil {
+				tt.setup(mockSvc)
+			}
+
+			h := handler.NewSubjectHandler(mockSvc, validator.New())
+			got, err := h.ListPermission(context.Background(), tt.req)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ListPermission() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr && tt.validateResp != nil {
+				tt.validateResp(t, got)
+			}
+		})
+	}
+}
