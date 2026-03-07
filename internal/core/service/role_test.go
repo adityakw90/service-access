@@ -79,6 +79,14 @@ func (m *mockRoleRepository) ReplacePermission(ctx context.Context, roleID int64
 	return args.Error(0)
 }
 
+func (m *mockRoleRepository) GetAllPermissions(ctx context.Context, roleID int64) ([]model.Permission, error) {
+	args := m.Called(ctx, roleID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]model.Permission), args.Error(1)
+}
+
 func TestRoleService_Create(t *testing.T) {
 	tests := []struct {
 		name    string

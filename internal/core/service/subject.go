@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/adityakw90/service-access/internal/core/port/observer"
 	"github.com/adityakw90/service-access/internal/core/port/repository"
 	"github.com/adityakw90/service-access/internal/core/port/service"
+	"golang.org/x/sync/errgroup"
 )
 
 type subjectService struct {
@@ -157,4 +159,106 @@ func (s *subjectService) Revoke(ctx context.Context, subjectID string, subjectTy
 	}, nil)
 
 	return nil
+}
+
+// Validation errors
+var (
+	ErrInvalidSubjectID = errors.New("subject_id is required")
+	ErrInvalidSubjectType = errors.New("subject_type is required")
+)
+
+func validateSubjectParams(subjectID, subjectType string) error {
+	if subjectID == "" {
+		return ErrInvalidSubjectID
+	}
+	if subjectType == "" {
+		return ErrInvalidSubjectType
+	}
+	return nil
+}
+
+// GetRoles returns all roles assigned to the subject.
+func (s *subjectService) GetRoles(ctx context.Context, subjectID string, subjectType string) ([]model.Role, error) {
+	if err := validateSubjectParams(subjectID, subjectType); err != nil {
+		return nil, err
+	}
+
+	roles, err := s.repos.Subject().GetAllRoles(ctx, subjectID, subjectType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get roles for subject %s: %w", subjectID, err)
+	}
+	return roles, nil
+}
+
+// GetGroups returns all unique groups from the subject's roles.
+func (s *subjectService) GetGroups(ctx context.Context, subjectID string, subjectType string) ([]model.Group, error) {
+	if err := validateSubjectParams(subjectID, subjectType); err != nil {
+		return nil, err
+	}
+
+	groups, err := s.repos.Subject().GetAllGroups(ctx, subjectID, subjectType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get groups for subject %s: %w", subjectID, err)
+	}
+	return groups, nil
+}
+
+// GetPermissions returns all unique permissions from all of the subject's roles.
+func (s *subjectService) GetPermissions(ctx context.Context, subjectID string, subjectType string) ([]model.Permission, error) {
+	if err := validateSubjectParams(subjectID, subjectType); err != nil {
+		return nil, err
+	}
+
+	perms, err := s.repos.Subject().GetAllPermissions(ctx, subjectID, subjectType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get permissions for subject %s: %w", subjectID, err)
+	}
+	return perms, nil
+}
+
+// GetFullProfile returns complete aggregation (groups, roles, permissions) in parallel.
+func (s *subjectService) GetFullProfile(ctx context.Context, subjectID string, subjectType string) (*model.SubjectProfile, error) {
+	if err := validateSubjectParams(subjectID, subjectType); err != nil {
+		return nil, err
+	}
+
+	profile := &model.SubjectProfile{}
+	g, ctx := errgroup.WithContext(ctx)
+	g.SetLimit(10) // limit concurrency
+
+	// Fetch groups
+	g.Go(func() error {
+		groups, err := s.repos.Subject().GetAllGroups(ctx, subjectID, subjectType)
+		if err != nil {
+			return fmt.Errorf("failed to get groups: %w", err)
+		}
+		profile.Groups = groups
+		return nil
+	})
+
+	// Fetch roles
+	g.Go(func() error {
+		roles, err := s.repos.Subject().GetAllRoles(ctx, subjectID, subjectType)
+		if err != nil {
+			return fmt.Errorf("failed to get roles: %w", err)
+		}
+		profile.Roles = roles
+		return nil
+	})
+
+	// Fetch permissions
+	g.Go(func() error {
+		perms, err := s.repos.Subject().GetAllPermissions(ctx, subjectID, subjectType)
+		if err != nil {
+			return fmt.Errorf("failed to get permissions: %w", err)
+		}
+		profile.Permissions = perms
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	return profile, nil
 }
