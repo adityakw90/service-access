@@ -336,3 +336,84 @@ func TestSubjectRepository_GetAllRoles_Empty(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(roles))
 }
+
+func TestSubjectRepository_GetAllGroups(t *testing.T) {
+	db := setupIntegrationTest(t)
+	ctx := context.Background()
+	repo := repository.NewSubjectRepository(db)
+
+	// Create multiple groups and roles
+	group1 := createTestGroup(t, db, "get-all-groups-group-1", "Get all groups group 1")
+	group2 := createTestGroup(t, db, "get-all-groups-group-2", "Get all groups group 2")
+	group3 := createTestGroup(t, db, "get-all-groups-group-3", "Get all groups group 3")
+
+	role1 := createTestRole(t, db, group1.ID, "get-all-group-role-1", "Get all group role 1")
+	role2 := createTestRole(t, db, group1.ID, "get-all-group-role-2", "Get all group role 2") // Same group as role1
+	role3 := createTestRole(t, db, group2.ID, "get-all-group-role-3", "Get all group role 3")
+	role4 := createTestRole(t, db, group3.ID, "get-all-group-role-4", "Get all group role 4")
+
+	subjectID := "user-get-all-groups"
+	subjectType := "user"
+
+	// Assign roles from multiple groups, including multiple roles from same group
+	err := repo.Create(ctx, &model.SubjectRole{
+		SubjectID:   subjectID,
+		SubjectType: subjectType,
+		RoleID:      role1.ID,
+	})
+	require.NoError(t, err)
+
+	err = repo.Create(ctx, &model.SubjectRole{
+		SubjectID:   subjectID,
+		SubjectType: subjectType,
+		RoleID:      role2.ID,
+	})
+	require.NoError(t, err)
+
+	err = repo.Create(ctx, &model.SubjectRole{
+		SubjectID:   subjectID,
+		SubjectType: subjectType,
+		RoleID:      role3.ID,
+	})
+	require.NoError(t, err)
+
+	err = repo.Create(ctx, &model.SubjectRole{
+		SubjectID:   subjectID,
+		SubjectType: subjectType,
+		RoleID:      role4.ID,
+	})
+	require.NoError(t, err)
+
+	// GetAllGroups should return distinct Group objects (unique by group ID)
+	groups, err := repo.GetAllGroups(ctx, subjectID, subjectType)
+	require.NoError(t, err)
+	assert.Equal(t, 3, len(groups)) // Should be 3 unique groups, not 4 roles
+
+	// Verify Group structure (not Role)
+	for _, group := range groups {
+		assert.NotZero(t, group.ID)
+		assert.NotZero(t, group.UID)
+		assert.NotZero(t, group.Name)
+		assert.NotZero(t, group.Description)
+		assert.NotZero(t, group.CreatedAt)
+		assert.NotZero(t, group.UpdatedAt)
+	}
+
+	// Verify order by UID
+	for i := 1; i < len(groups); i++ {
+		assert.True(t, groups[i].UID >= groups[i-1].UID, "Groups should be sorted by UID")
+	}
+}
+
+func TestSubjectRepository_GetAllGroups_Empty(t *testing.T) {
+	db := setupIntegrationTest(t)
+	ctx := context.Background()
+	repo := repository.NewSubjectRepository(db)
+
+	subjectID := "user-nonexistent"
+	subjectType := "user"
+
+	groups, err := repo.GetAllGroups(ctx, subjectID, subjectType)
+	require.NoError(t, err)
+	assert.Equal(t, 0, len(groups))
+}

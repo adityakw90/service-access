@@ -303,3 +303,38 @@ func (r *subjectRepository) validateOrderBy(pagination *param.PaginationParam, d
 	}
 	return defaultOrderBy
 }
+
+func (r *subjectRepository) GetAllGroups(ctx context.Context, subjectID string, subjectType string) ([]model.Group, error) {
+	const sql = `
+		SELECT DISTINCT g.id, g.uid, g.name, g.description, g.created_at, g.updated_at
+		FROM subject_role sr
+		JOIN role r ON sr.role_id = r.id
+		JOIN "group" g ON r.group_id = g.id
+		WHERE sr.subject_id = $1 AND sr.subject_type = $2
+		ORDER BY g.uid
+	`
+
+	rows, err := r.db.Query(ctx, sql, subjectID, subjectType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get all groups for subject: %w", err)
+	}
+	defer rows.Close()
+
+	var groups []model.Group
+	for rows.Next() {
+		var g model.Group
+		err := rows.Scan(
+			&g.ID, &g.UID, &g.Name, &g.Description, &g.CreatedAt, &g.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan group: %w", err)
+		}
+		groups = append(groups, g)
+	}
+
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("error iterating groups: %w", rows.Err())
+	}
+
+	return groups, nil
+}
