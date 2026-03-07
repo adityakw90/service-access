@@ -453,6 +453,45 @@ func (r *roleRepository) ListPermission(ctx context.Context, roleID int64, pagin
 	}, nil
 }
 
+// GetAllPermissions returns all permissions for a role (through role_permission → group_permission → permission).
+// Results are deduplicated and sorted by permission UID.
+func (r *roleRepository) GetAllPermissions(ctx context.Context, roleID int64) ([]model.Permission, error) {
+	const sql = `
+		SELECT DISTINCT p.id, p.uid, p.resource, p.action, p.description,
+		                p.created_at, p.updated_at
+		FROM role_permission rp
+		JOIN group_permission gp ON rp.group_permission_id = gp.id
+		JOIN permission p ON gp.permission_id = p.id
+		WHERE rp.role_id = $1
+		ORDER BY p.uid
+	`
+
+	rows, err := r.db.Query(ctx, sql, roleID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get all permissions for role: %w", err)
+	}
+	defer rows.Close()
+
+	var perms []model.Permission
+	for rows.Next() {
+		var p model.Permission
+		err := rows.Scan(
+			&p.ID, &p.UID, &p.Resource, &p.Action, &p.Description,
+			&p.CreatedAt, &p.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan permission: %w", err)
+		}
+		perms = append(perms, p)
+	}
+
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("error iterating permissions: %w", rows.Err())
+	}
+
+	return perms, nil
+}
+
 func (r *roleRepository) AddPermission(ctx context.Context, roleID int64, groupPermissionID int64) error {
 	const sql = `
 		INSERT INTO role_permission (role_id, group_permission_id)

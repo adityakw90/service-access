@@ -36,4 +36,7 @@ type RoleRepository interface {
 	RemovePermission(ctx context.Context, roleID int64, groupPermissionID int64) error
 	// ReplacePermission replaces all group permissions for a role.
 	ReplacePermission(ctx context.Context, roleID int64, groupPermissionIDs []int64) error
+	// GetAllPermissions returns all permissions for a role (through role_permission → group_permission → permission).
+	// Results are deduplicated and sorted by permission UID.
+	GetAllPermissions(ctx context.Context, roleID int64) ([]model.Permission, error)
 }
