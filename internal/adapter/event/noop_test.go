@@ -1,4 +1,4 @@
-package publisher
+package event
 
 import (
 	"context"
@@ -13,12 +13,9 @@ func TestNoOpPublisher(t *testing.T) {
 	ctx := context.Background()
 
 	// Should not return error
-	err := pub.Publish(ctx, event.EventAccessCheck, event.EventAccessCheckData{
-		SubjectId:   "uid-from-user-service",
-		SubjectType: "user",
-		Resource:    "user",
-		Action:      "read",
-		Reason:      "user not have any permission",
+	err := pub.Publish(ctx, event.EventLogin, event.EventLoginData{
+		Identifier:     "test@example.com",
+		IdentifierType: "email",
 	})
 	if err != nil {
 		t.Errorf("NoOpPublisher.Publish() error = %v", err)

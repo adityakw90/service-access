@@ -3,6 +3,7 @@ package infra
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -11,23 +12,8 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-// RabbitMQConfig holds configuration for RabbitMQ connection.
-type RabbitMQConfig struct {
-	Host                 string
-	Port                 int
-	User                 string
-	Password             string
-	Vhost                string
-	ReconnectInterval    time.Duration
-	ReconnectMaxAttempts int
-}
-
-// RabbitMQConnection manages a RabbitMQ connection with automatic reconnection.
-// Each publish operation creates a new channel, providing better isolation
-// for concurrent operations.
-// Exchanges and routing keys are managed by the adapter layer.
-type RabbitMQConnection struct {
-	config        RabbitMQConfig
+type Rabbit struct {
+	config        RabbitConfig
 	conn          *amqp.Connection
 	connMu        sync.RWMutex // Protects connection only
 	closed        atomic.Bool
@@ -38,8 +24,17 @@ type RabbitMQConnection struct {
 	logger        gomon.Logger
 }
 
-// NewRabbitMQConnection creates a new RabbitMQ connection with reconnection support.
-func NewRabbitMQConnection(ctx context.Context, cfg RabbitMQConfig, logger gomon.Logger) (*RabbitMQConnection, error) {
+type RabbitConfig struct {
+	Host                 string
+	Port                 int
+	User                 string
+	Password             string
+	Vhost                string
+	ReconnectInterval    time.Duration
+	ReconnectMaxAttempts int
+}
+
+func NewRabbitConnection(ctx context.Context, cfg RabbitConfig, logger gomon.Logger) (*Rabbit, error) {
 	if logger == nil {
 		logger = &NoopLogger{}
 	}
@@ -54,7 +49,7 @@ func NewRabbitMQConnection(ctx context.Context, cfg RabbitMQConfig, logger gomon
 
 	ctx, cancel := context.WithCancel(ctx)
 
-	r := &RabbitMQConnection{
+	r := &Rabbit{
 		config:        cfg,
 		ctx:           ctx,
 		cancel:        cancel,
@@ -76,7 +71,7 @@ func NewRabbitMQConnection(ctx context.Context, cfg RabbitMQConfig, logger gomon
 }
 
 // connect establishes a new connection.
-func (r *RabbitMQConnection) connect(ctx context.Context) error {
+func (r *Rabbit) connect(ctx context.Context) error {
 	r.connMu.Lock()
 	defer r.connMu.Unlock()
 
@@ -130,7 +125,7 @@ func (r *RabbitMQConnection) connect(ctx context.Context) error {
 }
 
 // waitForClose monitors the connection for close events.
-func (r *RabbitMQConnection) waitForClose(conn *amqp.Connection) {
+func (r *Rabbit) waitForClose(conn *amqp.Connection) {
 	err := <-conn.NotifyClose(make(chan *amqp.Error, 1))
 	if err != nil {
 		r.logger.Warn("rabbitmq connection closed", map[string]any{
@@ -146,7 +141,7 @@ func (r *RabbitMQConnection) waitForClose(conn *amqp.Connection) {
 // monitorConnection handles reconnection logic.
 // Relies on waitForClose() to detect connection failures via NotifyClose.
 // Publish operations also trigger reconnection on failure.
-func (r *RabbitMQConnection) monitorConnection() {
+func (r *Rabbit) monitorConnection() {
 	defer r.wg.Done()
 
 	for {
@@ -164,33 +159,157 @@ func (r *RabbitMQConnection) monitorConnection() {
 	}
 }
 
-// PublishWithContext publishes a message with context support.
-// The exchange, routing key, and publishing properties are provided by the caller.
-// This is a fire-and-forget method - for at-least-once delivery, use PublishWithConfirm.
-func (r *RabbitMQConnection) PublishWithContext(ctx context.Context, exchange, routingKey string, publishing amqp.Publishing) error {
-	if r.closed.Load() {
-		return fmt.Errorf("connection is closed")
+// triggerReconnect safely triggers reconnection.
+func (r *Rabbit) triggerReconnect() {
+	select {
+	case r.reconnectChan <- struct{}{}:
+	default:
 	}
+}
 
-	// Get connection with read lock
+// get connection
+func (r *Rabbit) getConnection() (*amqp.Connection, error) {
+	// get connection with read lock
 	r.connMu.RLock()
 	conn := r.conn
 	r.connMu.RUnlock()
 
+	// check connection is not nil or closed
 	if conn == nil || conn.IsClosed() {
-		return fmt.Errorf("no active connection")
+		return nil, fmt.Errorf("no active connection")
+	}
+
+	return conn, nil
+}
+
+// Get channel connection from rabbitmq connection
+func (r *Rabbit) getChannel() (*amqp.Channel, error) {
+	conn, err := r.getConnection()
+	if err != nil {
+		return nil, err
+	}
+
+	ch, err := conn.Channel()
+	if err != nil {
+		// triger reconnect, because connection might be unhealthy
+		r.triggerReconnect()
+		return nil, fmt.Errorf("failed to open channel: %w", err)
+	}
+
+	return ch, nil
+}
+
+// Build amqp publishing message
+func (r *Rabbit) buildAmqpPublishing(
+	contentType string,
+	headers map[string]string,
+	body []byte,
+	deliveryMode *uint8,
+	priority *uint8,
+	timestamp *time.Time,
+	expiration *time.Duration,
+) amqp.Publishing {
+	amqpTimestamp := time.Now()
+	if timestamp != nil {
+		amqpTimestamp = *timestamp
+	}
+
+	publishing := amqp.Publishing{
+		ContentType: contentType,
+		Body:        body,
+		Timestamp:   amqpTimestamp,
+	}
+
+	if headers != nil {
+		amqpHeaders := make(amqp.Table, len(headers))
+		for k, v := range headers {
+			amqpHeaders[k] = v
+		}
+		publishing.Headers = amqpHeaders
+	}
+
+	if deliveryMode != nil {
+		switch *deliveryMode {
+		case amqp.Transient:
+			publishing.DeliveryMode = amqp.Transient
+		case amqp.Persistent:
+			publishing.DeliveryMode = amqp.Persistent
+		}
+	}
+
+	if priority != nil {
+		publishing.Priority = *priority
+	}
+
+	if expiration != nil {
+		publishing.Expiration = strconv.FormatInt(expiration.Milliseconds(), 10)
+	}
+
+	return publishing
+}
+
+// DeclareExchange declares an exchange on the RabbitMQ server.
+// This is typically called by the adapter layer during initialization.
+func (r *Rabbit) DeclareExchange(exchange string, exchangeType string, durable bool) error {
+	if r.closed.Load() {
+		return fmt.Errorf("connection is closed")
+	}
+
+	ch, err := r.getChannel()
+	if err != nil {
+		return fmt.Errorf("failed to open channel: %w", err)
+	}
+	defer ch.Close()
+
+	err = ch.ExchangeDeclare(
+		exchange,
+		exchangeType,
+		durable,
+		false, // auto-delete
+		false, // internal
+		false, // no-wait
+		nil,   // arguments
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to declare exchange: %w", err)
+	}
+
+	r.logger.Info("rabbitmq exchange declared", map[string]any{
+		"exchange": exchange,
+		"type":     exchangeType,
+		"durable":  durable,
+	})
+
+	return nil
+}
+
+// publish message
+func (r *Rabbit) Publish(
+	ctx context.Context,
+	exchange string,
+	routingKey string,
+	contentType string,
+	headers map[string]string,
+	body []byte,
+	deliveryMode *uint8,
+	priority *uint8,
+	timestamp *time.Time,
+	expiration *time.Duration,
+) error {
+	if r.closed.Load() {
+		return fmt.Errorf("connection is closed")
 	}
 
 	// Create a new channel for this publish
-	ch, err := conn.Channel()
+	ch, err := r.getChannel()
 	if err != nil {
-		r.logger.Error("failed to open channel for publish", map[string]any{
+		r.logger.Error("failed to publish", map[string]any{
 			"error":       err.Error(),
 			"exchange":    exchange,
 			"routing_key": routingKey,
 		})
-		r.triggerReconnect()
-		return fmt.Errorf("failed to open channel: %w", err)
+		return fmt.Errorf("failed to publish: %w", err)
 	}
 
 	// Ensure channel is closed when done
@@ -209,7 +328,15 @@ func (r *RabbitMQConnection) PublishWithContext(ctx context.Context, exchange, r
 		routingKey,
 		false, // mandatory
 		false, // immediate
-		publishing,
+		r.buildAmqpPublishing(
+			contentType,
+			headers,
+			body,
+			deliveryMode,
+			priority,
+			timestamp,
+			expiration,
+		),
 	)
 
 	if err != nil {
@@ -225,24 +352,18 @@ func (r *RabbitMQConnection) PublishWithContext(ctx context.Context, exchange, r
 	return nil
 }
 
-// PublishWithConfirm publishes a message with publisher confirms enabled.
-// This implements "at least once" delivery semantics by:
-// 1. Enabling confirm mode on the channel
-// 2. Waiting for broker ACK before returning
-// 3. Retrying on NACK or timeout with exponential backoff
-//
-// Parameters:
-// - ctx: Context for timeout/cancellation
-// - exchange: Target exchange name
-// - routingKey: Routing key for message routing
-// - publishing: Message to publish
-// - maxRetries: Maximum number of retry attempts (use 0 for single attempt)
-// - retryInterval: Initial retry interval (will apply exponential backoff)
-// - confirmTimeout: Time to wait for broker confirmation
-func (r *RabbitMQConnection) PublishWithConfirm(
+// publish message with confirm
+func (r *Rabbit) PublishWithConfirm(
 	ctx context.Context,
-	exchange, routingKey string,
-	publishing amqp.Publishing,
+	exchange string,
+	routingKey string,
+	contentType string,
+	headers map[string]string,
+	body []byte,
+	deliveryMode *uint8,
+	priority *uint8,
+	timestamp *time.Time,
+	expiration *time.Duration,
 	maxRetries int,
 	retryInterval time.Duration,
 	confirmTimeout time.Duration,
@@ -264,7 +385,17 @@ func (r *RabbitMQConnection) PublishWithConfirm(
 
 	var lastErr error
 
-	// Retry loop with exponential backoff
+	// Get the AmqpPublishing once
+	publishMsg := r.buildAmqpPublishing(
+		contentType,
+		headers,
+		body,
+		deliveryMode,
+		priority,
+		timestamp,
+		expiration,
+	)
+
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		if attempt > 0 {
 			// Exponential backoff (capped at 5x)
@@ -284,32 +415,20 @@ func (r *RabbitMQConnection) PublishWithConfirm(
 			}
 		}
 
-		// Get connection with read lock
-		r.connMu.RLock()
-		conn := r.conn
-		r.connMu.RUnlock()
-
-		if conn == nil || conn.IsClosed() {
-			lastErr = fmt.Errorf("no active connection (attempt %d)", attempt+1)
-			r.triggerReconnect()
-			continue
-		}
-
-		// Create a new channel for this publish
-		ch, err := conn.Channel()
+		// Try to get channel
+		ch, err := r.getChannel()
 		if err != nil {
-			lastErr = fmt.Errorf("failed to open channel (attempt %d): %w", attempt+1, err)
-			r.logger.Error("failed to open channel for publish with confirm", map[string]any{
+			lastErr = fmt.Errorf("failed to publish (attempt %d): %w", attempt+1, err)
+			r.logger.Error("failed to publish", map[string]any{
 				"attempt":     attempt + 1,
 				"error":       err.Error(),
 				"exchange":    exchange,
 				"routing_key": routingKey,
 			})
-			r.triggerReconnect()
-			continue
+			continue // Retry
 		}
 
-		// Enable confirm mode
+		// Enable publisher confirms
 		if err := ch.Confirm(false); err != nil {
 			ch.Close()
 			lastErr = fmt.Errorf("failed to enable confirm mode (attempt %d): %w", attempt+1, err)
@@ -320,17 +439,17 @@ func (r *RabbitMQConnection) PublishWithConfirm(
 			continue
 		}
 
-		// Set up confirmation channel
+		// Set up confirmation listener
 		confirmCh := ch.NotifyPublish(make(chan amqp.Confirmation, 1))
 
-		// Publish with the channel
+		// Publish message
 		publishErr := ch.PublishWithContext(
 			ctx,
 			exchange,
 			routingKey,
 			false, // mandatory
 			false, // immediate
-			publishing,
+			publishMsg,
 		)
 
 		if publishErr != nil {
@@ -343,7 +462,7 @@ func (r *RabbitMQConnection) PublishWithConfirm(
 				"routing_key": routingKey,
 			})
 			r.triggerReconnect()
-			continue
+			continue // Retry
 		}
 
 		// Wait for confirmation with timeout
@@ -387,176 +506,12 @@ func (r *RabbitMQConnection) PublishWithConfirm(
 		}
 	}
 
-	return fmt.Errorf("publish failed after %d attempts: %w", maxRetries, lastErr)
-}
-
-// DeclareExchange declares an exchange on the RabbitMQ server.
-// This is typically called by the adapter layer during initialization.
-func (r *RabbitMQConnection) DeclareExchange(exchange, exchangeType string, durable bool) error {
-	if r.closed.Load() {
-		return fmt.Errorf("connection is closed")
-	}
-
-	r.connMu.RLock()
-	conn := r.conn
-	r.connMu.RUnlock()
-
-	if conn == nil || conn.IsClosed() {
-		return fmt.Errorf("no active connection")
-	}
-
-	ch, err := conn.Channel()
-	if err != nil {
-		return fmt.Errorf("failed to open channel: %w", err)
-	}
-	defer ch.Close()
-
-	err = ch.ExchangeDeclare(
-		exchange,
-		exchangeType,
-		durable,
-		false, // auto-delete
-		false, // internal
-		false, // no-wait
-		nil,   // arguments
-	)
-
-	if err != nil {
-		return fmt.Errorf("failed to declare exchange: %w", err)
-	}
-
-	r.logger.Info("rabbitmq exchange declared", map[string]any{
-		"exchange": exchange,
-		"type":     exchangeType,
-		"durable":  durable,
-	})
-
-	return nil
-}
-
-// QueueConfig holds configuration for declaring a queue.
-type QueueConfig struct {
-	Name       string
-	Durable    bool
-	AutoDelete bool
-	Exclusive  bool
-	Args       amqp.Table
-}
-
-// DeclareQueue declares a queue on the RabbitMQ server.
-// This ensures messages are stored even when no consumers are running.
-func (r *RabbitMQConnection) DeclareQueue(cfg QueueConfig) error {
-	if r.closed.Load() {
-		return fmt.Errorf("connection is closed")
-	}
-
-	r.connMu.RLock()
-	conn := r.conn
-	r.connMu.RUnlock()
-
-	if conn == nil || conn.IsClosed() {
-		return fmt.Errorf("no active connection")
-	}
-
-	ch, err := conn.Channel()
-	if err != nil {
-		return fmt.Errorf("failed to open channel: %w", err)
-	}
-	defer ch.Close()
-
-	_, err = ch.QueueDeclare(
-		cfg.Name,
-		cfg.Durable,
-		cfg.AutoDelete,
-		cfg.Exclusive,
-		false, // no-wait
-		cfg.Args,
-	)
-
-	if err != nil {
-		return fmt.Errorf("failed to declare queue: %w", err)
-	}
-
-	r.logger.Info("rabbitmq queue declared", map[string]any{
-		"queue":       cfg.Name,
-		"durable":     cfg.Durable,
-		"auto_delete": cfg.AutoDelete,
-		"exclusive":   cfg.Exclusive,
-	})
-
-	return nil
-}
-
-// BindQueue binds a queue to an exchange with a routing key pattern.
-// This enables messages sent to the exchange with matching routing keys to be
-// delivered to the queue.
-func (r *RabbitMQConnection) BindQueue(queue, exchange, routingKey string, args amqp.Table) error {
-	if r.closed.Load() {
-		return fmt.Errorf("connection is closed")
-	}
-
-	r.connMu.RLock()
-	conn := r.conn
-	r.connMu.RUnlock()
-
-	if conn == nil || conn.IsClosed() {
-		return fmt.Errorf("no active connection")
-	}
-
-	ch, err := conn.Channel()
-	if err != nil {
-		return fmt.Errorf("failed to open channel: %w", err)
-	}
-	defer ch.Close()
-
-	err = ch.QueueBind(
-		queue,
-		routingKey,
-		exchange,
-		false, // no-wait
-		args,
-	)
-
-	if err != nil {
-		return fmt.Errorf("failed to bind queue to exchange: %w", err)
-	}
-
-	r.logger.Info("rabbitmq queue bound to exchange", map[string]any{
-		"queue":       queue,
-		"exchange":    exchange,
-		"routing_key": routingKey,
-	})
-
-	return nil
-}
-
-// triggerReconnect safely triggers reconnection.
-func (r *RabbitMQConnection) triggerReconnect() {
-	select {
-	case r.reconnectChan <- struct{}{}:
-	default:
-	}
-}
-
-// IsConnected returns true if the connection is active.
-func (r *RabbitMQConnection) IsConnected() bool {
-	if r.closed.Load() {
-		return false
-	}
-
-	r.connMu.RLock()
-	defer r.connMu.RUnlock()
-
-	if r.conn == nil {
-		return false
-	}
-
-	// Check if connection is still open
-	return !r.conn.IsClosed()
+	// All retries failed
+	return fmt.Errorf("publish failed after %d attempts: %v", maxRetries, lastErr)
 }
 
 // Close closes the RabbitMQ connection and stops reconnection attempts.
-func (r *RabbitMQConnection) Close() error {
+func (r *Rabbit) Close() error {
 	if !r.closed.CompareAndSwap(false, true) {
 		return nil // Already closed
 	}
@@ -582,9 +537,4 @@ func (r *RabbitMQConnection) Close() error {
 
 	r.logger.Info("rabbitmq connection closed", nil)
 	return nil
-}
-
-// Config returns the RabbitMQ configuration.
-func (r *RabbitMQConnection) Config() RabbitMQConfig {
-	return r.config
 }
