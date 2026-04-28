@@ -6,6 +6,7 @@ import (
 
 	domainSignal "github.com/adityakw90/service-access/internal/core/domain/signal"
 	portEvent "github.com/adityakw90/service-access/internal/core/port/event"
+	portExecutor "github.com/adityakw90/service-access/internal/core/port/executor"
 	portObserver "github.com/adityakw90/service-access/internal/core/port/observer"
 	"github.com/adityakw90/service-access/internal/core/port/repository"
 	"github.com/adityakw90/service-access/internal/core/port/service"
@@ -14,17 +15,20 @@ import (
 type accessService struct {
 	repos          repository.RepositoryProvider
 	eventPublisher portEvent.EventPublisher
+	executor       portExecutor.Executor
 	accessObserver portObserver.ServiceObserver[domainSignal.SignalAccessCheck]
 }
 
 func NewAccessService(
 	repos repository.RepositoryProvider,
 	eventPublisher portEvent.EventPublisher,
+	executor portExecutor.Executor,
 	accessObserver portObserver.ServiceObserver[domainSignal.SignalAccessCheck],
 ) service.AccessService {
 	return &accessService{
 		repos:          repos,
 		eventPublisher: eventPublisher,
+		executor:       executor,
 		accessObserver: accessObserver,
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/adityakw90/service-access/internal/core/domain/param"
 	"github.com/adityakw90/service-access/internal/core/domain/signal"
 	portEvent "github.com/adityakw90/service-access/internal/core/port/event"
+	portExecutor "github.com/adityakw90/service-access/internal/core/port/executor"
 	"github.com/adityakw90/service-access/internal/core/port/observer"
 	"github.com/adityakw90/service-access/internal/core/port/repository"
 	"github.com/adityakw90/service-access/internal/core/port/resolver"
@@ -24,6 +25,7 @@ type roleService struct {
 	publisher              portEvent.EventPublisher
 	uidGenerator           security.UIDGenerator
 	resolvers              resolver.ResolverProvider
+	executor               portExecutor.Executor
 	roleObserver           observer.ServiceObserver[signal.SignalRole]
 	rolePermissionObserver observer.ServiceObserver[signal.SignalRolePermission]
 }
@@ -35,6 +37,7 @@ func NewRoleService(
 	publisher portEvent.EventPublisher,
 	uidGenerator security.UIDGenerator,
 	resolverProvider resolver.ResolverProvider,
+	executor portExecutor.Executor,
 	roleObserver observer.ServiceObserver[signal.SignalRole],
 	rolePermissionObserver observer.ServiceObserver[signal.SignalRolePermission],
 ) service.RoleService {
@@ -44,6 +47,7 @@ func NewRoleService(
 		publisher:              publisher,
 		uidGenerator:           uidGenerator,
 		resolvers:              resolverProvider,
+		executor:               executor,
 		roleObserver:           roleObserver,
 		rolePermissionObserver: rolePermissionObserver,
 	}
