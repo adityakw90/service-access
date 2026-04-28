@@ -125,43 +125,6 @@ func (r *subjectRepository) GetRoles(ctx context.Context, subjectID string, subj
 	return items, nil
 }
 
-func (r *subjectRepository) GetAllRoles(ctx context.Context, subjectID string, subjectType string) ([]model.Role, error) {
-	const sql = `
-		SELECT DISTINCT r.id, r.uid, r.group_id, g.uid as group_uid,
-		                r.name, r.description, r.created_at, r.updated_at
-		FROM subject_role sr
-		JOIN role r ON sr.role_id = r.id
-		JOIN "group" g ON r.group_id = g.id
-		WHERE sr.subject_id = $1 AND sr.subject_type = $2
-		ORDER BY r.uid
-	`
-
-	rows, err := r.db.Query(ctx, sql, subjectID, subjectType)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get all roles for subject: %w", err)
-	}
-	defer rows.Close()
-
-	var roles []model.Role
-	for rows.Next() {
-		var role model.Role
-		err := rows.Scan(
-			&role.ID, &role.UID, &role.GroupID, &role.GroupUID,
-			&role.Name, &role.Description, &role.CreatedAt, &role.UpdatedAt,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan role: %w", err)
-		}
-		roles = append(roles, role)
-	}
-
-	if rows.Err() != nil {
-		return nil, fmt.Errorf("error iterating roles: %w", rows.Err())
-	}
-
-	return roles, nil
-}
-
 func (r *subjectRepository) List(ctx context.Context, pagination *param.PaginationParam, filter *param.SubjectListFilterParam) (model.SubjectRoles, error) {
 	baseSQL := `
 		SELECT sr.subject_id, sr.subject_type, sr.role_id, r.uid as role_uid, sr.assigned_at
@@ -327,6 +290,43 @@ func (r *subjectRepository) GetAllGroups(ctx context.Context, subjectID string, 
 	}
 
 	return groups, nil
+}
+
+func (r *subjectRepository) GetAllRoles(ctx context.Context, subjectID string, subjectType string) ([]model.Role, error) {
+	const sql = `
+		SELECT DISTINCT r.id, r.uid, r.group_id, g.uid as group_uid,
+		                r.name, r.description, r.created_at, r.updated_at
+		FROM subject_role sr
+		JOIN role r ON sr.role_id = r.id
+		JOIN "group" g ON r.group_id = g.id
+		WHERE sr.subject_id = $1 AND sr.subject_type = $2
+		ORDER BY r.uid
+	`
+
+	rows, err := r.db.Query(ctx, sql, subjectID, subjectType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get all roles for subject: %w", err)
+	}
+	defer rows.Close()
+
+	var roles []model.Role
+	for rows.Next() {
+		var role model.Role
+		err := rows.Scan(
+			&role.ID, &role.UID, &role.GroupID, &role.GroupUID,
+			&role.Name, &role.Description, &role.CreatedAt, &role.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan role: %w", err)
+		}
+		roles = append(roles, role)
+	}
+
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("error iterating roles: %w", rows.Err())
+	}
+
+	return roles, nil
 }
 
 func (r *subjectRepository) GetAllPermissions(ctx context.Context, subjectID string, subjectType string) ([]model.Permission, error) {
