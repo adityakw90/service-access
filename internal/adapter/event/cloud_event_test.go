@@ -85,8 +85,8 @@ func TestNewCloudEvent(t *testing.T) {
 			setupCtx: func() context.Context {
 				return context.Background()
 			},
-			eventType: event.EventAccessCheck,
-			eventData: event.EventAccessCheckData{Resource: "file:456", Action: "write"},
+			eventType:   event.EventAccessCheck,
+			eventData:   event.EventAccessCheckData{Resource: "file:456", Action: "write"},
 			wantSource:  Source,
 			wantSpecVer: SpecVersion,
 			validate: func(t *testing.T, ce CloudEvent) {

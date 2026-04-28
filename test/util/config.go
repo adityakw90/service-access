@@ -61,28 +61,26 @@ func LoadTestConfig(t *testing.T) (*config.Config, error) {
 			ReconnectMaxAttempts: 0, // 0 means infinite retries
 		},
 		Observer: config.ObserverConfig{
-			Auth:     true,
-			User:     true,
-			Device:   true,
-			UserFile: true,
-			Pin:      true,
+			Group:      true,
+			Role:       true,
+			Permission: true,
+			Subject:    true,
+			Access:     true,
 		},
 		EventPublisher: config.EventPublisherConfig{
+			Enabled: true,
 			HTTP: config.PublisherHTTPConfig{
 				Enabled: true,
 				URL:     "http://localhost:8080",
 				Timeout: 5 * time.Second,
 			},
-			Redis: config.PublisherRedisConfig{
-				Enabled: true,
-				Name:    "test_service_access",
-			},
 			RabbitMQ: config.PublisherRabbitMQConfig{
 				Enabled:          true,
 				Exchange:         "test_service_access",
-				ExchangeType:     "topic",
 				RoutingKeyPrefix: "test_service_access.",
-				Durable:          true,
+				ConfirmTimeout:   30 * time.Second,
+				MaxRetries:       5,
+				RetryInterval:    1 * time.Second,
 			},
 		},
 	}, nil
