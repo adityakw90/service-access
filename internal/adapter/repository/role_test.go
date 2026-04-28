@@ -591,11 +591,11 @@ func TestAdapter_RoleRepository_ListPermission(t *testing.T) {
 
 func TestAdapter_RoleRepository_AddPermission(t *testing.T) {
 	tests := []struct {
-		name            string
-		roleID          int64
+		name              string
+		roleID            int64
 		groupPermissionID int64
-		wantErr         bool
-		errMsg          string
+		wantErr           bool
+		errMsg            string
 	}{
 		{
 			name:              "Happy Path - Add permission to role",

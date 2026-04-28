@@ -3,9 +3,9 @@ package request_test
 import (
 	"testing"
 
-	"github.com/adityakw90/service-access/internal/adapter/api/grpc/request"
 	"github.com/adityakw90/service-access-proto/gen/go/common"
 	"github.com/adityakw90/service-access-proto/gen/go/permission"
+	"github.com/adityakw90/service-access/internal/adapter/api/grpc/request"
 )
 
 func TestToPermissionCreateParam(t *testing.T) {
@@ -39,9 +39,9 @@ func TestToPermissionCreateParam(t *testing.T) {
 
 func TestToPermissionUpdateParam(t *testing.T) {
 	tests := []struct {
-		name    string
-		req     *permission.UpdateRequest
-		want    string // resource for verification
+		name string
+		req  *permission.UpdateRequest
+		want string // resource for verification
 	}{
 		{
 			name: "Valid request",

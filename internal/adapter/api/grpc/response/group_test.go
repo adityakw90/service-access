@@ -44,7 +44,7 @@ func TestToProtoGroup(t *testing.T) {
 
 func TestToProtoGroupList(t *testing.T) {
 	tests := []struct {
-		name  string
+		name   string
 		groups *model.Groups
 		meta   *model.Meta
 	}{

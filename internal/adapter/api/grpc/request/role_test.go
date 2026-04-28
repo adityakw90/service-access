@@ -3,8 +3,8 @@ package request_test
 import (
 	"testing"
 
-	"github.com/adityakw90/service-access/internal/adapter/api/grpc/request"
 	"github.com/adityakw90/service-access-proto/gen/go/role"
+	"github.com/adityakw90/service-access/internal/adapter/api/grpc/request"
 )
 
 func TestToRoleCreateParam(t *testing.T) {

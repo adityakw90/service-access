@@ -22,7 +22,7 @@ type GroupService interface {
 	ListPermission(ctx context.Context, groupUID string, pagination *param.PaginationParam, filter *param.GroupPermissionListFilterParam) (*model.GroupPermissions, error) // ListPermission lists permissions for a group.
 	UpdatePermission(ctx context.Context, groupUID string, permissionUID []string) error                                                                                   // UpdatePermission replaces all permissions for a group.
 	AssignPermission(ctx context.Context, groupUID string, permissionUID string) error                                                                                     // AssignPermission adds a permission to a group.
-	RevokePermission(ctx context.Context, groupUID string, permissionUID string) error // RevokePermission removes a permission from a group.
+	RevokePermission(ctx context.Context, groupUID string, permissionUID string) error                                                                                     // RevokePermission removes a permission from a group.
 }
 
 // Constructor signature for GroupService implementations:

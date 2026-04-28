@@ -41,13 +41,13 @@ func ToProtoRolePermission(rp *model.RolePermission) *role.RolePermission {
 	}
 
 	return &role.RolePermission{
-		RoleUid:              rp.RoleUID,
-		GroupPermissionUid:   rp.GroupPermissionUID,
-		PermissionUid:        rp.PermissionUID,
-		PermissionResource:   rp.PermissionResource,
-		PermissionAction:     rp.PermissionAction,
+		RoleUid:               rp.RoleUID,
+		GroupPermissionUid:    rp.GroupPermissionUID,
+		PermissionUid:         rp.PermissionUID,
+		PermissionResource:    rp.PermissionResource,
+		PermissionAction:      rp.PermissionAction,
 		PermissionDescription: rp.PermissionDescription,
-		CreatedAt:            toProtoTimestampPB(rp.CreatedAt),
+		CreatedAt:             toProtoTimestampPB(rp.CreatedAt),
 	}
 }
 

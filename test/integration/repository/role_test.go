@@ -70,9 +70,9 @@ func TestRoleRepository_Create(t *testing.T) {
 				ctx := context.Background()
 				repo := repository.NewRoleRepository(db)
 				original := &model.Role{
-					UID:     "00000000-0000-0000-0000-000000000000",
-					GroupID: group.ID,
-					Name:    "super-admin",
+					UID:         "00000000-0000-0000-0000-000000000000",
+					GroupID:     group.ID,
+					Name:        "super-admin",
 					Description: "Original role",
 				}
 				err := repo.Create(ctx, original)

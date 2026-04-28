@@ -156,7 +156,7 @@ func createTestData(
 	for _, perm := range permissions {
 		groupIdx := perm.ID % int64(numGroups)
 		group := groups[groupIdx]
-		
+
 		gpUID := uuid.New().String()
 		sql := `INSERT INTO group_permission (uid, group_id, permission_id) VALUES ($1, $2, $3)`
 		_, err := db.Exec(ctx, sql, gpUID, group.ID, perm.ID)

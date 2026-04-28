@@ -191,13 +191,13 @@ func TestAdapter_SubjectRepository_Update(t *testing.T) {
 
 func TestAdapter_SubjectRepository_Delete(t *testing.T) {
 	tests := []struct {
-		name       string
-		setupMock  func(pgxmock.PgxPoolIface)
-		subjectID  string
+		name        string
+		setupMock   func(pgxmock.PgxPoolIface)
+		subjectID   string
 		subjectType string
-		roleID     int64
-		wantErr    bool
-		errMsg     string
+		roleID      int64
+		wantErr     bool
+		errMsg      string
 	}{
 		{
 			name: "Happy Path - Delete existing subject role",

@@ -78,7 +78,7 @@ func TestPermissionResolverIDsByResourceActions(t *testing.T) {
 			errMsg:  "permission not found",
 		},
 		{
-			name: "Happy Path - empty slice returns empty map",
+			name:            "Happy Path - empty slice returns empty map",
 			resourceActions: []param.PermissionMapResourceAction{},
 			setup: func(mockPool pgxmock.PgxPoolIface) {
 				// No query expected for empty input

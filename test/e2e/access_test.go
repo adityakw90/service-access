@@ -85,8 +85,8 @@ func TestE2E_AccessService_CheckAccess(t *testing.T) {
 	require.NotEmpty(t, readInvoicesGroupPermUID)
 
 	_, err = grpcClient.RoleClient.UpdatePermission(setupCtx, &rolepb.UpdatePermissionRequest{
-		RoleUid:               accountantRole.Uid,
-		GroupPermissionUids:   []string{readInvoicesGroupPermUID},
+		RoleUid:             accountantRole.Uid,
+		GroupPermissionUids: []string{readInvoicesGroupPermUID},
 	})
 	require.NoError(t, err)
 
@@ -255,14 +255,14 @@ func TestE2E_AccessService_CheckAccess_WithMultipleRoles(t *testing.T) {
 
 	// Assign permissions to roles
 	_, err = grpcClient.RoleClient.UpdatePermission(setupCtx, &rolepb.UpdatePermissionRequest{
-		RoleUid:               readerRole.Uid,
-		GroupPermissionUids:   []string{readGroupPermUID},
+		RoleUid:             readerRole.Uid,
+		GroupPermissionUids: []string{readGroupPermUID},
 	})
 	require.NoError(t, err)
 
 	_, err = grpcClient.RoleClient.UpdatePermission(setupCtx, &rolepb.UpdatePermissionRequest{
-		RoleUid:               writerRole.Uid,
-		GroupPermissionUids:   []string{writeGroupPermUID},
+		RoleUid:             writerRole.Uid,
+		GroupPermissionUids: []string{writeGroupPermUID},
 	})
 	require.NoError(t, err)
 
@@ -376,8 +376,8 @@ func TestE2E_AccessService_CheckAccess_WithRoleRevocation(t *testing.T) {
 	groupPermUID := groupPerms.Items[0].Uid
 
 	_, err = grpcClient.RoleClient.UpdatePermission(setupCtx, &rolepb.UpdatePermissionRequest{
-		RoleUid:               role.Uid,
-		GroupPermissionUids:   []string{groupPermUID},
+		RoleUid:             role.Uid,
+		GroupPermissionUids: []string{groupPermUID},
 	})
 	require.NoError(t, err)
 
@@ -471,8 +471,8 @@ func TestE2E_AccessService_CheckAccess_InvalidRequests(t *testing.T) {
 			wantCode: codes.InvalidArgument,
 		},
 		{
-			name: "Empty request",
-			request: &accesspb.CheckAccessRequest{},
+			name:     "Empty request",
+			request:  &accesspb.CheckAccessRequest{},
 			wantCode: codes.InvalidArgument,
 		},
 	}

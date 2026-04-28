@@ -3,12 +3,12 @@ package handler
 import (
 	"context"
 
-	"github.com/adityakw90/service-access/internal/adapter/api/grpc/request"
-	"github.com/adityakw90/service-access/internal/adapter/api/grpc/response"
-	"github.com/adityakw90/service-access/internal/core/port/service"
-	"github.com/adityakw90/service-access/internal/adapter/api/grpc/validator"
 	"github.com/adityakw90/service-access-proto/gen/go/common"
 	"github.com/adityakw90/service-access-proto/gen/go/permission"
+	"github.com/adityakw90/service-access/internal/adapter/api/grpc/request"
+	"github.com/adityakw90/service-access/internal/adapter/api/grpc/response"
+	"github.com/adityakw90/service-access/internal/adapter/api/grpc/validator"
+	"github.com/adityakw90/service-access/internal/core/port/service"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

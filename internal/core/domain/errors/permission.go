@@ -7,5 +7,5 @@ var (
 	// Permission operation errors (22xxx range)
 	ErrPermissionGetFailed    = NewCustomError(22002, "failed to get permission", nil)
 	ErrPermissionUpdateFailed = NewCustomError(22003, "failed to update permission", nil)
-	ErrPermissionDeleteFailed  = NewCustomError(22004, "failed to delete permission", nil)
+	ErrPermissionDeleteFailed = NewCustomError(22004, "failed to delete permission", nil)
 )

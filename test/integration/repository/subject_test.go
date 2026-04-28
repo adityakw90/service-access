@@ -20,10 +20,10 @@ func TestSubjectRepository_Create(t *testing.T) {
 	role := createTestRole(t, db, group.ID, "subject-role", "Subject test role")
 
 	tests := []struct {
-		name         string
-		input        model.SubjectRole
-		wantErr      bool
-		errMsg       string
+		name    string
+		input   model.SubjectRole
+		wantErr bool
+		errMsg  string
 	}{
 		{
 			name: "Happy Path",

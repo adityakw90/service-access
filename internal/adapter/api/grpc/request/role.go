@@ -198,7 +198,7 @@ func (r *RoleFilterRequest) toRoleListFilterParam() *param.RoleListFilterParam {
 
 // RoleUpdatePermissionRequest represents validated role permission update request data.
 type RoleUpdatePermissionRequest struct {
-	RoleUID             string `validate:"required"`
+	RoleUID             string   `validate:"required"`
 	GroupPermissionUIDs []string `validate:"required,min=1"`
 }
 

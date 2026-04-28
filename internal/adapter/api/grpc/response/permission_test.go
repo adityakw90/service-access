@@ -47,9 +47,9 @@ func TestToProtoPermission(t *testing.T) {
 func TestToProtoPermissionList(t *testing.T) {
 	now := time.Now()
 	tests := []struct {
-		name string
+		name  string
 		perms *model.Permissions
-		meta *model.Meta
+		meta  *model.Meta
 	}{
 		{
 			name: "Valid list",
