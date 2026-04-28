@@ -443,8 +443,7 @@ func TestSubjectService_Assign(t *testing.T) {
 					provider.EXPECT().Subject().Return(subjectRepo)
 					subjectRepo.EXPECT().Create(mock.Anything, mock.AnythingOfType("*model.SubjectRole")).Return(nil)
 
-					err := // Set up observer expectations first
-						fn(provider)
+					err := fn(provider)
 					assert.NoError(t, err)
 				})
 
@@ -552,8 +551,7 @@ func TestSubjectService_Revoke(t *testing.T) {
 					provider.EXPECT().Subject().Return(subjectRepo)
 					subjectRepo.EXPECT().Delete(mock.Anything, "user-123", "user", int64(1)).Return(nil)
 
-					err := // Set up observer expectations first
-						fn(provider)
+					err := fn(provider)
 					assert.NoError(t, err)
 				})
 
