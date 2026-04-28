@@ -5,14 +5,14 @@ import (
 	"errors"
 	"testing"
 
+	adapterobserver "github.com/adityakw90/service-access/internal/adapter/observer"
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
 	"github.com/adityakw90/service-access/internal/core/domain/signal"
-	adapterobserver "github.com/adityakw90/service-access/internal/adapter/observer"
 	"github.com/adityakw90/service-access/internal/core/port/repository"
-	repomocks "github.com/adityakw90/service-access/test/mocks/repository"
-	resolvermocks "github.com/adityakw90/service-access/test/mocks/resolver"
-	securitymocks "github.com/adityakw90/service-access/test/mocks/security"
+	repomocks "github.com/adityakw90/service-access/mocks/repository"
+	resolvermocks "github.com/adityakw90/service-access/mocks/resolver"
+	securitymocks "github.com/adityakw90/service-access/mocks/security"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

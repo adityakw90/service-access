@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
+	"github.com/adityakw90/service-access-proto/gen/go/access"
 	"github.com/adityakw90/service-access/internal/adapter/api/grpc/handler"
 	"github.com/adityakw90/service-access/internal/adapter/api/grpc/validator"
-	accessmocks "github.com/adityakw90/service-access/test/mocks/service"
-	"github.com/adityakw90/service-access-proto/gen/go/access"
+	accessmocks "github.com/adityakw90/service-access/mocks/service"
 	"github.com/stretchr/testify/mock"
 )
 

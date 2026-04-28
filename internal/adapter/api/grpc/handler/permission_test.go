@@ -4,22 +4,22 @@ import (
 	"context"
 	"testing"
 
+	"github.com/adityakw90/service-access-proto/gen/go/permission"
 	"github.com/adityakw90/service-access/internal/adapter/api/grpc/handler"
 	"github.com/adityakw90/service-access/internal/adapter/api/grpc/validator"
-	"github.com/adityakw90/service-access/internal/core/domain/model"
 	domainErrors "github.com/adityakw90/service-access/internal/core/domain/errors"
-	servicemocks "github.com/adityakw90/service-access/test/mocks/service"
-	"github.com/adityakw90/service-access-proto/gen/go/permission"
+	"github.com/adityakw90/service-access/internal/core/domain/model"
+	servicemocks "github.com/adityakw90/service-access/mocks/service"
 	"github.com/stretchr/testify/mock"
 )
 
 func TestPermissionHandler_Create(t *testing.T) {
 	tests := []struct {
-		name       string
-		req        *permission.CreateRequest
-		setup      func(*servicemocks.MockPermissionService)
-		want       *permission.CreateResponse
-		wantErr    bool
+		name        string
+		req         *permission.CreateRequest
+		setup       func(*servicemocks.MockPermissionService)
+		want        *permission.CreateResponse
+		wantErr     bool
 		wantErrCode string
 	}{
 		{
@@ -92,8 +92,8 @@ func TestPermissionHandler_Get(t *testing.T) {
 			want: &permission.Permission{Uid: "perm-123", Resource: "invoices", Action: "read"},
 		},
 		{
-			name:    "Not Found",
-			req:     &permission.GetRequest{Uid: "unknown"},
+			name: "Not Found",
+			req:  &permission.GetRequest{Uid: "unknown"},
 			setup: func(m *servicemocks.MockPermissionService) {
 				m.EXPECT().Get(mock.Anything, "unknown").Return(nil, domainErrors.ErrNotFound)
 			},
@@ -137,7 +137,7 @@ func TestPermissionHandler_List(t *testing.T) {
 				m.EXPECT().List(mock.Anything, mock.Anything, mock.Anything).Return(
 					&model.Permissions{
 						Items: []model.Permission{{UID: "perm-1"}, {UID: "perm-2"}},
-						Meta: model.Meta{Page: 1, Limit: 10, Total: 2, Pages: 1},
+						Meta:  model.Meta{Page: 1, Limit: 10, Total: 2, Pages: 1},
 					},
 					nil,
 				)

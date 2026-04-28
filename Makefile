@@ -10,6 +10,7 @@ verbose:
 # Generate mocks using mockery
 mocks:
 	@echo "Generating mocks..."
+	@rm -rf ./mocks
 	@mockery --config .mockery.yaml
 
 # Test (usage: make test or make test verbose)

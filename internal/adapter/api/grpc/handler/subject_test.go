@@ -1,17 +1,18 @@
 package handler_test
 
 import (
-	"github.com/adityakw90/service-access/internal/adapter/api/grpc/validator"
 	"context"
 	"errors"
 	"testing"
 	"time"
 
-	"github.com/adityakw90/service-access/internal/adapter/api/grpc/handler"
-	"github.com/adityakw90/service-access/internal/core/domain/model"
-	subjectmocks "github.com/adityakw90/service-access/test/mocks/service"
+	"github.com/adityakw90/service-access/internal/adapter/api/grpc/validator"
+
 	"github.com/adityakw90/service-access-proto/gen/go/common"
 	"github.com/adityakw90/service-access-proto/gen/go/subject"
+	"github.com/adityakw90/service-access/internal/adapter/api/grpc/handler"
+	"github.com/adityakw90/service-access/internal/core/domain/model"
+	subjectmocks "github.com/adityakw90/service-access/mocks/service"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -342,10 +343,10 @@ func TestSubjectHandler_List(t *testing.T) {
 	now := time.Now()
 
 	tests := []struct {
-		name        string
-		req         *subject.ListRequest
-		setup       func(*subjectmocks.MockSubjectService)
-		wantErr     bool
+		name         string
+		req          *subject.ListRequest
+		setup        func(*subjectmocks.MockSubjectService)
+		wantErr      bool
 		validateResp func(*testing.T, *subject.ListResponse)
 	}{
 		{
@@ -516,10 +517,10 @@ func TestSubjectHandler_Get(t *testing.T) {
 	now := time.Now()
 
 	tests := []struct {
-		name        string
-		req         *subject.GetSubjectRequest
-		setup       func(*subjectmocks.MockSubjectService)
-		wantErr     bool
+		name         string
+		req          *subject.GetSubjectRequest
+		setup        func(*subjectmocks.MockSubjectService)
+		wantErr      bool
 		validateResp func(*testing.T, *subject.GetSubjectResponse)
 	}{
 		{
@@ -684,10 +685,10 @@ func TestSubjectHandler_ListGroup(t *testing.T) {
 	now := time.Now()
 
 	tests := []struct {
-		name        string
-		req         *subject.GetSubjectRequest
-		setup       func(*subjectmocks.MockSubjectService)
-		wantErr     bool
+		name         string
+		req          *subject.GetSubjectRequest
+		setup        func(*subjectmocks.MockSubjectService)
+		wantErr      bool
 		validateResp func(*testing.T, *subject.ListGroupResponse)
 	}{
 		{
@@ -807,10 +808,10 @@ func TestSubjectHandler_ListRole(t *testing.T) {
 	now := time.Now()
 
 	tests := []struct {
-		name        string
-		req         *subject.GetSubjectRequest
-		setup       func(*subjectmocks.MockSubjectService)
-		wantErr     bool
+		name         string
+		req          *subject.GetSubjectRequest
+		setup        func(*subjectmocks.MockSubjectService)
+		wantErr      bool
 		validateResp func(*testing.T, *subject.ListRoleResponse)
 	}{
 		{
@@ -930,10 +931,10 @@ func TestSubjectHandler_ListPermission(t *testing.T) {
 	now := time.Now()
 
 	tests := []struct {
-		name        string
-		req         *subject.GetSubjectRequest
-		setup       func(*subjectmocks.MockSubjectService)
-		wantErr     bool
+		name         string
+		req          *subject.GetSubjectRequest
+		setup        func(*subjectmocks.MockSubjectService)
+		wantErr      bool
 		validateResp func(*testing.T, *subject.ListPermissionResponse)
 	}{
 		{
