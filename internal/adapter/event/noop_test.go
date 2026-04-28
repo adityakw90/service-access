@@ -13,9 +13,12 @@ func TestNoOpPublisher(t *testing.T) {
 	ctx := context.Background()
 
 	// Should not return error
-	err := pub.Publish(ctx, event.EventLogin, event.EventLoginData{
-		Identifier:     "test@example.com",
-		IdentifierType: "email",
+	err := pub.Publish(ctx, event.EventAccessCheck, event.EventAccessCheckData{
+		SubjectId:   "user-123",
+		SubjectType: "user",
+		Resource:    "document:456",
+		Action:      "read",
+		Reason:      "allowed",
 	})
 	if err != nil {
 		t.Errorf("NoOpPublisher.Publish() error = %v", err)

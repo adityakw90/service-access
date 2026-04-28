@@ -38,25 +38,23 @@ func TestNewCloudEvent(t *testing.T) {
 		validate    func(t *testing.T, ce CloudEvent)
 	}{
 		{
-			name: "Happy Path - EventLoginData with full context",
+			name: "Happy Path - EventAccessCheckData with full context",
 			setupCtx: func() context.Context {
 				return setupContext(context.Background(), "test-client", "user-123", "user")
 			},
-			eventType: event.EventLogin,
-			eventData: event.EventLoginData{
-				Identifier:     "test@example.com",
-				IdentifierType: "email",
-				UserUID:        "uid-123",
-				UserName:       "Test User",
-				DeviceUID:      "device-123",
-				DeviceName:     "iPhone",
-				IPAddress:      "192.168.1.1",
+			eventType: event.EventAccessCheck,
+			eventData: event.EventAccessCheckData{
+				SubjectId:   "user-123",
+				SubjectType: "user",
+				Resource:    "document:123",
+				Action:      "read",
+				Reason:      "permission granted",
 			},
 			wantSource:  Source,
 			wantSpecVer: SpecVersion,
 			validate: func(t *testing.T, ce CloudEvent) {
-				if ce.Type != string(event.EventLogin) {
-					t.Errorf("Type = %v, want %v", ce.Type, event.EventLogin)
+				if ce.Type != string(event.EventAccessCheck) {
+					t.Errorf("Type = %v, want %v", ce.Type, event.EventAccessCheck)
 				}
 				if ce.Data.Client != "test-client" {
 					t.Errorf("Client = %v, want %v", ce.Data.Client, "test-client")
@@ -73,12 +71,12 @@ func TestNewCloudEvent(t *testing.T) {
 				if !isValidRFC3339(ce.Time) {
 					t.Errorf("Time = %v is not valid RFC3339", ce.Time)
 				}
-				var loginData event.EventLoginData
-				if err := json.Unmarshal(ce.Data.MetaData, &loginData); err != nil {
+				var accessCheckData event.EventAccessCheckData
+				if err := json.Unmarshal(ce.Data.MetaData, &accessCheckData); err != nil {
 					t.Errorf("Failed to unmarshal MetaData: %v", err)
 				}
-				if loginData.Identifier != "test@example.com" {
-					t.Errorf("Identifier = %v, want %v", loginData.Identifier, "test@example.com")
+				if accessCheckData.Resource != "document:123" {
+					t.Errorf("Resource = %v, want %v", accessCheckData.Resource, "document:123")
 				}
 			},
 		},
@@ -87,8 +85,8 @@ func TestNewCloudEvent(t *testing.T) {
 			setupCtx: func() context.Context {
 				return context.Background()
 			},
-			eventType:   event.EventLogin,
-			eventData:   event.EventLoginData{Identifier: "test@example.com"},
+			eventType: event.EventAccessCheck,
+			eventData: event.EventAccessCheckData{Resource: "file:456", Action: "write"},
 			wantSource:  Source,
 			wantSpecVer: SpecVersion,
 			validate: func(t *testing.T, ce CloudEvent) {
@@ -104,106 +102,85 @@ func TestNewCloudEvent(t *testing.T) {
 			},
 		},
 		{
-			name: "EventLoginFailedData",
+			name: "EventRoleCreateData",
 			setupCtx: func() context.Context {
-				return setupContext(context.Background(), "mobile-app", "user-456", "user")
+				return setupContext(context.Background(), "admin-panel", "admin-456", "admin")
 			},
-			eventType: event.EventLoginFailed,
-			eventData: event.EventLoginFailedData{
-				Identifier:     "baduser@example.com",
-				IdentifierType: "email",
-				FailureReason:  "invalid_password",
+			eventType: event.EventRoleCreate,
+			eventData: event.EventRoleCreateData{
+				UID:         "role-uid-123",
+				GroupUID:    "group-uid-123",
+				Name:        "Editor",
+				Description: "Can edit documents",
+				CreatedAt:   time.Now(),
 			},
 			wantSource:  Source,
 			wantSpecVer: SpecVersion,
 			validate: func(t *testing.T, ce CloudEvent) {
-				if ce.Type != string(event.EventLoginFailed) {
-					t.Errorf("Type = %v, want %v", ce.Type, event.EventLoginFailed)
+				if ce.Type != string(event.EventRoleCreate) {
+					t.Errorf("Type = %v, want %v", ce.Type, event.EventRoleCreate)
 				}
-				var data event.EventLoginFailedData
+				var data event.EventRoleCreateData
 				if err := json.Unmarshal(ce.Data.MetaData, &data); err != nil {
 					t.Errorf("Failed to unmarshal MetaData: %v", err)
 				}
-				if data.FailureReason != "invalid_password" {
-					t.Errorf("FailureReason = %v, want %v", data.FailureReason, "invalid_password")
+				if data.Name != "Editor" {
+					t.Errorf("Name = %v, want %v", data.Name, "Editor")
 				}
 			},
 		},
 		{
-			name: "EventPinVerifyData - Success case",
+			name: "EventPermissionCreateData",
 			setupCtx: func() context.Context {
-				return setupContext(context.Background(), "web", "user-789", "user")
+				return setupContext(context.Background(), "admin-panel", "admin-789", "admin")
 			},
-			eventType: event.EventPINVerify,
-			eventData: event.EventPinVerifyData{
-				UserUID: "uid-789",
-				Success: true,
-				Reason:  "valid_pin",
+			eventType: event.EventPermissionCreate,
+			eventData: event.EventPermissionCreateData{
+				UID:         "perm-uid-789",
+				Resource:    "document",
+				Action:      "delete",
+				Description: "Can delete documents",
+				CreatedAt:   time.Now(),
 			},
 			wantSource:  Source,
 			wantSpecVer: SpecVersion,
 			validate: func(t *testing.T, ce CloudEvent) {
-				if ce.Type != string(event.EventPINVerify) {
-					t.Errorf("Type = %v, want %v", ce.Type, event.EventPINVerify)
+				if ce.Type != string(event.EventPermissionCreate) {
+					t.Errorf("Type = %v, want %v", ce.Type, event.EventPermissionCreate)
 				}
-				var data event.EventPinVerifyData
+				var data event.EventPermissionCreateData
 				if err := json.Unmarshal(ce.Data.MetaData, &data); err != nil {
 					t.Errorf("Failed to unmarshal MetaData: %v", err)
 				}
-				if !data.Success {
-					t.Errorf("Success = %v, want %v", data.Success, true)
+				if data.Resource != "document" {
+					t.Errorf("Resource = %v, want %v", data.Resource, "document")
 				}
 			},
 		},
 		{
-			name: "EventPinVerifyData - Failure case",
+			name: "EventSubjectAssignData",
 			setupCtx: func() context.Context {
-				return setupContext(context.Background(), "web", "user-789", "user")
+				return setupContext(context.Background(), "api", "system-1", "system")
 			},
-			eventType: event.EventPINVerify,
-			eventData: event.EventPinVerifyData{
-				UserUID: "uid-789",
-				Success: false,
-				Reason:  "invalid_pin",
+			eventType: event.EventSubjectAssign,
+			eventData: event.EventSubjectAssignData{
+				SubjectID:   "user-subject-123",
+				SubjectType: "user",
+				RoleUID:     "role-uid-123",
+				AssignedAt:  time.Now(),
 			},
 			wantSource:  Source,
 			wantSpecVer: SpecVersion,
 			validate: func(t *testing.T, ce CloudEvent) {
-				var data event.EventPinVerifyData
+				if ce.Type != string(event.EventSubjectAssign) {
+					t.Errorf("Type = %v, want %v", ce.Type, event.EventSubjectAssign)
+				}
+				var data event.EventSubjectAssignData
 				if err := json.Unmarshal(ce.Data.MetaData, &data); err != nil {
 					t.Errorf("Failed to unmarshal MetaData: %v", err)
 				}
-				if data.Success {
-					t.Errorf("Success = %v, want %v", data.Success, false)
-				}
-				if data.Reason != "invalid_pin" {
-					t.Errorf("Reason = %v, want %v", data.Reason, "invalid_pin")
-				}
-			},
-		},
-		{
-			name: "EventLoginLocked",
-			setupCtx: func() context.Context {
-				return setupContext(context.Background(), "auth-service", "system-1", "system")
-			},
-			eventType: event.EventLoginLocked,
-			eventData: event.EventLoginLockedData{
-				Identifier:     "locked@example.com",
-				IdentifierType: "email",
-				FailureReason:  "too_many_attempts",
-			},
-			wantSource:  Source,
-			wantSpecVer: SpecVersion,
-			validate: func(t *testing.T, ce CloudEvent) {
-				if ce.Type != string(event.EventLoginLocked) {
-					t.Errorf("Type = %v, want %v", ce.Type, event.EventLoginLocked)
-				}
-				var data event.EventLoginLockedData
-				if err := json.Unmarshal(ce.Data.MetaData, &data); err != nil {
-					t.Errorf("Failed to unmarshal MetaData: %v", err)
-				}
-				if data.FailureReason != "too_many_attempts" {
-					t.Errorf("FailureReason = %v, want %v", data.FailureReason, "too_many_attempts")
+				if data.SubjectID != "user-subject-123" {
+					t.Errorf("SubjectID = %v, want %v", data.SubjectID, "user-subject-123")
 				}
 			},
 		},
@@ -212,7 +189,7 @@ func TestNewCloudEvent(t *testing.T) {
 			setupCtx: func() context.Context {
 				return setupContext(context.Background(), "test", "actor-1", "system")
 			},
-			eventType:   event.EventLogin,
+			eventType:   event.EventAccessCheck,
 			eventData:   make(chan int),
 			wantSource:  Source,
 			wantSpecVer: SpecVersion,
@@ -227,23 +204,25 @@ func TestNewCloudEvent(t *testing.T) {
 			},
 		},
 		{
-			name: "User Created Event",
+			name: "Group Created Event",
 			setupCtx: func() context.Context {
 				return setupContext(context.Background(), "admin-panel", "admin-1", "admin")
 			},
-			eventType: event.EventUserCreated,
+			eventType: event.EventGroupCreate,
 			eventData: struct {
-				UserUID string `json:"user_uid"`
-				Email   string `json:"email"`
+				UID         string `json:"uid"`
+				Name        string `json:"name"`
+				Description string `json:"description"`
 			}{
-				UserUID: "new-user-123",
-				Email:   "newuser@example.com",
+				UID:         "group-uid-123",
+				Name:        "Editors",
+				Description: "Users who can edit",
 			},
 			wantSource:  Source,
 			wantSpecVer: SpecVersion,
 			validate: func(t *testing.T, ce CloudEvent) {
-				if ce.Type != string(event.EventUserCreated) {
-					t.Errorf("Type = %v, want %v", ce.Type, event.EventUserCreated)
+				if ce.Type != string(event.EventGroupCreate) {
+					t.Errorf("Type = %v, want %v", ce.Type, event.EventGroupCreate)
 				}
 				if ce.Data.Client != "admin-panel" {
 					t.Errorf("Client = %v, want %v", ce.Data.Client, "admin-panel")
@@ -251,27 +230,34 @@ func TestNewCloudEvent(t *testing.T) {
 			},
 		},
 		{
-			name: "Token Refresh Event",
+			name: "Permission Update Event",
 			setupCtx: func() context.Context {
-				return setupContext(context.Background(), "mobile-app", "user-123", "user")
+				return setupContext(context.Background(), "admin-panel", "admin-2", "admin")
 			},
-			eventType: event.EventTokenRefresh,
-			eventData: event.EventTokenRefreshData{
-				Identifier:     "test@example.com",
-				IdentifierType: "email",
+			eventType: event.EventPermissionUpdate,
+			eventData: struct {
+				UID         string `json:"uid"`
+				Resource    string `json:"resource"`
+				Action      string `json:"action"`
+				Description string `json:"description"`
+			}{
+				UID:         "perm-uid-456",
+				Resource:    "report",
+				Action:      "generate",
+				Description: "Can generate reports",
 			},
 			wantSource:  Source,
 			wantSpecVer: SpecVersion,
 			validate: func(t *testing.T, ce CloudEvent) {
-				if ce.Type != string(event.EventTokenRefresh) {
-					t.Errorf("Type = %v, want %v", ce.Type, event.EventTokenRefresh)
+				if ce.Type != string(event.EventPermissionUpdate) {
+					t.Errorf("Type = %v, want %v", ce.Type, event.EventPermissionUpdate)
 				}
-				var data event.EventTokenRefreshData
+				var data event.EventPermissionUpdateData
 				if err := json.Unmarshal(ce.Data.MetaData, &data); err != nil {
 					t.Errorf("Failed to unmarshal MetaData: %v", err)
 				}
-				if data.Identifier != "test@example.com" {
-					t.Errorf("Identifier = %v, want %v", data.Identifier, "test@example.com")
+				if data.Resource != "report" {
+					t.Errorf("Resource = %v, want %v", data.Resource, "report")
 				}
 			},
 		},
@@ -299,7 +285,7 @@ func TestNewCloudEvent(t *testing.T) {
 func TestNewCloudEvent_Constants(t *testing.T) {
 	t.Parallel()
 	ctx := setupContext(context.Background(), "test", "actor-1", "system")
-	ce := NewCloudEvent(ctx, event.EventLogin, event.EventLoginData{})
+	ce := NewCloudEvent(ctx, event.EventAccessCheck, event.EventAccessCheckData{})
 
 	if ce.Source != Source {
 		t.Errorf("Source = %v, want %v", ce.Source, Source)
@@ -315,7 +301,7 @@ func TestNewCloudEvent_IDGeneration(t *testing.T) {
 
 	ids := make(map[string]bool)
 	for range 100 {
-		ce := NewCloudEvent(ctx, event.EventLogin, event.EventLoginData{})
+		ce := NewCloudEvent(ctx, event.EventAccessCheck, event.EventAccessCheckData{})
 		if !isValidUUID(ce.ID) {
 			t.Errorf("ID = %v is not a valid UUID", ce.ID)
 		}
@@ -330,7 +316,7 @@ func TestNewCloudEvent_TimeFormat(t *testing.T) {
 	t.Parallel()
 	ctx := setupContext(context.Background(), "test", "actor-1", "system")
 
-	ce := NewCloudEvent(ctx, event.EventLogin, event.EventLoginData{})
+	ce := NewCloudEvent(ctx, event.EventAccessCheck, event.EventAccessCheckData{})
 
 	parsedTime, err := time.Parse(time.RFC3339, ce.Time)
 	if err != nil {

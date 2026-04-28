@@ -70,9 +70,9 @@ func TestHTTPPublisher_Close(t *testing.T) {
 }
 
 type testEventData struct {
-	UserID   string `json:"user_id"`
-	Username string `json:"username"`
-	Email    string `json:"email"`
+	Resource string `json:"resource"`
+	Action   string `json:"action"`
+	Reason   string `json:"reason"`
 }
 
 func TestHTTPPublisher_Publish(t *testing.T) {
@@ -89,15 +89,15 @@ func TestHTTPPublisher_Publish(t *testing.T) {
 	}{
 		{
 			name:           "Happy Path - 200 OK",
-			eventType:      event.EventUserCreated,
-			eventData:      testEventData{UserID: "123", Username: "testuser", Email: "test@example.com"},
+			eventType:      event.EventAccessCheck,
+			eventData:      testEventData{Resource: "document:123", Action: "read", Reason: "allowed"},
 			responseStatus: http.StatusOK,
 			responseBody:   "",
 			wantErr:        false,
 			validateRequest: func(t *testing.T, r *http.Request) {
 				assert.Equal(t, "POST", r.Method)
 				assert.Equal(t, "application/cloudevents+json", r.Header.Get("Content-Type"))
-				assert.Equal(t, string(event.EventUserCreated), r.Header.Get("Ce-Type"))
+				assert.Equal(t, string(event.EventAccessCheck), r.Header.Get("Ce-Type"))
 				assert.Equal(t, Source, r.Header.Get("Ce-Source"))
 				assert.Equal(t, SpecVersion, r.Header.Get("Ce-Specversion"))
 				assert.NotEmpty(t, r.Header.Get("Ce-ID"))
@@ -110,8 +110,8 @@ func TestHTTPPublisher_Publish(t *testing.T) {
 		},
 		{
 			name:           "Happy Path - 202 Accepted",
-			eventType:      event.EventLogin,
-			eventData:      map[string]string{"user_id": "123", "ip": "192.168.1.1"},
+			eventType:      event.EventRoleCreate,
+			eventData:      map[string]string{"uid": "role-123", "name": "Editor"},
 			responseStatus: http.StatusAccepted,
 			responseBody:   "",
 			wantErr:        false,
@@ -122,8 +122,8 @@ func TestHTTPPublisher_Publish(t *testing.T) {
 		},
 		{
 			name:           "4xx Client Error - 400 Bad Request",
-			eventType:      event.EventDeviceCreated,
-			eventData:      testEventData{UserID: "123", Username: "testuser", Email: "test@example.com"},
+			eventType:      event.EventPermissionCreate,
+			eventData:      testEventData{Resource: "file:456", Action: "write"},
 			responseStatus: http.StatusBadRequest,
 			responseBody:   "Invalid event format",
 			wantErr:        true,
@@ -134,8 +134,8 @@ func TestHTTPPublisher_Publish(t *testing.T) {
 		},
 		{
 			name:           "4xx Client Error - 404 Not Found",
-			eventType:      event.EventUserUpdated,
-			eventData:      map[string]string{"user_id": "123"},
+			eventType:      event.EventGroupUpdate,
+			eventData:      map[string]string{"uid": "group-123"},
 			responseStatus: http.StatusNotFound,
 			responseBody:   "Endpoint not found",
 			wantErr:        true,
@@ -146,8 +146,8 @@ func TestHTTPPublisher_Publish(t *testing.T) {
 		},
 		{
 			name:           "5xx Server Error - 500 Internal Server Error",
-			eventType:      event.EventUserCreated,
-			eventData:      testEventData{UserID: "123", Username: "testuser", Email: "test@example.com"},
+			eventType:      event.EventSubjectAssign,
+			eventData:      testEventData{Resource: "document:789", Action: "delete"},
 			responseStatus: http.StatusInternalServerError,
 			responseBody:   "Internal server error",
 			wantErr:        true,
@@ -158,8 +158,8 @@ func TestHTTPPublisher_Publish(t *testing.T) {
 		},
 		{
 			name:           "5xx Server Error - 503 Service Unavailable",
-			eventType:      event.EventLoginFailed,
-			eventData:      map[string]string{"reason": "invalid credentials"},
+			eventType:      event.EventRoleDelete,
+			eventData:      map[string]string{"reason": "role removed"},
 			responseStatus: http.StatusServiceUnavailable,
 			responseBody:   "Service temporarily unavailable",
 			wantErr:        true,
@@ -261,7 +261,7 @@ func TestHTTPPublisher_Publish_ContextValues(t *testing.T) {
 
 			ctx := tt.setupContext(context.Background())
 
-			err := publisher.Publish(ctx, event.EventUserCreated, testEventData{UserID: "123"})
+			err := publisher.Publish(ctx, event.EventAccessCheck, testEventData{Resource: "doc:123"})
 
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedClient, receivedCloudEventData.Client)
@@ -285,7 +285,7 @@ func TestHTTPPublisher_Publish_TraceContextInjection(t *testing.T) {
 	publisher := NewHTTPPublisher(server.URL, 5*time.Second, logger, tracer)
 
 	ctx := context.Background()
-	err := publisher.Publish(ctx, event.EventUserCreated, testEventData{UserID: "123"})
+	err := publisher.Publish(ctx, event.EventPermissionCreate, testEventData{Resource: "file:456"})
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, traceParent, "Traceparent header should be injected by tracer")

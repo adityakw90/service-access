@@ -122,19 +122,17 @@ func TestRabbitmqPublisher_Publish(t *testing.T) {
 		validate    func(*testing.T, *mockRabbitConn)
 	}{
 		{
-			name: "Happy Path - EventLogin with full context",
+			name: "Happy Path - EventAccessCheck with full context",
 			setupCtx: func() context.Context {
 				return setupContext(context.Background(), "test-client", "user-123", "user")
 			},
-			eventType: event.EventLogin,
-			eventData: event.EventLoginData{
-				Identifier:     "test@example.com",
-				IdentifierType: "email",
-				UserUID:        "uid-123",
-				UserName:       "Test User",
-				DeviceUID:      "device-123",
-				DeviceName:     "iPhone",
-				IPAddress:      "192.168.1.1",
+			eventType: event.EventAccessCheck,
+			eventData: event.EventAccessCheckData{
+				SubjectId:   "user-123",
+				SubjectType: "user",
+				Resource:    "document:456",
+				Action:      "read",
+				Reason:      "allowed",
 			},
 			config: RabbitmqPublisherConfig{
 				Exchange:         "test-exchange",
@@ -150,7 +148,7 @@ func TestRabbitmqPublisher_Publish(t *testing.T) {
 			validate: func(t *testing.T, m *mockRabbitConn) {
 				assert.True(t, m.publishWithConfirmCalled, "PublishWithConfirm should be called")
 				assert.Equal(t, "test-exchange", m.publishWithConfirmArgExchange)
-				assert.Equal(t, "user.service.auth.login", m.publishWithConfirmArgRoutingKey)
+				assert.Equal(t, "user.service.access.check", m.publishWithConfirmArgRoutingKey)
 				assert.Equal(t, "application/cloudevents+json", m.publishWithConfirmArgContentType)
 
 				assert.NotNil(t, m.publishWithConfirmArgHeaders)
@@ -158,7 +156,7 @@ func TestRabbitmqPublisher_Publish(t *testing.T) {
 				assert.NotEmpty(t, m.publishWithConfirmArgHeaders["ce_source"])
 				assert.NotEmpty(t, m.publishWithConfirmArgHeaders["ce_id"])
 				assert.NotEmpty(t, m.publishWithConfirmArgHeaders["ce_specversion"])
-				assert.Equal(t, "auth.login", m.publishWithConfirmArgHeaders["ce_type"])
+				assert.Equal(t, "access.check", m.publishWithConfirmArgHeaders["ce_type"])
 				assert.Equal(t, Source, m.publishWithConfirmArgHeaders["ce_source"])
 				assert.Equal(t, SpecVersion, m.publishWithConfirmArgHeaders["ce_specversion"])
 
@@ -175,21 +173,21 @@ func TestRabbitmqPublisher_Publish(t *testing.T) {
 			},
 		},
 		{
-			name: "Happy Path - EventUserCreated",
+			name: "Happy Path - EventRoleCreate",
 			setupCtx: func() context.Context {
 				return setupContext(context.Background(), "admin-client", "admin-456", "admin")
 			},
-			eventType: event.EventUserCreated,
-			eventData: event.EventUserCreatedData{
-				UserUID:  "new-user-uid",
-				ActorUID: "admin-456",
-				Username: "newuser",
-				Email:    "newuser@example.com",
-				Status:   "active",
+			eventType: event.EventRoleCreate,
+			eventData: event.EventRoleCreateData{
+				UID:         "role-uid-123",
+				GroupUID:    "group-uid-123",
+				Name:        "Editor",
+				Description: "Can edit documents",
+				CreatedAt:   time.Now(),
 			},
 			config: RabbitmqPublisherConfig{
-				Exchange:         "user-events",
-				RoutingKeyPrefix: "user",
+				Exchange:         "role-events",
+				RoutingKeyPrefix: "role",
 			},
 			setupMock: func(m *mockRabbitConn) {
 				m.publishWithConfirmReturnErr = nil
@@ -197,9 +195,9 @@ func TestRabbitmqPublisher_Publish(t *testing.T) {
 			wantErr: false,
 			validate: func(t *testing.T, m *mockRabbitConn) {
 				assert.True(t, m.publishWithConfirmCalled)
-				assert.Equal(t, "user-events", m.publishWithConfirmArgExchange)
-				assert.Equal(t, "user.user.created", m.publishWithConfirmArgRoutingKey)
-				assert.Equal(t, "user.created", m.publishWithConfirmArgHeaders["ce_type"])
+				assert.Equal(t, "role-events", m.publishWithConfirmArgExchange)
+				assert.Equal(t, "role.role.create", m.publishWithConfirmArgRoutingKey)
+				assert.Equal(t, "role.create", m.publishWithConfirmArgHeaders["ce_type"])
 			},
 		},
 		{
@@ -207,10 +205,13 @@ func TestRabbitmqPublisher_Publish(t *testing.T) {
 			setupCtx: func() context.Context {
 				return context.Background()
 			},
-			eventType: event.EventUserDeleted,
-			eventData: event.EventUserDeletedData{
-				UserUID:  "deleted-user-uid",
-				ActorUID: "admin-789",
+			eventType: event.EventPermissionCreate,
+			eventData: event.EventPermissionCreateData{
+				UID:         "perm-uid-456",
+				Resource:    "file",
+				Action:      "write",
+				Description: "Can write files",
+				CreatedAt:   time.Now(),
 			},
 			config: RabbitmqPublisherConfig{
 				Exchange:         "events",
@@ -222,22 +223,24 @@ func TestRabbitmqPublisher_Publish(t *testing.T) {
 			wantErr: false,
 			validate: func(t *testing.T, m *mockRabbitConn) {
 				assert.True(t, m.publishWithConfirmCalled)
-				assert.Equal(t, "user.deleted", m.publishWithConfirmArgRoutingKey)
+				assert.Equal(t, "permission.create", m.publishWithConfirmArgRoutingKey)
 			},
 		},
 		{
-			name: "Happy Path - EventUserUpdatePassword",
+			name: "Happy Path - EventGroupCreate",
 			setupCtx: func() context.Context {
-				return setupContext(context.Background(), "api", "user-789", "user")
+				return setupContext(context.Background(), "api", "admin-789", "admin")
 			},
-			eventType: event.EventUserUpdatePassword,
-			eventData: event.EventUserUpdatePasswordData{
-				UserUID:  "user-789",
-				ActorUID: "user-789",
+			eventType: event.EventGroupCreate,
+			eventData: event.EventGroupCreateData{
+				UID:         "group-uid-789",
+				Name:        "Editors",
+				Description: "Users who can edit",
+				CreatedAt:   time.Now(),
 			},
 			config: RabbitmqPublisherConfig{
 				Exchange:         "security-events",
-				RoutingKeyPrefix: "auth",
+				RoutingKeyPrefix: "access",
 			},
 			setupMock: func(m *mockRabbitConn) {
 				m.publishWithConfirmReturnErr = nil
@@ -245,22 +248,24 @@ func TestRabbitmqPublisher_Publish(t *testing.T) {
 			wantErr: false,
 			validate: func(t *testing.T, m *mockRabbitConn) {
 				assert.True(t, m.publishWithConfirmCalled)
-				assert.Equal(t, "auth.user.update_password", m.publishWithConfirmArgRoutingKey)
+				assert.Equal(t, "access.group.create", m.publishWithConfirmArgRoutingKey)
 			},
 		},
 		{
-			name: "Happy Path - EventUserCreatePin",
+			name: "Happy Path - EventSubjectAssign",
 			setupCtx: func() context.Context {
 				return setupContext(context.Background(), "mobile", "user-101", "user")
 			},
-			eventType: event.EventUserCreatePin,
-			eventData: event.EventUserCreatePinData{
-				UserUID:  "user-101",
-				ActorUID: "user-101",
+			eventType: event.EventSubjectAssign,
+			eventData: event.EventSubjectAssignData{
+				SubjectID:   "user-101",
+				SubjectType: "user",
+				RoleUID:     "role-uid-101",
+				AssignedAt:  time.Now(),
 			},
 			config: RabbitmqPublisherConfig{
 				Exchange:         "events",
-				RoutingKeyPrefix: "user",
+				RoutingKeyPrefix: "subject",
 			},
 			setupMock: func(m *mockRabbitConn) {
 				m.publishWithConfirmReturnErr = nil
@@ -268,22 +273,24 @@ func TestRabbitmqPublisher_Publish(t *testing.T) {
 			wantErr: false,
 			validate: func(t *testing.T, m *mockRabbitConn) {
 				assert.True(t, m.publishWithConfirmCalled)
-				assert.Equal(t, "user.user.create_pin", m.publishWithConfirmArgRoutingKey)
+				assert.Equal(t, "subject.subject.assign", m.publishWithConfirmArgRoutingKey)
 			},
 		},
 		{
-			name: "Happy Path - EventUserUpdateProfile",
+			name: "Happy Path - EventSubjectRevoke",
 			setupCtx: func() context.Context {
 				return setupContext(context.Background(), "web", "user-202", "user")
 			},
-			eventType: event.EventUserUpdateProfile,
-			eventData: event.EventUserUpdateProfileData{
-				UserUID:  "user-202",
-				ActorUID: "user-202",
+			eventType: event.EventSubjectRevoke,
+			eventData: event.EventSubjectRevokeData{
+				SubjectID:   "user-202",
+				SubjectType: "user",
+				RoleUID:     "role-uid-202",
+				RevokedAt:   time.Now(),
 			},
 			config: RabbitmqPublisherConfig{
 				Exchange:         "events",
-				RoutingKeyPrefix: "user",
+				RoutingKeyPrefix: "subject",
 			},
 			setupMock: func(m *mockRabbitConn) {
 				m.publishWithConfirmReturnErr = nil
@@ -291,19 +298,20 @@ func TestRabbitmqPublisher_Publish(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "Happy Path - EventUserRevokeDevice",
+			name: "Happy Path - EventRoleUpdate",
 			setupCtx: func() context.Context {
-				return setupContext(context.Background(), "admin", "user-303", "admin")
+				return setupContext(context.Background(), "admin", "admin-303", "admin")
 			},
-			eventType: event.EventUserRevokeDevice,
-			eventData: event.EventUserRevokeDeviceData{
-				UserUID:   "user-303",
-				ActorUID:  "user-303",
-				DeviceUID: "device-303",
+			eventType: event.EventRoleUpdate,
+			eventData: event.EventRoleUpdateData{
+				UID:         "role-uid-303",
+				Name:        "Moderator",
+				Description: "Can moderate content",
+				UpdatedAt:   time.Now(),
 			},
 			config: RabbitmqPublisherConfig{
 				Exchange:         "events",
-				RoutingKeyPrefix: "device",
+				RoutingKeyPrefix: "role",
 			},
 			setupMock: func(m *mockRabbitConn) {
 				m.publishWithConfirmReturnErr = nil
@@ -311,18 +319,17 @@ func TestRabbitmqPublisher_Publish(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "Happy Path - EventUserFileCreated",
+			name: "Happy Path - EventPermissionDelete",
 			setupCtx: func() context.Context {
-				return setupContext(context.Background(), "api", "user-404", "user")
+				return setupContext(context.Background(), "api", "admin-404", "admin")
 			},
-			eventType: event.EventUserFileCreated,
-			eventData: event.EventUserFileCreatedData{
-				UserUID: "user-404",
-				FileUID: "file-404",
+			eventType: event.EventPermissionDelete,
+			eventData: event.EventPermissionDeleteData{
+				UID: "perm-uid-404",
 			},
 			config: RabbitmqPublisherConfig{
-				Exchange:         "file-events",
-				RoutingKeyPrefix: "file",
+				Exchange:         "permission-events",
+				RoutingKeyPrefix: "permission",
 			},
 			setupMock: func(m *mockRabbitConn) {
 				m.publishWithConfirmReturnErr = nil
@@ -330,18 +337,17 @@ func TestRabbitmqPublisher_Publish(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "Happy Path - EventUserFileUpdated",
+			name: "Happy Path - EventGroupDelete",
 			setupCtx: func() context.Context {
-				return setupContext(context.Background(), "api", "user-505", "user")
+				return setupContext(context.Background(), "api", "admin-505", "admin")
 			},
-			eventType: event.EventUserFileUpdated,
-			eventData: event.EventUserFileUpdatedData{
-				UserUID: "user-505",
-				FileUID: "file-505",
+			eventType: event.EventGroupDelete,
+			eventData: event.EventGroupDeleteData{
+				UID: "group-uid-505",
 			},
 			config: RabbitmqPublisherConfig{
-				Exchange:         "file-events",
-				RoutingKeyPrefix: "file",
+				Exchange:         "group-events",
+				RoutingKeyPrefix: "group",
 			},
 			setupMock: func(m *mockRabbitConn) {
 				m.publishWithConfirmReturnErr = nil
@@ -349,18 +355,17 @@ func TestRabbitmqPublisher_Publish(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "Happy Path - EventUserFileDeleted",
+			name: "Happy Path - EventRoleDelete",
 			setupCtx: func() context.Context {
-				return setupContext(context.Background(), "api", "user-606", "user")
+				return setupContext(context.Background(), "api", "admin-606", "admin")
 			},
-			eventType: event.EventUserFileDeleted,
-			eventData: event.EventUserFileDeletedData{
-				UserUID: "user-606",
-				FileUID: "file-606",
+			eventType: event.EventRoleDelete,
+			eventData: event.EventRoleDeleteData{
+				UID: "role-uid-606",
 			},
 			config: RabbitmqPublisherConfig{
-				Exchange:         "file-events",
-				RoutingKeyPrefix: "file",
+				Exchange:         "role-events",
+				RoutingKeyPrefix: "role",
 			},
 			setupMock: func(m *mockRabbitConn) {
 				m.publishWithConfirmReturnErr = nil
@@ -372,9 +377,11 @@ func TestRabbitmqPublisher_Publish(t *testing.T) {
 			setupCtx: func() context.Context {
 				return setupContext(context.Background(), "test-client", "user-123", "user")
 			},
-			eventType: event.EventLogin,
-			eventData: event.EventLoginData{
-				Identifier: "test@example.com",
+			eventType: event.EventAccessCheck,
+			eventData: event.EventAccessCheckData{
+				SubjectId: "user-123",
+				Resource:  "doc:789",
+				Action:    "read",
 			},
 			config: RabbitmqPublisherConfig{},
 			setupMock: func(m *mockRabbitConn) {
@@ -390,9 +397,11 @@ func TestRabbitmqPublisher_Publish(t *testing.T) {
 				cancel()
 				return ctx
 			},
-			eventType: event.EventLogin,
-			eventData: event.EventLoginData{
-				Identifier: "test@example.com",
+			eventType: event.EventAccessCheck,
+			eventData: event.EventAccessCheckData{
+				SubjectId: "user-456",
+				Resource:  "file:123",
+				Action:    "write",
 			},
 			config: RabbitmqPublisherConfig{},
 			setupMock: func(m *mockRabbitConn) {
@@ -494,14 +503,14 @@ func TestRabbitmqPublisher_getRoutingKey(t *testing.T) {
 		{
 			name:            "Standard prefix with event type",
 			prefix:          "user.service.",
-			eventType:       "auth.login",
-			expectedRouting: "user.service.auth.login",
+			eventType:       "access.check",
+			expectedRouting: "user.service.access.check",
 		},
 		{
 			name:            "Empty prefix",
 			prefix:          "",
-			eventType:       "user.created",
-			expectedRouting: "user.created",
+			eventType:       "role.create",
+			expectedRouting: "role.create",
 		},
 		{
 			name:            "Empty event type",
@@ -517,15 +526,15 @@ func TestRabbitmqPublisher_getRoutingKey(t *testing.T) {
 		},
 		{
 			name:            "Single word prefix",
-			prefix:          "auth.",
-			eventType:       "login",
-			expectedRouting: "auth.login",
+			prefix:          "access.",
+			eventType:       "check",
+			expectedRouting: "access.check",
 		},
 		{
 			name:            "Multi-level event type",
-			prefix:          "user.",
-			eventType:       "file.upload.complete",
-			expectedRouting: "user.file.upload.complete",
+			prefix:          "role.",
+			eventType:       "permission.assign",
+			expectedRouting: "role.permission.assign",
 		},
 	}
 
