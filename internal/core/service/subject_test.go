@@ -87,7 +87,7 @@ func TestSubjectService_GetRoles(t *testing.T) {
 			mockProvider := new(repomocks.MockRepositoryProvider)
 			mockProvider.EXPECT().Subject().Return(mockRepo)
 
-			svc := NewSubjectService(nil, mockProvider, nil, mockObserver)
+			svc := NewSubjectService(nil, mockProvider, nil, nil, mockObserver)
 
 			got, err := svc.GetRoles(ctx, tt.subjectID, tt.subjectType)
 
@@ -164,7 +164,7 @@ func TestSubjectService_GetGroups(t *testing.T) {
 			mockProvider := new(repomocks.MockRepositoryProvider)
 			mockProvider.EXPECT().Subject().Return(mockRepo)
 
-			svc := NewSubjectService(nil, mockProvider, nil, mockObserver)
+			svc := NewSubjectService(nil, mockProvider, nil, nil, mockObserver)
 
 			got, err := svc.GetGroups(ctx, tt.subjectID, tt.subjectType)
 
@@ -241,7 +241,7 @@ func TestSubjectService_GetPermissions(t *testing.T) {
 			mockProvider := new(repomocks.MockRepositoryProvider)
 			mockProvider.EXPECT().Subject().Return(mockRepo)
 
-			svc := NewSubjectService(nil, mockProvider, nil, mockObserver)
+			svc := NewSubjectService(nil, mockProvider, nil, nil, mockObserver)
 
 			got, err := svc.GetPermissions(ctx, tt.subjectID, tt.subjectType)
 
@@ -324,7 +324,7 @@ func TestSubjectService_GetFullProfile(t *testing.T) {
 			mockProvider := new(repomocks.MockRepositoryProvider)
 			mockProvider.EXPECT().Subject().Return(mockRepo)
 
-			svc := NewSubjectService(nil, mockProvider, nil, mockObserver)
+			svc := NewSubjectService(nil, mockProvider, nil, nil, mockObserver)
 
 			got, err := svc.GetFullProfile(ctx, tt.subjectID, tt.subjectType)
 
@@ -401,7 +401,7 @@ func TestSubjectService_List(t *testing.T) {
 			mockProvider := new(repomocks.MockRepositoryProvider)
 			mockProvider.EXPECT().Subject().Return(mockRepo)
 
-			svc := NewSubjectService(nil, mockProvider, nil, mockObserver)
+			svc := NewSubjectService(nil, mockProvider, nil, nil, mockObserver)
 
 			got, err := svc.List(ctx, tt.pagination, tt.filter)
 
@@ -506,7 +506,7 @@ func TestSubjectService_Assign(t *testing.T) {
 
 			tt.setup(mockUow, mockProvider, mockRoleRepo, mockSubjectRepo, mockPublisher, mockObserver)
 
-			svc := NewSubjectService(mockUow, mockProvider, mockPublisher, mockObserver)
+			svc := NewSubjectService(mockUow, mockProvider, mockPublisher, nil, mockObserver)
 
 			err := svc.Assign(ctx, tt.subjectID, tt.subjectType, tt.roleUID)
 
@@ -614,7 +614,7 @@ func TestSubjectService_Revoke(t *testing.T) {
 
 			tt.setup(mockUow, mockProvider, mockRoleRepo, mockSubjectRepo, mockPublisher, mockObserver)
 
-			svc := NewSubjectService(mockUow, mockProvider, mockPublisher, mockObserver)
+			svc := NewSubjectService(mockUow, mockProvider, mockPublisher, nil, mockObserver)
 
 			err := svc.Revoke(ctx, tt.subjectID, tt.subjectType, tt.roleUID)
 

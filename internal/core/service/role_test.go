@@ -187,7 +187,7 @@ func TestRoleService_Create(t *testing.T) {
 
 			tt.setup(mockUoW, mockRepos, mockUIDGenerator, mockResolverProvider)
 
-			service := NewRoleService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, mockObserver, adapterobserver.NewNoopObserver[signal.SignalRolePermission]())
+			service := NewRoleService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, nil, mockObserver, adapterobserver.NewNoopObserver[signal.SignalRolePermission]())
 			got, err := service.Create(context.Background(), tt.param)
 
 			if tt.wantErr {

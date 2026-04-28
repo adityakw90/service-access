@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/adityakw90/service-access/internal/adapter/event"
+	adapterexecutor "github.com/adityakw90/service-access/internal/adapter/executor"
 	"github.com/adityakw90/service-access/internal/adapter/observer"
-	"github.com/adityakw90/service-access/internal/adapter/publisher"
 	"github.com/adityakw90/service-access/internal/adapter/repository"
 	adapterResolver "github.com/adityakw90/service-access/internal/adapter/resolver"
 	"github.com/adityakw90/service-access/internal/adapter/security"
@@ -37,18 +38,21 @@ func TestIntegration_GroupService_Create(t *testing.T) {
 	repos := repository.NewRepositoryProvider(db)
 
 	// Create a mock publisher for testing
-	noopPublisher := publisher.NewNoOpPublisher()
+	noopPublisher := event.NewNoOpPublisher()
 	uidGenerator := security.NewUIDGenerator()
 
 	// Create resolver provider with 5 minute TTL
 	resolverProvider := adapterResolver.NewResolverProvider(db, redisClient, "service-access", 5*time.Minute, nil, nil)
+
+	// Create executor (no-op for tests)
+	exc := adapterexecutor.NewServiceExecutor(nil, nil)
 
 	// Create noop observer
 	groupObserver := observer.NewNoopObserver[signal.SignalGroup]()
 	groupPermissionObserver := observer.NewNoopObserver[signal.SignalGroupPermission]()
 
 	// Create service with all dependencies
-	groupService := service.NewGroupService(uow, repos, noopPublisher, uidGenerator, resolverProvider, groupObserver, groupPermissionObserver)
+	groupService := service.NewGroupService(uow, repos, noopPublisher, uidGenerator, resolverProvider, exc, groupObserver, groupPermissionObserver)
 
 	// Test: create group
 	group, err := groupService.Create(ctx, param.GroupCreateParam{

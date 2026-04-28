@@ -46,6 +46,10 @@ func (m *mockPublisher) Publish(ctx context.Context, eventType event.EventType, 
 	return nil
 }
 
+func (m *mockPublisher) Name() string {
+	return "mock-publisher"
+}
+
 func (m *mockPublisher) Close() error {
 	return nil
 }

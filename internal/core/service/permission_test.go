@@ -123,7 +123,7 @@ func TestPermissionService_Create(t *testing.T) {
 
 			tt.setup(mockUoW, mockRepos, mockUIDGenerator)
 
-			service := NewPermissionService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, mockObserver)
+			service := NewPermissionService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, nil, mockObserver)
 			got, err := service.Create(context.Background(), tt.param)
 
 			if tt.wantErr {
@@ -207,7 +207,7 @@ func TestPermissionService_Get(t *testing.T) {
 
 			tt.setup(mockRepos)
 
-			service := NewPermissionService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, mockObserver)
+			service := NewPermissionService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, nil, mockObserver)
 			got, err := service.Get(context.Background(), tt.uid)
 
 			if tt.wantErr {
@@ -258,7 +258,7 @@ func TestPermissionService_List(t *testing.T) {
 
 			tt.setup(mockRepos)
 
-			service := NewPermissionService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, mockObserver)
+			service := NewPermissionService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, nil, mockObserver)
 			got, err := service.List(context.Background(), nil, nil)
 
 			if tt.wantErr {
