@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -161,28 +160,8 @@ func (s *subjectService) Revoke(ctx context.Context, subjectID string, subjectTy
 	return nil
 }
 
-// Validation errors
-var (
-	ErrInvalidSubjectID = errors.New("subject_id is required")
-	ErrInvalidSubjectType = errors.New("subject_type is required")
-)
-
-func validateSubjectParams(subjectID, subjectType string) error {
-	if subjectID == "" {
-		return ErrInvalidSubjectID
-	}
-	if subjectType == "" {
-		return ErrInvalidSubjectType
-	}
-	return nil
-}
-
 // GetRoles returns all roles assigned to the subject.
 func (s *subjectService) GetRoles(ctx context.Context, subjectID string, subjectType string) ([]model.Role, error) {
-	if err := validateSubjectParams(subjectID, subjectType); err != nil {
-		return nil, err
-	}
-
 	roles, err := s.repos.Subject().GetAllRoles(ctx, subjectID, subjectType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get roles for subject %s: %w", subjectID, err)
@@ -192,10 +171,6 @@ func (s *subjectService) GetRoles(ctx context.Context, subjectID string, subject
 
 // GetGroups returns all unique groups from the subject's roles.
 func (s *subjectService) GetGroups(ctx context.Context, subjectID string, subjectType string) ([]model.Group, error) {
-	if err := validateSubjectParams(subjectID, subjectType); err != nil {
-		return nil, err
-	}
-
 	groups, err := s.repos.Subject().GetAllGroups(ctx, subjectID, subjectType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get groups for subject %s: %w", subjectID, err)
@@ -205,10 +180,6 @@ func (s *subjectService) GetGroups(ctx context.Context, subjectID string, subjec
 
 // GetPermissions returns all unique permissions from all of the subject's roles.
 func (s *subjectService) GetPermissions(ctx context.Context, subjectID string, subjectType string) ([]model.Permission, error) {
-	if err := validateSubjectParams(subjectID, subjectType); err != nil {
-		return nil, err
-	}
-
 	perms, err := s.repos.Subject().GetAllPermissions(ctx, subjectID, subjectType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get permissions for subject %s: %w", subjectID, err)
@@ -218,10 +189,6 @@ func (s *subjectService) GetPermissions(ctx context.Context, subjectID string, s
 
 // GetFullProfile returns complete aggregation (groups, roles, permissions) in parallel.
 func (s *subjectService) GetFullProfile(ctx context.Context, subjectID string, subjectType string) (*model.SubjectProfile, error) {
-	if err := validateSubjectParams(subjectID, subjectType); err != nil {
-		return nil, err
-	}
-
 	profile := &model.SubjectProfile{}
 	g, ctx := errgroup.WithContext(ctx)
 	g.SetLimit(10) // limit concurrency

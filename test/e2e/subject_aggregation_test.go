@@ -332,14 +332,14 @@ func TestE2E_SubjectAggregation(t *testing.T) {
 				endpoint:    "ListPermission",
 				request:     &subjectpb.GetSubjectRequest{},
 				wantCode:    codes.InvalidArgument,
-				wantMessage: "subject_id is required",
+				wantMessage: "SubjectID is required",
 			},
 			{
-				name:        "Get missing subject_id",
+				name:        "Get missing SubjectID",
 				endpoint:    "Get",
 				request:     &subjectpb.GetSubjectRequest{SubjectType: "user"},
 				wantCode:    codes.InvalidArgument,
-				wantMessage: "subject_id is required",
+				wantMessage: "SubjectID is required",
 			},
 		}
 

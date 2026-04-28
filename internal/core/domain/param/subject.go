@@ -34,3 +34,8 @@ type SubjectListParam struct {
 	Pagination *PaginationParam
 	Filter     *SubjectListFilterParam
 }
+
+type SubjectGetParam struct {
+	SubjectID   string
+	SubjectType string
+}

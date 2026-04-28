@@ -2,17 +2,16 @@ package handler
 
 import (
 	"context"
-	"errors"
 
-	"github.com/adityakw90/service-access/internal/adapter/api/grpc/request"
-	"github.com/adityakw90/service-access/internal/adapter/api/grpc/response"
-	"github.com/adityakw90/service-access/internal/core/port/service"
-	"github.com/adityakw90/service-access/internal/adapter/api/grpc/validator"
 	"github.com/adityakw90/service-access-proto/gen/go/common"
 	"github.com/adityakw90/service-access-proto/gen/go/group"
 	"github.com/adityakw90/service-access-proto/gen/go/permission"
 	"github.com/adityakw90/service-access-proto/gen/go/role"
 	"github.com/adityakw90/service-access-proto/gen/go/subject"
+	"github.com/adityakw90/service-access/internal/adapter/api/grpc/request"
+	"github.com/adityakw90/service-access/internal/adapter/api/grpc/response"
+	"github.com/adityakw90/service-access/internal/adapter/api/grpc/validator"
+	"github.com/adityakw90/service-access/internal/core/port/service"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -77,21 +76,22 @@ func (h *SubjectHandler) List(ctx context.Context, req *subject.ListRequest) (*s
 
 // Get returns full subject profile with groups, roles, and permissions
 func (h *SubjectHandler) Get(ctx context.Context, req *subject.GetSubjectRequest) (*subject.GetSubjectResponse, error) {
-	if err := validateGetSubjectRequest(req); err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+	subjectReq := request.GetSubjectRequestFromPb(req)
+	if err := h.validator.Struct(subjectReq); err != nil {
+		return nil, status.Error(codes.InvalidArgument, validator.ValidationErrors(err))
 	}
 
-	profile, err := h.subjectService.GetFullProfile(ctx, req.SubjectId, req.SubjectType)
+	profile, err := h.subjectService.GetFullProfile(ctx, subjectReq.SubjectID, subjectReq.SubjectType)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, err
 	}
 
 	resp := &subject.GetSubjectResponse{
-		Groups:      make([]*group.Group, 0, len(profile.Groups)),
-		Roles:       make([]*role.Role, 0, len(profile.Roles)),
-		Permissions: make([]*permission.Permission, 0, len(profile.Permissions)),
-		TotalGroup:  int32(len(profile.Groups)),
-		TotalRole:   int32(len(profile.Roles)),
+		Groups:          make([]*group.Group, 0, len(profile.Groups)),
+		Roles:           make([]*role.Role, 0, len(profile.Roles)),
+		Permissions:     make([]*permission.Permission, 0, len(profile.Permissions)),
+		TotalGroup:      int32(len(profile.Groups)),
+		TotalRole:       int32(len(profile.Roles)),
 		TotalPermission: int32(len(profile.Permissions)),
 	}
 
@@ -110,13 +110,14 @@ func (h *SubjectHandler) Get(ctx context.Context, req *subject.GetSubjectRequest
 
 // ListGroup returns all groups for a subject
 func (h *SubjectHandler) ListGroup(ctx context.Context, req *subject.GetSubjectRequest) (*subject.ListGroupResponse, error) {
-	if err := validateGetSubjectRequest(req); err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+	subjectReq := request.GetSubjectRequestFromPb(req)
+	if err := h.validator.Struct(subjectReq); err != nil {
+		return nil, status.Error(codes.InvalidArgument, validator.ValidationErrors(err))
 	}
 
-	groups, err := h.subjectService.GetGroups(ctx, req.SubjectId, req.SubjectType)
+	groups, err := h.subjectService.GetGroups(ctx, subjectReq.SubjectID, subjectReq.SubjectType)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, err
 	}
 
 	resp := &subject.ListGroupResponse{
@@ -133,11 +134,12 @@ func (h *SubjectHandler) ListGroup(ctx context.Context, req *subject.GetSubjectR
 
 // ListRole returns all roles for a subject (direct and via groups)
 func (h *SubjectHandler) ListRole(ctx context.Context, req *subject.GetSubjectRequest) (*subject.ListRoleResponse, error) {
-	if err := validateGetSubjectRequest(req); err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+	subjectReq := request.GetSubjectRequestFromPb(req)
+	if err := h.validator.Struct(subjectReq); err != nil {
+		return nil, status.Error(codes.InvalidArgument, validator.ValidationErrors(err))
 	}
 
-	roles, err := h.subjectService.GetRoles(ctx, req.SubjectId, req.SubjectType)
+	roles, err := h.subjectService.GetRoles(ctx, subjectReq.SubjectID, subjectReq.SubjectType)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -156,13 +158,14 @@ func (h *SubjectHandler) ListRole(ctx context.Context, req *subject.GetSubjectRe
 
 // ListPermission returns all unique permissions for a subject
 func (h *SubjectHandler) ListPermission(ctx context.Context, req *subject.GetSubjectRequest) (*subject.ListPermissionResponse, error) {
-	if err := validateGetSubjectRequest(req); err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+	subjectReq := request.GetSubjectRequestFromPb(req)
+	if err := h.validator.Struct(subjectReq); err != nil {
+		return nil, status.Error(codes.InvalidArgument, validator.ValidationErrors(err))
 	}
 
-	perms, err := h.subjectService.GetPermissions(ctx, req.SubjectId, req.SubjectType)
+	perms, err := h.subjectService.GetPermissions(ctx, subjectReq.SubjectID, subjectReq.SubjectType)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, err
 	}
 
 	resp := &subject.ListPermissionResponse{
@@ -175,15 +178,4 @@ func (h *SubjectHandler) ListPermission(ctx context.Context, req *subject.GetSub
 	}
 
 	return resp, nil
-}
-
-// validateGetSubjectRequest validates the GetSubjectRequest
-func validateGetSubjectRequest(req *subject.GetSubjectRequest) error {
-	if req.GetSubjectId() == "" {
-		return errors.New("subject_id is required")
-	}
-	if req.GetSubjectType() == "" {
-		return errors.New("subject_type is required")
-	}
-	return nil
 }

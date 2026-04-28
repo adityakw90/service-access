@@ -11,6 +11,7 @@ import (
 	"github.com/adityakw90/service-access/internal/adapter/repository"
 	"github.com/adityakw90/service-access/internal/config"
 	"github.com/adityakw90/service-access/internal/core/domain/model"
+	"github.com/adityakw90/service-access/internal/core/domain/signal"
 	portrepository "github.com/adityakw90/service-access/internal/core/port/repository"
 	"github.com/adityakw90/service-access/internal/infra"
 	"github.com/google/uuid"
@@ -360,4 +361,18 @@ func (p *customRepositoryProvider) Group() portrepository.GroupRepository {
 }
 func (p *customRepositoryProvider) Permission() portrepository.PermissionRepository {
 	return repository.NewPermissionRepository(p.db)
+}
+
+// --- Inline mocks for benchmark tests ---
+
+type mockUnitOfWork struct{}
+
+func (m *mockUnitOfWork) Do(ctx context.Context, fn func(portrepository.RepositoryProvider) error) error {
+	return fn(nil) // Provider will be passed by the service
+}
+
+type mockObserver struct{}
+
+func (m *mockObserver) OnSignal(ctx context.Context, sig signal.SignalType, data signal.SignalSubject, err error) {
+	// No-op for benchmarks
 }
