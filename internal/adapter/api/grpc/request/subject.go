@@ -68,3 +68,24 @@ func ToSubjectListFilterParam(req *subject.ListRequest) *param.SubjectListFilter
 		Query:       req.Filter.Query,
 	}
 }
+
+// GetSubjectRequest
+type GetSubjectRequest struct {
+	SubjectID   string `validate:"required"`
+	SubjectType string `validate:"required"`
+}
+
+func (r *GetSubjectRequest) ToGetParams() *param.SubjectGetParam {
+	return &param.SubjectGetParam{
+		SubjectID:   r.SubjectID,
+		SubjectType: r.SubjectType,
+	}
+}
+
+// GetSubjectRequestFromPb converts a proto GetSubjectRequest to a GetSubjectRequest.
+func GetSubjectRequestFromPb(req *subject.GetSubjectRequest) *GetSubjectRequest {
+	return &GetSubjectRequest{
+		SubjectID:   strings.TrimSpace(req.GetSubjectId()),
+		SubjectType: strings.TrimSpace(req.GetSubjectType()),
+	}
+}

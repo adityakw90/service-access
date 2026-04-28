@@ -45,7 +45,7 @@ func TestToProtoRole(t *testing.T) {
 
 func TestToProtoRoleList(t *testing.T) {
 	tests := []struct {
-		name string
+		name  string
 		roles *model.Roles
 		meta  *model.Meta
 	}{
@@ -91,13 +91,13 @@ func TestToProtoRolePermission(t *testing.T) {
 		{
 			name: "Valid role permission",
 			rp: &model.RolePermission{
-				RoleUID:             "role-123",
-				GroupPermissionUID:  "gperm-123",
-				PermissionUID:       "perm-123",
-				PermissionResource:  "invoices",
-				PermissionAction:    "read",
+				RoleUID:               "role-123",
+				GroupPermissionUID:    "gperm-123",
+				PermissionUID:         "perm-123",
+				PermissionResource:    "invoices",
+				PermissionAction:      "read",
 				PermissionDescription: "Read invoices",
-				CreatedAt:           now,
+				CreatedAt:             now,
 			},
 			want: "role-123",
 		},

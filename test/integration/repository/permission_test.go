@@ -278,11 +278,11 @@ func TestPermissionRepository_List(t *testing.T) {
 	perm3 := createTestPermission(t, db, "magazine", "read", "Read magazines")
 
 	tests := []struct {
-		name         string
-		pagination   *param.PaginationParam
-		filter       *param.PermissionListFilterParam
-		minTotal     int64
-		shouldFind   []string // UIDs that should be in results
+		name          string
+		pagination    *param.PaginationParam
+		filter        *param.PermissionListFilterParam
+		minTotal      int64
+		shouldFind    []string // UIDs that should be in results
 		shouldNotFind []string // UIDs that should NOT be in results
 	}{
 		{
@@ -295,8 +295,8 @@ func TestPermissionRepository_List(t *testing.T) {
 			filter: &param.PermissionListFilterParam{
 				Resource: strPtr("book"),
 			},
-			minTotal:     2,
-			shouldFind:   []string{perm1.UID, perm2.UID},
+			minTotal:      2,
+			shouldFind:    []string{perm1.UID, perm2.UID},
 			shouldNotFind: []string{perm3.UID},
 		},
 		{
@@ -304,8 +304,8 @@ func TestPermissionRepository_List(t *testing.T) {
 			filter: &param.PermissionListFilterParam{
 				Action: strPtr("read"),
 			},
-			minTotal:     2,
-			shouldFind:   []string{perm1.UID, perm3.UID},
+			minTotal:      2,
+			shouldFind:    []string{perm1.UID, perm3.UID},
 			shouldNotFind: []string{perm2.UID},
 		},
 		{
@@ -313,8 +313,8 @@ func TestPermissionRepository_List(t *testing.T) {
 			filter: &param.PermissionListFilterParam{
 				IDs: []int64{perm1.ID, perm2.ID},
 			},
-			minTotal:     2,
-			shouldFind:   []string{perm1.UID, perm2.UID},
+			minTotal:      2,
+			shouldFind:    []string{perm1.UID, perm2.UID},
 			shouldNotFind: []string{perm3.UID},
 		},
 		{
@@ -322,12 +322,12 @@ func TestPermissionRepository_List(t *testing.T) {
 			filter: &param.PermissionListFilterParam{
 				Query: strPtr("book"),
 			},
-			minTotal:     2,
-			shouldFind:   []string{perm1.UID, perm2.UID},
+			minTotal:      2,
+			shouldFind:    []string{perm1.UID, perm2.UID},
 			shouldNotFind: []string{perm3.UID},
 		},
 		{
-			name: "Pagination",
+			name:   "Pagination",
 			filter: &param.PermissionListFilterParam{},
 			pagination: &param.PaginationParam{
 				Limit: intPtr(2),

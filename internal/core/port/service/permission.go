@@ -28,4 +28,3 @@ type PermissionService interface {
 //     resolverProvider resolver.ResolverProvider,
 //     obs observer.ServiceObserver[signal.SignalPermission],
 // ) PermissionService
-

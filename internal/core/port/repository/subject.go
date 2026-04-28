@@ -17,4 +17,11 @@ type SubjectRepository interface {
 	// Retrieve
 	List(ctx context.Context, pagination *param.PaginationParam, filter *param.SubjectListFilterParam) (model.SubjectRoles, error) // List returns the list of subject roles.
 	GetRoles(ctx context.Context, subjectID string, subjectType string) ([]model.SubjectRole, error)                               // GetRoles returns roles for a subject.
+	GetAllRoles(ctx context.Context, subjectID string, subjectType string) ([]model.Role, error)                                   // GetAllRoles returns all roles assigned to a subject (direct assignments only).
+	// GetAllGroups returns all unique groups from the subject's roles.
+	// If multiple roles belong to the same group, the group appears once. Sorted by group UID.
+	GetAllGroups(ctx context.Context, subjectID string, subjectType string) ([]model.Group, error)
+	// GetAllPermissions returns all unique permissions from all of the subject's roles.
+	// If multiple roles share the same permission, it appears once. Sorted by permission UID.
+	GetAllPermissions(ctx context.Context, subjectID string, subjectType string) ([]model.Permission, error)
 }

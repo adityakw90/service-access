@@ -1,15 +1,16 @@
 package handler_test
 
 import (
-	"github.com/adityakw90/service-access/internal/adapter/api/grpc/validator"
 	"context"
 	"testing"
 
-	"github.com/adityakw90/service-access/internal/adapter/api/grpc/handler"
-	"github.com/adityakw90/service-access/internal/core/domain/model"
-	domainErrors "github.com/adityakw90/service-access/internal/core/domain/errors"
-	servicemocks "github.com/adityakw90/service-access/test/mocks/service"
+	"github.com/adityakw90/service-access/internal/adapter/api/grpc/validator"
+
 	"github.com/adityakw90/service-access-proto/gen/go/role"
+	"github.com/adityakw90/service-access/internal/adapter/api/grpc/handler"
+	domainErrors "github.com/adityakw90/service-access/internal/core/domain/errors"
+	"github.com/adityakw90/service-access/internal/core/domain/model"
+	servicemocks "github.com/adityakw90/service-access/mocks/service"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -84,7 +85,7 @@ func TestRoleHandler_List(t *testing.T) {
 				m.EXPECT().List(mock.Anything, mock.Anything, mock.Anything).Return(
 					&model.Roles{
 						Items: []model.Role{{UID: "role-1"}, {UID: "role-2"}},
-						Meta: model.Meta{Page: 1, Limit: 10, Total: 2, Pages: 1},
+						Meta:  model.Meta{Page: 1, Limit: 10, Total: 2, Pages: 1},
 					},
 					nil,
 				)

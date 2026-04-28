@@ -52,13 +52,13 @@ func ToProtoGroupPermission(gp *model.GroupPermission) *group.GroupPermission {
 	}
 
 	return &group.GroupPermission{
-		Uid:                 gp.UID,
-		GroupUid:            gp.GroupUID,
-		PermissionUid:       gp.PermissionUID,
-		PermissionResource:  gp.PermissionResource,
-		PermissionAction:    gp.PermissionAction,
+		Uid:                   gp.UID,
+		GroupUid:              gp.GroupUID,
+		PermissionUid:         gp.PermissionUID,
+		PermissionResource:    gp.PermissionResource,
+		PermissionAction:      gp.PermissionAction,
 		PermissionDescription: gp.PermissionDescription,
-		CreatedAt:           toProtoTimestampPB(gp.CreatedAt),
+		CreatedAt:             toProtoTimestampPB(gp.CreatedAt),
 	}
 }
 

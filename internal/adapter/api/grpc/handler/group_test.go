@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
+	"github.com/adityakw90/service-access-proto/gen/go/group"
 	"github.com/adityakw90/service-access/internal/adapter/api/grpc/handler"
 	"github.com/adityakw90/service-access/internal/adapter/api/grpc/validator"
 	"github.com/adityakw90/service-access/internal/core/domain/model"
-	servicemocks "github.com/adityakw90/service-access/test/mocks/service"
-	"github.com/adityakw90/service-access-proto/gen/go/group"
+	servicemocks "github.com/adityakw90/service-access/mocks/service"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -72,7 +72,7 @@ func TestGroupHandler_List(t *testing.T) {
 				m.EXPECT().List(mock.Anything, mock.Anything, mock.Anything).Return(
 					&model.Groups{
 						Items: []model.Group{{UID: "group-1"}, {UID: "group-2"}},
-						Meta: model.Meta{Page: 1, Limit: 10, Total: 2, Pages: 1},
+						Meta:  model.Meta{Page: 1, Limit: 10, Total: 2, Pages: 1},
 					},
 					nil,
 				)

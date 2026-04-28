@@ -150,11 +150,11 @@ func SQLInjectionPayloads() []string {
 // EmptyOrderByPayloads returns empty and whitespace-only OrderBy values for edge case testing.
 func EmptyOrderByPayloads() []string {
 	return []string{
-		"",           // Empty string
-		"  ",         // Only spaces
-		"\t",         // Only tab
-		"\n",         // Only newline
-		"  \t\n  ",   // Mixed whitespace
+		"",         // Empty string
+		"  ",       // Only spaces
+		"\t",       // Only tab
+		"\n",       // Only newline
+		"  \t\n  ", // Mixed whitespace
 	}
 }
 

@@ -300,10 +300,10 @@ func (r *RabbitMQConnection) PublishWithConfirm(
 		if err != nil {
 			lastErr = fmt.Errorf("failed to open channel (attempt %d): %w", attempt+1, err)
 			r.logger.Error("failed to open channel for publish with confirm", map[string]any{
-				"attempt":      attempt + 1,
-				"error":        err.Error(),
-				"exchange":     exchange,
-				"routing_key":  routingKey,
+				"attempt":     attempt + 1,
+				"error":       err.Error(),
+				"exchange":    exchange,
+				"routing_key": routingKey,
 			})
 			r.triggerReconnect()
 			continue
@@ -337,10 +337,10 @@ func (r *RabbitMQConnection) PublishWithConfirm(
 			ch.Close()
 			lastErr = fmt.Errorf("publish failed (attempt %d): %w", attempt+1, publishErr)
 			r.logger.Error("rabbitmq publish with confirm failed", map[string]any{
-				"attempt":      attempt + 1,
-				"error":        publishErr.Error(),
-				"exchange":     exchange,
-				"routing_key":  routingKey,
+				"attempt":     attempt + 1,
+				"error":       publishErr.Error(),
+				"exchange":    exchange,
+				"routing_key": routingKey,
 			})
 			r.triggerReconnect()
 			continue
@@ -375,10 +375,10 @@ func (r *RabbitMQConnection) PublishWithConfirm(
 			ch.Close()
 			lastErr = fmt.Errorf("confirmation timeout after %v (attempt %d)", confirmTimeout, attempt+1)
 			r.logger.Warn("rabbitmq publish confirmation timeout", map[string]any{
-				"attempt":      attempt + 1,
-				"timeout":      confirmTimeout.String(),
-				"exchange":     exchange,
-				"routing_key":  routingKey,
+				"attempt":     attempt + 1,
+				"timeout":     confirmTimeout.String(),
+				"exchange":    exchange,
+				"routing_key": routingKey,
 			})
 
 		case <-ctx.Done():
@@ -436,11 +436,11 @@ func (r *RabbitMQConnection) DeclareExchange(exchange, exchangeType string, dura
 
 // QueueConfig holds configuration for declaring a queue.
 type QueueConfig struct {
-	Name          string
-	Durable       bool
-	AutoDelete    bool
-	Exclusive     bool
-	Args          amqp.Table
+	Name       string
+	Durable    bool
+	AutoDelete bool
+	Exclusive  bool
+	Args       amqp.Table
 }
 
 // DeclareQueue declares a queue on the RabbitMQ server.
@@ -478,10 +478,10 @@ func (r *RabbitMQConnection) DeclareQueue(cfg QueueConfig) error {
 	}
 
 	r.logger.Info("rabbitmq queue declared", map[string]any{
-		"queue":      cfg.Name,
-		"durable":    cfg.Durable,
+		"queue":       cfg.Name,
+		"durable":     cfg.Durable,
 		"auto_delete": cfg.AutoDelete,
-		"exclusive":  cfg.Exclusive,
+		"exclusive":   cfg.Exclusive,
 	})
 
 	return nil

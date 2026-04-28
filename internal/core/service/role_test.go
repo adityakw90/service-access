@@ -5,14 +5,14 @@ import (
 	"errors"
 	"testing"
 
+	adapterobserver "github.com/adityakw90/service-access/internal/adapter/observer"
 	"github.com/adityakw90/service-access/internal/core/domain/model"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
 	"github.com/adityakw90/service-access/internal/core/domain/signal"
-	adapterobserver "github.com/adityakw90/service-access/internal/adapter/observer"
 	"github.com/adityakw90/service-access/internal/core/port/repository"
-	repomocks "github.com/adityakw90/service-access/test/mocks/repository"
-	resolvermocks "github.com/adityakw90/service-access/test/mocks/resolver"
-	securitymocks "github.com/adityakw90/service-access/test/mocks/security"
+	repomocks "github.com/adityakw90/service-access/mocks/repository"
+	resolvermocks "github.com/adityakw90/service-access/mocks/resolver"
+	securitymocks "github.com/adityakw90/service-access/mocks/security"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -77,6 +77,14 @@ func (m *mockRoleRepository) RemovePermission(ctx context.Context, roleID int64,
 func (m *mockRoleRepository) ReplacePermission(ctx context.Context, roleID int64, groupPermissionIDs []int64) error {
 	args := m.Called(ctx, roleID, groupPermissionIDs)
 	return args.Error(0)
+}
+
+func (m *mockRoleRepository) GetAllPermissions(ctx context.Context, roleID int64) ([]model.Permission, error) {
+	args := m.Called(ctx, roleID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]model.Permission), args.Error(1)
 }
 
 func TestRoleService_Create(t *testing.T) {

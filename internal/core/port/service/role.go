@@ -34,4 +34,3 @@ type RoleService interface {
 //     resolverProvider resolver.ResolverProvider,
 //     obs observer.ServiceObserver[signal.SignalRole],
 // ) RoleService
-
