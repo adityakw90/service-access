@@ -26,9 +26,9 @@ var allowedOrderByRole = map[string]param.RoleOrderBy{
 
 // allowedOrderByRolePermission maps OrderBy string values to their typed enum for validation.
 var allowedOrderByRolePermission = map[string]param.RolePermissionOrderBy{
-	"role_id":              param.OrderByRolePermissionRoleID,
+	"role_id":             param.OrderByRolePermissionRoleID,
 	"group_permission_id": param.OrderByRolePermissionGroupPermissionID,
-	"created_at":           param.OrderByRolePermissionCreatedAt,
+	"created_at":          param.OrderByRolePermissionCreatedAt,
 }
 
 type roleRepository struct {
@@ -194,7 +194,7 @@ func (r *roleRepository) List(ctx context.Context, pagination *param.PaginationP
 	}
 
 	// Apply sorting
-	orderByValue := r.validateOrderBy(pagination, "created_at")
+	orderByValue := validateOrderBy(pagination, "created_at", allowedOrderByRole)
 	orderBy := "r." + orderByValue
 	if pagination != nil && pagination.Sort != nil {
 		orderBy += " " + *pagination.Sort
@@ -346,7 +346,7 @@ func (r *roleRepository) ListPermission(ctx context.Context, roleID int64, pagin
 	}
 
 	// Apply sorting
-	orderByValue := r.validateOrderByRolePermission(pagination, "created_at")
+	orderByValue := validateOrderBy(pagination, "created_at", allowedOrderByRolePermission)
 	orderBy := "rp." + orderByValue
 	if pagination != nil && pagination.Sort != nil {
 		orderBy += " " + *pagination.Sort
@@ -515,26 +515,6 @@ func (r *roleRepository) AddPermission(ctx context.Context, roleID int64, groupP
 	}
 
 	return nil
-}
-
-// validateOrderBy validates the OrderBy value against allowed Role columns using O(1) map lookup.
-func (r *roleRepository) validateOrderBy(pagination *param.PaginationParam, defaultOrderBy string) string {
-	if pagination != nil && pagination.OrderBy != nil {
-		if _, ok := allowedOrderByRole[*pagination.OrderBy]; ok {
-			return *pagination.OrderBy
-		}
-	}
-	return defaultOrderBy
-}
-
-// validateOrderByRolePermission validates the OrderBy value against allowed RolePermission columns using O(1) map lookup.
-func (r *roleRepository) validateOrderByRolePermission(pagination *param.PaginationParam, defaultOrderBy string) string {
-	if pagination != nil && pagination.OrderBy != nil {
-		if _, ok := allowedOrderByRolePermission[*pagination.OrderBy]; ok {
-			return *pagination.OrderBy
-		}
-	}
-	return defaultOrderBy
 }
 
 func (r *roleRepository) RemovePermission(ctx context.Context, roleID int64, groupPermissionID int64) error {

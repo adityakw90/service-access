@@ -174,7 +174,7 @@ func (r *groupRepository) List(ctx context.Context, pagination *param.Pagination
 	}
 
 	// Apply sorting
-	orderByValue := r.validateOrderBy(pagination, "created_at")
+	orderByValue := validateOrderBy(pagination, "created_at", allowedOrderByGroup)
 	if pagination != nil && pagination.Sort != nil {
 		orderByValue += " " + *pagination.Sort
 	} else {
@@ -313,7 +313,7 @@ func (r *groupRepository) ListPermission(ctx context.Context, groupID int64, pag
 	}
 
 	// Apply sorting
-	orderByValue := r.validateOrderByGroupPermission(pagination, "created_at")
+	orderByValue := validateOrderBy(pagination, "created_at", allowedOrderByGroupPermission)
 	orderBy := "gp." + orderByValue
 	if pagination != nil && pagination.Sort != nil {
 		orderBy += " " + *pagination.Sort
@@ -552,24 +552,4 @@ func (r *groupRepository) ReplacePermission(ctx context.Context, groupID int64, 
 	}
 
 	return nil
-}
-
-// validateOrderBy validates the OrderBy value against allowed Group columns using O(1) map lookup.
-func (r *groupRepository) validateOrderBy(pagination *param.PaginationParam, defaultOrderBy string) string {
-	if pagination != nil && pagination.OrderBy != nil {
-		if _, ok := allowedOrderByGroup[*pagination.OrderBy]; ok {
-			return *pagination.OrderBy
-		}
-	}
-	return defaultOrderBy
-}
-
-// validateOrderByGroupPermission validates the OrderBy value against allowed GroupPermission columns using O(1) map lookup.
-func (r *groupRepository) validateOrderByGroupPermission(pagination *param.PaginationParam, defaultOrderBy string) string {
-	if pagination != nil && pagination.OrderBy != nil {
-		if _, ok := allowedOrderByGroupPermission[*pagination.OrderBy]; ok {
-			return *pagination.OrderBy
-		}
-	}
-	return defaultOrderBy
 }

@@ -175,7 +175,7 @@ func (r *permissionRepository) List(ctx context.Context, pagination *param.Pagin
 	}
 
 	// Apply sorting
-	orderByValue := r.validateOrderBy(pagination, "created_at")
+	orderByValue := validateOrderBy(pagination, "created_at", allowedOrderByPermission)
 	if pagination != nil && pagination.Sort != nil {
 		orderByValue += " " + *pagination.Sort
 	} else {
@@ -264,14 +264,4 @@ func (r *permissionRepository) List(ctx context.Context, pagination *param.Pagin
 			Limit: limit,
 		},
 	}, nil
-}
-
-// validateOrderBy validates the OrderBy value against allowed columns using O(1) map lookup.
-func (r *permissionRepository) validateOrderBy(pagination *param.PaginationParam, defaultOrderBy string) string {
-	if pagination != nil && pagination.OrderBy != nil {
-		if _, ok := allowedOrderByPermission[*pagination.OrderBy]; ok {
-			return *pagination.OrderBy
-		}
-	}
-	return defaultOrderBy
 }

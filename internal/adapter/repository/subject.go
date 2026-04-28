@@ -202,7 +202,7 @@ func (r *subjectRepository) List(ctx context.Context, pagination *param.Paginati
 	}
 
 	// Apply sorting
-	orderByValue := r.validateOrderBy(pagination, "assigned_at")
+	orderByValue := validateOrderBy(pagination, "assigned_at", allowedOrderBySubject)
 	orderBy := "sr." + orderByValue
 	if pagination != nil && pagination.Sort != nil {
 		orderBy += " " + *pagination.Sort
@@ -294,16 +294,6 @@ func (r *subjectRepository) List(ctx context.Context, pagination *param.Paginati
 	}, nil
 }
 
-// validateOrderBy validates the OrderBy value against allowed Subject columns using O(1) map lookup.
-func (r *subjectRepository) validateOrderBy(pagination *param.PaginationParam, defaultOrderBy string) string {
-	if pagination != nil && pagination.OrderBy != nil {
-		if _, ok := allowedOrderBySubject[*pagination.OrderBy]; ok {
-			return *pagination.OrderBy
-		}
-	}
-	return defaultOrderBy
-}
-
 func (r *subjectRepository) GetAllGroups(ctx context.Context, subjectID string, subjectType string) ([]model.Group, error) {
 	const sql = `
 		SELECT DISTINCT g.id, g.uid, g.name, g.description, g.created_at, g.updated_at
@@ -337,4 +327,42 @@ func (r *subjectRepository) GetAllGroups(ctx context.Context, subjectID string, 
 	}
 
 	return groups, nil
+}
+
+func (r *subjectRepository) GetAllPermissions(ctx context.Context, subjectID string, subjectType string) ([]model.Permission, error) {
+	const sql = `
+		SELECT DISTINCT p.id, p.uid, p.resource, p.action, p.description, p.created_at, p.updated_at
+		FROM subject_role sr
+		JOIN role r ON sr.role_id = r.id
+		JOIN role_permission rp ON r.id = rp.role_id
+		JOIN "group" g ON r.group_id = g.id
+		JOIN group_permission gp ON g.id = gp.group_id AND rp.group_permission_id = gp.id
+		JOIN permission p ON gp.permission_id = p.id
+		WHERE sr.subject_id = $1 AND sr.subject_type = $2
+		ORDER BY p.uid
+	`
+
+	rows, err := r.db.Query(ctx, sql, subjectID, subjectType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get all permissions for subject: %w", err)
+	}
+	defer rows.Close()
+
+	var permissions []model.Permission
+	for rows.Next() {
+		var p model.Permission
+		err := rows.Scan(
+			&p.ID, &p.UID, &p.Resource, &p.Action, &p.Description, &p.CreatedAt, &p.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan permission: %w", err)
+		}
+		permissions = append(permissions, p)
+	}
+
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("error iterating permissions: %w", rows.Err())
+	}
+
+	return permissions, nil
 }
