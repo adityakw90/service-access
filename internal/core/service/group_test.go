@@ -13,6 +13,7 @@ import (
 	repomocks "github.com/adityakw90/service-access/mocks/repository"
 	resolvermocks "github.com/adityakw90/service-access/mocks/resolver"
 	securitymocks "github.com/adityakw90/service-access/mocks/security"
+	eventmocks "github.com/adityakw90/service-access/mocks/event"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -20,7 +21,7 @@ import (
 func TestGroupService_Create(t *testing.T) {
 	tests := []struct {
 		name    string
-		setup   func(*repomocks.MockUnitOfWork, *repomocks.MockRepositoryProvider, *securitymocks.MockUIDGenerator)
+		setup   func(*repomocks.MockUnitOfWork, *repomocks.MockRepositoryProvider, *securitymocks.MockUIDGenerator, *eventmocks.MockEventPublisher)
 		param   param.GroupCreateParam
 		want    *model.Group
 		wantErr bool
@@ -28,14 +29,14 @@ func TestGroupService_Create(t *testing.T) {
 	}{
 		{
 			name: "Happy Path",
-			setup: func(m *repomocks.MockUnitOfWork, p *repomocks.MockRepositoryProvider, uidGen *securitymocks.MockUIDGenerator) {
+			setup: func(m *repomocks.MockUnitOfWork, p *repomocks.MockRepositoryProvider, uidGen *securitymocks.MockUIDGenerator, pub *eventmocks.MockEventPublisher) {
 				uidGen.EXPECT().New().Return("test-uid")
+				pub.EXPECT().Publish(mock.Anything, mock.Anything, mock.AnythingOfType("*event.EventGroupCreateData")).Return(nil)
 				m.EXPECT().Do(mock.Anything, mock.AnythingOfType("func(repository.RepositoryProvider) error")).Return(nil).RunAndReturn(func(ctx context.Context, fn func(repository.RepositoryProvider) error) error {
 					mockGroupRepo := repomocks.NewMockGroupRepository(t)
-					repos := &mockRepositories{}
-					repos.SetGroupRepo(mockGroupRepo)
 					mockGroupRepo.EXPECT().Create(mock.Anything, mock.AnythingOfType("*model.Group")).Return(nil)
-					return fn(repos)
+					p.EXPECT().Group().Return(mockGroupRepo)
+					return fn(p)
 				})
 			},
 			param: param.GroupCreateParam{
@@ -52,7 +53,7 @@ func TestGroupService_Create(t *testing.T) {
 		},
 		{
 			name: "UnitOfWork Error",
-			setup: func(m *repomocks.MockUnitOfWork, p *repomocks.MockRepositoryProvider, uidGen *securitymocks.MockUIDGenerator) {
+			setup: func(m *repomocks.MockUnitOfWork, p *repomocks.MockRepositoryProvider, uidGen *securitymocks.MockUIDGenerator, pub *eventmocks.MockEventPublisher) {
 				uidGen.EXPECT().New().Return("test-uid")
 				m.EXPECT().Do(mock.Anything, mock.AnythingOfType("func(repository.RepositoryProvider) error")).Return(errors.New("transaction error"))
 			},
@@ -69,12 +70,12 @@ func TestGroupService_Create(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockUoW := repomocks.NewMockUnitOfWork(t)
 			mockRepos := repomocks.NewMockRepositoryProvider(t)
-			mockPublisher := &mockPublisher{}
+			mockPublisher := eventmocks.NewMockEventPublisher(t)
 			mockUIDGenerator := securitymocks.NewMockUIDGenerator(t)
 			mockResolverProvider := resolvermocks.NewMockResolverProvider(t)
 			mockObserver := adapterobserver.NewNoopObserver[signal.SignalGroup]()
 
-			tt.setup(mockUoW, mockRepos, mockUIDGenerator)
+			tt.setup(mockUoW, mockRepos, mockUIDGenerator, mockPublisher)
 
 			service := NewGroupService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, nil, mockObserver, adapterobserver.NewNoopObserver[signal.SignalGroupPermission]())
 			got, err := service.Create(context.Background(), tt.param)
@@ -145,7 +146,7 @@ func TestGroupService_Get(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockUoW := repomocks.NewMockUnitOfWork(t)
 			mockRepos := repomocks.NewMockRepositoryProvider(t)
-			mockPublisher := &mockPublisher{}
+			mockPublisher := eventmocks.NewMockEventPublisher(t)
 			mockUIDGenerator := securitymocks.NewMockUIDGenerator(t)
 			mockResolverProvider := resolvermocks.NewMockResolverProvider(t)
 			mockObserver := adapterobserver.NewNoopObserver[signal.SignalGroup]()
@@ -201,7 +202,7 @@ func TestGroupService_List(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockUoW := repomocks.NewMockUnitOfWork(t)
 			mockRepos := repomocks.NewMockRepositoryProvider(t)
-			mockPublisher := &mockPublisher{}
+			mockPublisher := eventmocks.NewMockEventPublisher(t)
 			mockUIDGenerator := securitymocks.NewMockUIDGenerator(t)
 			mockResolverProvider := resolvermocks.NewMockResolverProvider(t)
 			mockObserver := adapterobserver.NewNoopObserver[signal.SignalGroup]()
