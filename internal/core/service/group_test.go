@@ -17,84 +17,6 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// mockGroupRepository is a temporary mock for GroupRepository
-// This will be replaced by generated mocks once mockery is run on the repository
-type mockGroupRepository struct {
-	mock.Mock
-}
-
-func (m *mockGroupRepository) Create(ctx context.Context, group *model.Group) error {
-	args := m.Called(ctx, group)
-	return args.Error(0)
-}
-
-func (m *mockGroupRepository) Update(ctx context.Context, group *model.Group) error {
-	args := m.Called(ctx, group)
-	return args.Error(0)
-}
-
-func (m *mockGroupRepository) Delete(ctx context.Context, id int64) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
-}
-
-func (m *mockGroupRepository) GetByID(ctx context.Context, id int64) (*model.Group, error) {
-	args := m.Called(ctx, id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*model.Group), args.Error(1)
-}
-
-func (m *mockGroupRepository) GetByUID(ctx context.Context, uid string) (*model.Group, error) {
-	args := m.Called(ctx, uid)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*model.Group), args.Error(1)
-}
-
-func (m *mockGroupRepository) List(ctx context.Context, pagination *param.PaginationParam, filter *param.GroupListFilterParam) (model.Groups, error) {
-	args := m.Called(ctx, pagination, filter)
-	return args.Get(0).(model.Groups), args.Error(1)
-}
-
-func (m *mockGroupRepository) ListPermission(ctx context.Context, groupID int64, pagination *param.PaginationParam, filter *param.GroupPermissionListFilterParam) (model.GroupPermissions, error) {
-	args := m.Called(ctx, groupID, pagination, filter)
-	return args.Get(0).(model.GroupPermissions), args.Error(1)
-}
-
-func (m *mockGroupRepository) AddPermission(ctx context.Context, groupID int64, permissionID int64, uid string) error {
-	args := m.Called(ctx, groupID, permissionID, uid)
-	return args.Error(0)
-}
-
-func (m *mockGroupRepository) RemovePermission(ctx context.Context, groupID int64, permissionID int64) error {
-	args := m.Called(ctx, groupID, permissionID)
-	return args.Error(0)
-}
-
-func (m *mockGroupRepository) ReplacePermission(ctx context.Context, groupID int64, permissionIDs []int64, uids []string) error {
-	args := m.Called(ctx, groupID, permissionIDs, uids)
-	return args.Error(0)
-}
-
-func (m *mockGroupRepository) GetPermissionByID(ctx context.Context, groupPermissionID int64) (*model.GroupPermission, error) {
-	args := m.Called(ctx, groupPermissionID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*model.GroupPermission), args.Error(1)
-}
-
-func (m *mockGroupRepository) GetPermissionByGroupIDAndPermissionUID(ctx context.Context, groupID int64, permissionUID string) (*model.GroupPermission, error) {
-	args := m.Called(ctx, groupID, permissionUID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*model.GroupPermission), args.Error(1)
-}
-
 func TestGroupService_Create(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -107,15 +29,13 @@ func TestGroupService_Create(t *testing.T) {
 		{
 			name: "Happy Path",
 			setup: func(m *repomocks.MockUnitOfWork, p *repomocks.MockRepositoryProvider, uidGen *securitymocks.MockUIDGenerator) {
-				uidGen.On("New").Return("test-uid")
-				m.On("Do", mock.Anything, mock.AnythingOfType("func(repository.RepositoryProvider) error")).Return(nil).Run(func(args mock.Arguments) {
-					fn := args.Get(1).(func(repository.RepositoryProvider) error)
-					repos := &mockRepositories{group: &mockGroupRepository{}}
-					// Set up the mock to return nil for Create
-					repos.group.(*mockGroupRepository).On("Create", mock.Anything, mock.AnythingOfType("*model.Group")).Return(nil)
-
-					// Call the function with our mock repositories
-					fn(repos)
+				uidGen.EXPECT().New().Return("test-uid")
+				m.EXPECT().Do(mock.Anything, mock.AnythingOfType("func(repository.RepositoryProvider) error")).Return(nil).RunAndReturn(func(ctx context.Context, fn func(repository.RepositoryProvider) error) error {
+					mockGroupRepo := repomocks.NewMockGroupRepository(t)
+					repos := &mockRepositories{}
+					repos.SetGroupRepo(mockGroupRepo)
+					mockGroupRepo.EXPECT().Create(mock.Anything, mock.AnythingOfType("*model.Group")).Return(nil)
+					return fn(repos)
 				})
 			},
 			param: param.GroupCreateParam{
@@ -133,8 +53,8 @@ func TestGroupService_Create(t *testing.T) {
 		{
 			name: "UnitOfWork Error",
 			setup: func(m *repomocks.MockUnitOfWork, p *repomocks.MockRepositoryProvider, uidGen *securitymocks.MockUIDGenerator) {
-				uidGen.On("New").Return("test-uid")
-				m.On("Do", mock.Anything, mock.AnythingOfType("func(repository.RepositoryProvider) error")).Return(errors.New("transaction error"))
+				uidGen.EXPECT().New().Return("test-uid")
+				m.EXPECT().Do(mock.Anything, mock.AnythingOfType("func(repository.RepositoryProvider) error")).Return(errors.New("transaction error"))
 			},
 			param: param.GroupCreateParam{
 				Name:        "admin",
@@ -190,14 +110,14 @@ func TestGroupService_Get(t *testing.T) {
 		{
 			name: "Happy Path",
 			setup: func(p *repomocks.MockRepositoryProvider) {
-				mockGroupRepo := &mockGroupRepository{}
-				mockGroupRepo.On("GetByID", mock.Anything, int64(1)).Return(&model.Group{
+				mockGroupRepo := repomocks.NewMockGroupRepository(t)
+				mockGroupRepo.EXPECT().GetByID(mock.Anything, int64(1)).Return(&model.Group{
 					ID:          1,
 					UID:         "test-uid",
 					Name:        "admin",
 					Description: "Administrators",
 				}, nil)
-				p.On("Group").Return(mockGroupRepo)
+				p.EXPECT().Group().Return(mockGroupRepo)
 			},
 			uid: "test-uid",
 			want: &model.Group{
@@ -211,9 +131,9 @@ func TestGroupService_Get(t *testing.T) {
 		{
 			name: "Not Found",
 			setup: func(p *repomocks.MockRepositoryProvider) {
-				mockGroupRepo := &mockGroupRepository{}
-				mockGroupRepo.On("GetByID", mock.Anything, int64(1)).Return(nil, errors.New("group not found"))
-				p.On("Group").Return(mockGroupRepo)
+				mockGroupRepo := repomocks.NewMockGroupRepository(t)
+				mockGroupRepo.EXPECT().GetByID(mock.Anything, int64(1)).Return(nil, errors.New("group not found"))
+				p.EXPECT().Group().Return(mockGroupRepo)
 			},
 			uid:     "not-found",
 			wantErr: true,
@@ -232,8 +152,8 @@ func TestGroupService_Get(t *testing.T) {
 
 			// Set up resolver mock
 			mockGroupResolver := resolvermocks.NewMockGroupResolver(t)
-			mockGroupResolver.On("IDsByUIDs", mock.Anything, []string{tt.uid}).Return(map[string]int64{tt.uid: 1}, nil)
-			mockResolverProvider.On("Group").Return(mockGroupResolver)
+			mockGroupResolver.EXPECT().IDsByUIDs(mock.Anything, []string{tt.uid}).Return(map[string]int64{tt.uid: 1}, nil)
+			mockResolverProvider.EXPECT().Group().Return(mockGroupResolver)
 
 			tt.setup(mockRepos)
 
@@ -263,15 +183,15 @@ func TestGroupService_List(t *testing.T) {
 		{
 			name: "Happy Path",
 			setup: func(p *repomocks.MockRepositoryProvider) {
-				mockGroupRepo := &mockGroupRepository{}
-				mockGroupRepo.On("List", mock.Anything, mock.Anything, mock.Anything).Return(model.Groups{
+				mockGroupRepo := repomocks.NewMockGroupRepository(t)
+				mockGroupRepo.EXPECT().List(mock.Anything, mock.Anything, mock.Anything).Return(model.Groups{
 					Items: []model.Group{
 						{ID: 1, UID: "test-uid-1", Name: "admin"},
 						{ID: 2, UID: "test-uid-2", Name: "user"},
 					},
 					Meta: model.Meta{Total: 2},
 				}, nil)
-				p.On("Group").Return(mockGroupRepo)
+				p.EXPECT().Group().Return(mockGroupRepo)
 			},
 			wantErr: false,
 		},
