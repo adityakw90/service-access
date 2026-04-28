@@ -10,8 +10,8 @@ import (
 	"github.com/adityakw90/service-access/internal/core/domain/signal"
 	"github.com/adityakw90/service-access/internal/core/port/repository"
 
-	repomocks "github.com/adityakw90/service-access/mocks/repository"
 	eventmocks "github.com/adityakw90/service-access/mocks/event"
+	repomocks "github.com/adityakw90/service-access/mocks/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -28,13 +28,13 @@ func (m *mockSubjectObserver) OnSignal(ctx context.Context, sig signal.SignalTyp
 
 func TestSubjectService_GetRoles(t *testing.T) {
 	tests := []struct {
-		name      string
-		subjectID string
+		name        string
+		subjectID   string
 		subjectType string
-		setup     func(*repomocks.MockSubjectRepository)
-		want      []model.Role
-		wantErr   bool
-		errMsg    string
+		setup       func(*repomocks.MockSubjectRepository)
+		want        []model.Role
+		wantErr     bool
+		errMsg      string
 	}{
 		{
 			name:        "Success - Returns roles",
@@ -78,7 +78,7 @@ func TestSubjectService_GetRoles(t *testing.T) {
 
 			mockRepo := repomocks.NewMockSubjectRepository(t)
 			mockObserver := new(mockSubjectObserver)
-				mockObserver.On("OnSignal", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
+			mockObserver.On("OnSignal", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
 
 			tt.setup(mockRepo)
 
@@ -156,7 +156,7 @@ func TestSubjectService_GetGroups(t *testing.T) {
 
 			mockRepo := repomocks.NewMockSubjectRepository(t)
 			mockObserver := new(mockSubjectObserver)
-				mockObserver.On("OnSignal", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
+			mockObserver.On("OnSignal", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
 
 			tt.setup(mockRepo)
 			mockObserver.On("OnSignal", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
@@ -233,7 +233,7 @@ func TestSubjectService_GetPermissions(t *testing.T) {
 
 			mockRepo := repomocks.NewMockSubjectRepository(t)
 			mockObserver := new(mockSubjectObserver)
-				mockObserver.On("OnSignal", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
+			mockObserver.On("OnSignal", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
 
 			tt.setup(mockRepo)
 			mockObserver.On("OnSignal", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
@@ -302,8 +302,8 @@ func TestSubjectService_GetFullProfile(t *testing.T) {
 			subjectType: "user",
 			setup: func(m *repomocks.MockSubjectRepository) {
 				m.EXPECT().GetAllGroups(mock.Anything, "user-456", "user").Return(nil, assert.AnError)
-					m.EXPECT().GetAllRoles(mock.Anything, "user-456", "user").Return([]model.Role{}, nil)
-					m.EXPECT().GetAllPermissions(mock.Anything, "user-456", "user").Return([]model.Permission{}, nil)
+				m.EXPECT().GetAllRoles(mock.Anything, "user-456", "user").Return([]model.Role{}, nil)
+				m.EXPECT().GetAllPermissions(mock.Anything, "user-456", "user").Return([]model.Permission{}, nil)
 			},
 			wantErr: true,
 			errMsg:  "failed to get groups",
@@ -316,7 +316,7 @@ func TestSubjectService_GetFullProfile(t *testing.T) {
 
 			mockRepo := repomocks.NewMockSubjectRepository(t)
 			mockObserver := new(mockSubjectObserver)
-				mockObserver.On("OnSignal", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
+			mockObserver.On("OnSignal", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
 
 			tt.setup(mockRepo)
 			mockObserver.On("OnSignal", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
@@ -345,18 +345,18 @@ func TestSubjectService_GetFullProfile(t *testing.T) {
 
 func TestSubjectService_List(t *testing.T) {
 	tests := []struct {
-		name      string
+		name       string
 		pagination *param.PaginationParam
 		filter     *param.SubjectListFilterParam
-		setup     func(*repomocks.MockSubjectRepository)
-		want      *model.SubjectRoles
-		wantErr   bool
-		errMsg    string
+		setup      func(*repomocks.MockSubjectRepository)
+		want       *model.SubjectRoles
+		wantErr    bool
+		errMsg     string
 	}{
 		{
-			name: "Success - Returns subject list",
+			name:       "Success - Returns subject list",
 			pagination: &param.PaginationParam{Page: intPtr(1), Limit: intPtr(10)},
-			filter: &param.SubjectListFilterParam{SubjectID: strPtr("user-123")},
+			filter:     &param.SubjectListFilterParam{SubjectID: strPtr("user-123")},
 			setup: func(m *repomocks.MockSubjectRepository) {
 				m.EXPECT().List(mock.Anything, mock.AnythingOfType("*param.PaginationParam"), mock.AnythingOfType("*param.SubjectListFilterParam")).Return(model.SubjectRoles{
 					Items: []model.SubjectRole{
@@ -374,9 +374,9 @@ func TestSubjectService_List(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "Error - Repository failure",
+			name:       "Error - Repository failure",
 			pagination: &param.PaginationParam{Page: intPtr(1), Limit: intPtr(10)},
-			filter: &param.SubjectListFilterParam{},
+			filter:     &param.SubjectListFilterParam{},
 			setup: func(m *repomocks.MockSubjectRepository) {
 				m.EXPECT().List(mock.Anything, mock.Anything, mock.Anything).Return(model.SubjectRoles{}, assert.AnError)
 			},
@@ -391,9 +391,8 @@ func TestSubjectService_List(t *testing.T) {
 
 			mockRepo := repomocks.NewMockSubjectRepository(t)
 			mockObserver := new(mockSubjectObserver)
-				mockObserver.On("OnSignal", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
+			mockObserver.On("OnSignal", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
 
-			tt.setup(mockRepo)
 			tt.setup(mockRepo)
 			if !tt.wantErr {
 				mockObserver.On("OnSignal", mock.Anything, signal.SignalSuccess, mock.Anything, nil).Once()
@@ -445,7 +444,7 @@ func TestSubjectService_Assign(t *testing.T) {
 					subjectRepo.EXPECT().Create(mock.Anything, mock.AnythingOfType("*model.SubjectRole")).Return(nil)
 
 					err := // Set up observer expectations first
-			fn(provider)
+						fn(provider)
 					assert.NoError(t, err)
 				})
 
@@ -463,9 +462,8 @@ func TestSubjectService_Assign(t *testing.T) {
 					provider.EXPECT().Role().Return(roleRepo)
 					roleRepo.EXPECT().GetByUID(mock.Anything, "nonexistent").Return(nil, assert.AnError)
 
-
 					// Set up observer expectations first
-			fn(provider)
+					fn(provider)
 				})
 			},
 			wantErr: true,
@@ -486,9 +484,8 @@ func TestSubjectService_Assign(t *testing.T) {
 					provider.EXPECT().Subject().Return(subjectRepo)
 					subjectRepo.EXPECT().Create(mock.Anything, mock.AnythingOfType("*model.SubjectRole")).Return(assert.AnError)
 
-
 					// Set up observer expectations first
-			fn(provider)
+					fn(provider)
 				})
 			},
 			wantErr: true,
@@ -506,7 +503,7 @@ func TestSubjectService_Assign(t *testing.T) {
 			mockSubjectRepo := repomocks.NewMockSubjectRepository(t)
 			mockPublisher := eventmocks.NewMockEventPublisher(t)
 			mockObserver := new(mockSubjectObserver)
-				mockObserver.On("OnSignal", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
+			mockObserver.On("OnSignal", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
 
 			tt.setup(mockUow, mockProvider, mockRoleRepo, mockSubjectRepo, mockPublisher, mockObserver)
 
@@ -556,7 +553,7 @@ func TestSubjectService_Revoke(t *testing.T) {
 					subjectRepo.EXPECT().Delete(mock.Anything, "user-123", "user", int64(1)).Return(nil)
 
 					err := // Set up observer expectations first
-			fn(provider)
+						fn(provider)
 					assert.NoError(t, err)
 				})
 
@@ -574,9 +571,8 @@ func TestSubjectService_Revoke(t *testing.T) {
 					provider.EXPECT().Role().Return(roleRepo)
 					roleRepo.EXPECT().GetByUID(mock.Anything, "nonexistent").Return(nil, assert.AnError)
 
-
 					// Set up observer expectations first
-			fn(provider)
+					fn(provider)
 				})
 			},
 			wantErr: true,
@@ -597,9 +593,8 @@ func TestSubjectService_Revoke(t *testing.T) {
 					provider.EXPECT().Subject().Return(subjectRepo)
 					subjectRepo.EXPECT().Delete(mock.Anything, "user-123", "user", int64(1)).Return(assert.AnError)
 
-
 					// Set up observer expectations first
-			fn(provider)
+					fn(provider)
 				})
 			},
 			wantErr: true,
@@ -617,7 +612,7 @@ func TestSubjectService_Revoke(t *testing.T) {
 			mockSubjectRepo := repomocks.NewMockSubjectRepository(t)
 			mockPublisher := eventmocks.NewMockEventPublisher(t)
 			mockObserver := new(mockSubjectObserver)
-				mockObserver.On("OnSignal", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
+			mockObserver.On("OnSignal", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
 
 			tt.setup(mockUow, mockProvider, mockRoleRepo, mockSubjectRepo, mockPublisher, mockObserver)
 
