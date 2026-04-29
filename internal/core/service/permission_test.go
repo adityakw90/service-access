@@ -13,56 +13,15 @@ import (
 	repomocks "github.com/adityakw90/service-access/mocks/repository"
 	resolvermocks "github.com/adityakw90/service-access/mocks/resolver"
 	securitymocks "github.com/adityakw90/service-access/mocks/security"
+	eventmocks "github.com/adityakw90/service-access/mocks/event"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-// mockPermissionRepository is a temporary mock for PermissionRepository
-// This will be replaced by generated mocks once mockery is run on the repository
-type mockPermissionRepository struct {
-	mock.Mock
-}
-
-func (m *mockPermissionRepository) Create(ctx context.Context, permission *model.Permission) error {
-	args := m.Called(ctx, permission)
-	return args.Error(0)
-}
-
-func (m *mockPermissionRepository) Update(ctx context.Context, permission *model.Permission) error {
-	args := m.Called(ctx, permission)
-	return args.Error(0)
-}
-
-func (m *mockPermissionRepository) Delete(ctx context.Context, id int64) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
-}
-
-func (m *mockPermissionRepository) GetByID(ctx context.Context, id int64) (*model.Permission, error) {
-	args := m.Called(ctx, id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*model.Permission), args.Error(1)
-}
-
-func (m *mockPermissionRepository) GetByUID(ctx context.Context, uid string) (*model.Permission, error) {
-	args := m.Called(ctx, uid)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*model.Permission), args.Error(1)
-}
-
-func (m *mockPermissionRepository) List(ctx context.Context, pagination *param.PaginationParam, filter *param.PermissionListFilterParam) (model.Permissions, error) {
-	args := m.Called(ctx, pagination, filter)
-	return args.Get(0).(model.Permissions), args.Error(1)
-}
-
 func TestPermissionService_Create(t *testing.T) {
 	tests := []struct {
 		name    string
-		setup   func(*repomocks.MockUnitOfWork, *repomocks.MockRepositoryProvider, *securitymocks.MockUIDGenerator)
+		setup   func(*repomocks.MockUnitOfWork, *repomocks.MockRepositoryProvider, *securitymocks.MockUIDGenerator, *eventmocks.MockEventPublisher)
 		param   param.PermissionCreateParam
 		want    *model.Permission
 		wantErr bool
@@ -70,16 +29,14 @@ func TestPermissionService_Create(t *testing.T) {
 	}{
 		{
 			name: "Happy Path",
-			setup: func(m *repomocks.MockUnitOfWork, p *repomocks.MockRepositoryProvider, uidGen *securitymocks.MockUIDGenerator) {
-				uidGen.On("New").Return("test-uid")
-				m.On("Do", mock.Anything, mock.AnythingOfType("func(repository.RepositoryProvider) error")).Return(nil).Run(func(args mock.Arguments) {
-					fn := args.Get(1).(func(repository.RepositoryProvider) error)
-					repos := &mockRepositories{permission: &mockPermissionRepository{}}
-					// Set up the mock to return nil for Create
-					repos.permission.(*mockPermissionRepository).On("Create", mock.Anything, mock.AnythingOfType("*model.Permission")).Return(nil)
-
-					// Call the function with our mock repositories
-					fn(repos)
+			setup: func(m *repomocks.MockUnitOfWork, p *repomocks.MockRepositoryProvider, uidGen *securitymocks.MockUIDGenerator, pub *eventmocks.MockEventPublisher) {
+				uidGen.EXPECT().New().Return("test-uid")
+				pub.EXPECT().Publish(mock.Anything, mock.Anything, mock.AnythingOfType("*event.EventPermissionCreateData")).Return(nil)
+				m.EXPECT().Do(mock.Anything, mock.AnythingOfType("func(repository.RepositoryProvider) error")).Return(nil).RunAndReturn(func(ctx context.Context, fn func(repository.RepositoryProvider) error) error {
+					mockPermRepo := repomocks.NewMockPermissionRepository(t)
+					mockPermRepo.EXPECT().Create(mock.Anything, mock.AnythingOfType("*model.Permission")).Return(nil)
+					p.EXPECT().Permission().Return(mockPermRepo)
+					return fn(p)
 				})
 			},
 			param: param.PermissionCreateParam{
@@ -98,9 +55,9 @@ func TestPermissionService_Create(t *testing.T) {
 		},
 		{
 			name: "UnitOfWork Error",
-			setup: func(m *repomocks.MockUnitOfWork, p *repomocks.MockRepositoryProvider, uidGen *securitymocks.MockUIDGenerator) {
+			setup: func(m *repomocks.MockUnitOfWork, p *repomocks.MockRepositoryProvider, uidGen *securitymocks.MockUIDGenerator, pub *eventmocks.MockEventPublisher) {
 				// Don't set up UID generator expectation since it won't be called in error case
-				m.On("Do", mock.Anything, mock.AnythingOfType("func(repository.RepositoryProvider) error")).Return(errors.New("transaction error"))
+				m.EXPECT().Do(mock.Anything, mock.AnythingOfType("func(repository.RepositoryProvider) error")).Return(errors.New("transaction error"))
 			},
 			param: param.PermissionCreateParam{
 				Resource:    "articles",
@@ -116,14 +73,14 @@ func TestPermissionService_Create(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockUoW := repomocks.NewMockUnitOfWork(t)
 			mockRepos := repomocks.NewMockRepositoryProvider(t)
-			mockPublisher := &mockPublisher{}
+			mockPublisher := eventmocks.NewMockEventPublisher(t)
 			mockUIDGenerator := securitymocks.NewMockUIDGenerator(t)
 			mockResolverProvider := resolvermocks.NewMockResolverProvider(t)
 			mockObserver := adapterobserver.NewNoopObserver[signal.SignalPermission]()
 
-			tt.setup(mockUoW, mockRepos, mockUIDGenerator)
+			tt.setup(mockUoW, mockRepos, mockUIDGenerator, mockPublisher)
 
-			service := NewPermissionService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, mockObserver)
+			service := NewPermissionService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, nil, mockObserver)
 			got, err := service.Create(context.Background(), tt.param)
 
 			if tt.wantErr {
@@ -158,15 +115,15 @@ func TestPermissionService_Get(t *testing.T) {
 		{
 			name: "Happy Path",
 			setup: func(p *repomocks.MockRepositoryProvider) {
-				mockPermRepo := &mockPermissionRepository{}
-				mockPermRepo.On("GetByID", mock.Anything, int64(1)).Return(&model.Permission{
+				mockPermRepo := repomocks.NewMockPermissionRepository(t)
+				mockPermRepo.EXPECT().GetByID(mock.Anything, int64(1)).Return(&model.Permission{
 					ID:          1,
 					UID:         "test-uid",
 					Resource:    "articles",
 					Action:      "read",
 					Description: "Read articles",
 				}, nil)
-				p.On("Permission").Return(mockPermRepo)
+				p.EXPECT().Permission().Return(mockPermRepo)
 			},
 			uid: "test-uid",
 			want: &model.Permission{
@@ -181,9 +138,9 @@ func TestPermissionService_Get(t *testing.T) {
 		{
 			name: "Not Found",
 			setup: func(p *repomocks.MockRepositoryProvider) {
-				mockPermRepo := &mockPermissionRepository{}
-				mockPermRepo.On("GetByID", mock.Anything, int64(1)).Return(nil, errors.New("permission not found"))
-				p.On("Permission").Return(mockPermRepo)
+				mockPermRepo := repomocks.NewMockPermissionRepository(t)
+				mockPermRepo.EXPECT().GetByID(mock.Anything, int64(1)).Return(nil, errors.New("permission not found"))
+				p.EXPECT().Permission().Return(mockPermRepo)
 			},
 			uid:     "not-found",
 			wantErr: true,
@@ -195,19 +152,19 @@ func TestPermissionService_Get(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockUoW := repomocks.NewMockUnitOfWork(t)
 			mockRepos := repomocks.NewMockRepositoryProvider(t)
-			mockPublisher := &mockPublisher{}
+			mockPublisher := eventmocks.NewMockEventPublisher(t)
 			mockUIDGenerator := securitymocks.NewMockUIDGenerator(t)
 			mockResolverProvider := resolvermocks.NewMockResolverProvider(t)
 			mockObserver := adapterobserver.NewNoopObserver[signal.SignalPermission]()
 
 			// Set up resolver mock
 			mockPermissionResolver := resolvermocks.NewMockPermissionResolver(t)
-			mockPermissionResolver.On("IDsByUIDs", mock.Anything, []string{tt.uid}).Return(map[string]int64{tt.uid: 1}, nil)
-			mockResolverProvider.On("Permission").Return(mockPermissionResolver)
+			mockPermissionResolver.EXPECT().IDsByUIDs(mock.Anything, []string{tt.uid}).Return(map[string]int64{tt.uid: 1}, nil)
+			mockResolverProvider.EXPECT().Permission().Return(mockPermissionResolver)
 
 			tt.setup(mockRepos)
 
-			service := NewPermissionService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, mockObserver)
+			service := NewPermissionService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, nil, mockObserver)
 			got, err := service.Get(context.Background(), tt.uid)
 
 			if tt.wantErr {
@@ -233,15 +190,15 @@ func TestPermissionService_List(t *testing.T) {
 		{
 			name: "Happy Path",
 			setup: func(p *repomocks.MockRepositoryProvider) {
-				mockPermRepo := &mockPermissionRepository{}
-				mockPermRepo.On("List", mock.Anything, mock.Anything, mock.Anything).Return(model.Permissions{
+				mockPermRepo := repomocks.NewMockPermissionRepository(t)
+				mockPermRepo.EXPECT().List(mock.Anything, mock.Anything, mock.Anything).Return(model.Permissions{
 					Items: []model.Permission{
 						{ID: 1, UID: "test-uid-1", Resource: "articles", Action: "read"},
 						{ID: 2, UID: "test-uid-2", Resource: "articles", Action: "write"},
 					},
 					Meta: model.Meta{Total: 2},
 				}, nil)
-				p.On("Permission").Return(mockPermRepo)
+				p.EXPECT().Permission().Return(mockPermRepo)
 			},
 			wantErr: false,
 		},
@@ -251,14 +208,14 @@ func TestPermissionService_List(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockUoW := repomocks.NewMockUnitOfWork(t)
 			mockRepos := repomocks.NewMockRepositoryProvider(t)
-			mockPublisher := &mockPublisher{}
+			mockPublisher := eventmocks.NewMockEventPublisher(t)
 			mockUIDGenerator := securitymocks.NewMockUIDGenerator(t)
 			mockResolverProvider := resolvermocks.NewMockResolverProvider(t)
 			mockObserver := adapterobserver.NewNoopObserver[signal.SignalPermission]()
 
 			tt.setup(mockRepos)
 
-			service := NewPermissionService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, mockObserver)
+			service := NewPermissionService(mockUoW, mockRepos, mockPublisher, mockUIDGenerator, mockResolverProvider, nil, mockObserver)
 			got, err := service.List(context.Background(), nil, nil)
 
 			if tt.wantErr {

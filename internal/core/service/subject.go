@@ -10,6 +10,7 @@ import (
 	"github.com/adityakw90/service-access/internal/core/domain/param"
 	"github.com/adityakw90/service-access/internal/core/domain/signal"
 	portEvent "github.com/adityakw90/service-access/internal/core/port/event"
+	portExecutor "github.com/adityakw90/service-access/internal/core/port/executor"
 	"github.com/adityakw90/service-access/internal/core/port/observer"
 	"github.com/adityakw90/service-access/internal/core/port/repository"
 	"github.com/adityakw90/service-access/internal/core/port/service"
@@ -20,6 +21,7 @@ type subjectService struct {
 	uow             repository.UnitOfWork
 	repos           repository.RepositoryProvider
 	publisher       portEvent.EventPublisher
+	executor        portExecutor.Executor
 	subjectObserver observer.ServiceObserver[signal.SignalSubject]
 }
 
@@ -27,12 +29,14 @@ func NewSubjectService(
 	uow repository.UnitOfWork,
 	repos repository.RepositoryProvider,
 	publisher portEvent.EventPublisher,
+	executor portExecutor.Executor,
 	subjectObserver observer.ServiceObserver[signal.SignalSubject],
 ) service.SubjectService {
 	return &subjectService{
 		uow:             uow,
 		repos:           repos,
 		publisher:       publisher,
+		executor:        executor,
 		subjectObserver: subjectObserver,
 	}
 }

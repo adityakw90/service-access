@@ -11,6 +11,7 @@ import (
 	"github.com/adityakw90/service-access/internal/core/domain/param"
 	"github.com/adityakw90/service-access/internal/core/domain/signal"
 	portEvent "github.com/adityakw90/service-access/internal/core/port/event"
+	portExecutor "github.com/adityakw90/service-access/internal/core/port/executor"
 	"github.com/adityakw90/service-access/internal/core/port/observer"
 	"github.com/adityakw90/service-access/internal/core/port/repository"
 	"github.com/adityakw90/service-access/internal/core/port/resolver"
@@ -24,6 +25,7 @@ type permissionService struct {
 	publisher    portEvent.EventPublisher
 	uidGenerator security.UIDGenerator
 	resolvers    resolver.ResolverProvider
+	executor     portExecutor.Executor
 	observer     observer.ServiceObserver[signal.SignalPermission]
 }
 
@@ -33,6 +35,7 @@ func NewPermissionService(
 	publisher portEvent.EventPublisher,
 	uidGenerator security.UIDGenerator,
 	resolverProvider resolver.ResolverProvider,
+	executor portExecutor.Executor,
 	observer observer.ServiceObserver[signal.SignalPermission],
 ) service.PermissionService {
 	return &permissionService{
@@ -41,6 +44,7 @@ func NewPermissionService(
 		publisher:    publisher,
 		uidGenerator: uidGenerator,
 		resolvers:    resolverProvider,
+		executor:     executor,
 		observer:     observer,
 	}
 }

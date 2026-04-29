@@ -94,7 +94,7 @@ func BenchmarkGetFullProfile(b *testing.B) {
 	uow := &mockUnitOfWork{}
 	repos := newCustomRepositoryProvider(db)
 	observer := &mockObserver{}
-	svc := NewSubjectService(uow, repos, nil, observer)
+	svc := NewSubjectService(uow, repos, nil, nil, observer)
 
 	b.ResetTimer()
 	b.ReportAllocs()

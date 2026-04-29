@@ -9,8 +9,9 @@ import (
 	"time"
 
 	grpcAdapter "github.com/adityakw90/service-access/internal/adapter/api/grpc"
+	"github.com/adityakw90/service-access/internal/adapter/event"
+	"github.com/adityakw90/service-access/internal/adapter/executor"
 	"github.com/adityakw90/service-access/internal/adapter/observer"
-	"github.com/adityakw90/service-access/internal/adapter/publisher"
 	"github.com/adityakw90/service-access/internal/adapter/repository"
 	"github.com/adityakw90/service-access/internal/adapter/resolver"
 	"github.com/adityakw90/service-access/internal/adapter/security"
@@ -21,6 +22,9 @@ import (
 )
 
 func main() {
+	// Handle --version flag early (before loading config)
+	handleVersionFlag()
+
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
@@ -80,7 +84,10 @@ func main() {
 		})
 	}
 	defer dbPool.Close()
-	logger.Info("connected to database", nil)
+	logger.Info("connected to database", map[string]interface{}{
+		"host": cfg.Database.Host,
+		"port": cfg.Database.Port,
+	})
 
 	// Connect to Redis using infra layer
 	redisClient, err := infra.NewRedisConnection(context.Background(), &infra.RedisConfig{
@@ -99,53 +106,10 @@ func main() {
 		})
 	}
 	defer redisClient.Close()
-	logger.Info("connected to redis", nil)
-
-	// Connect to RabbitMQ using infra layer (if enabled)
-	var rabbitmqConn *infra.RabbitMQConnection
-	if cfg.EventPublisher.RabbitMQ.Enabled {
-		rabbitmqConn, err = infra.NewRabbitMQConnection(ctx, infra.RabbitMQConfig{
-			Host:                 cfg.Rabbit.Host,
-			Port:                 cfg.Rabbit.Port,
-			User:                 cfg.Rabbit.User,
-			Password:             cfg.Rabbit.Password,
-			Vhost:                cfg.Rabbit.Vhost,
-			ReconnectInterval:    cfg.Rabbit.ReconnectInterval,
-			ReconnectMaxAttempts: cfg.Rabbit.ReconnectMaxAttempts,
-		}, iMon.Logger)
-		if err != nil {
-			logger.Fatal("failed to connect to rabbitmq", map[string]interface{}{
-				"error": err.Error(),
-			})
-		}
-		defer rabbitmqConn.Close()
-		logger.Info("connected to rabbitmq", map[string]interface{}{
-			"exchange": cfg.EventPublisher.RabbitMQ.Exchange,
-		})
-	}
-
-	// Connect to Kafka using infra layer (if enabled)
-	var kafkaConn *infra.KafkaConnection
-	if cfg.EventPublisher.Kafka.Enabled {
-		kafkaConn, err = infra.NewKafkaConnection(ctx, infra.KafkaConfig{
-			Brokers:              cfg.Kafka.Brokers,
-			MaxMessageBytes:      cfg.Kafka.MaxMessageBytes,
-			Timeout:              time.Duration(cfg.Kafka.TimeoutSeconds) * time.Second,
-			Compression:          cfg.Kafka.Compression,
-			ReconnectInterval:    1 * time.Second,
-			ReconnectMaxAttempts: 0, // 0 means infinite retries
-		}, iMon.Logger)
-		if err != nil {
-			logger.Fatal("failed to connect to kafka", map[string]interface{}{
-				"error": err.Error(),
-			})
-		}
-		defer kafkaConn.Close()
-		logger.Info("connected to kafka", map[string]interface{}{
-			"brokers": cfg.Kafka.Brokers,
-			"topic":   cfg.EventPublisher.Kafka.Topic,
-		})
-	}
+	logger.Info("connected to redis", map[string]interface{}{
+		"host": cfg.Redis.Host,
+		"port": cfg.Redis.Port,
+	})
 
 	// Initialize repositories
 	repoProvider := repository.NewRepositoryProvider(dbPool)
@@ -164,112 +128,79 @@ func main() {
 	// --- Event Publishers Setup ---
 	var eventPublisher portEvent.EventPublisher
 	if cfg.EventPublisher.Enabled {
-		var backends []portEvent.EventPublisher
+		var backendsPublisher []portEvent.EventPublisher
 
-		// Redis Stream backend for all events
-		if cfg.EventPublisher.Redis.Enabled && redisClient != nil {
-			redisStreamPub, err := publisher.NewRedisPublisher(
-				redisClient,
-				publisher.RedisPublisherConfig{
-					Stream: cfg.EventPublisher.Redis.Name,
-					MaxLen: cfg.EventPublisher.Redis.MaxLen,
-					Source: cfg.Instance.Name,
-				},
-				logger,
+		// setup http publisher
+		if cfg.EventPublisher.HTTP.Enabled {
+			eventHttpPublisher := event.NewHTTPPublisher(
+				cfg.EventPublisher.HTTP.URL,
+				cfg.EventPublisher.HTTP.Timeout,
+				iMon.Logger,
+				iMon.Tracer,
 			)
+			backendsPublisher = append(backendsPublisher, eventHttpPublisher)
+		}
+
+		// setup rabbitmq publisher
+		if cfg.EventPublisher.RabbitMQ.Enabled {
+			var rabbitmqConn *infra.Rabbit
+			rabbitmqConn, err = infra.NewRabbitConnection(ctx, infra.RabbitConfig{
+				Host:                 cfg.Rabbit.Host,
+				Port:                 cfg.Rabbit.Port,
+				User:                 cfg.Rabbit.User,
+				Password:             cfg.Rabbit.Password,
+				Vhost:                cfg.Rabbit.Vhost,
+				ReconnectInterval:    cfg.Rabbit.ReconnectInterval,
+				ReconnectMaxAttempts: cfg.Rabbit.ReconnectMaxAttempts,
+			}, iMon.Logger)
 			if err != nil {
-				logger.Fatal("failed to create redis stream publisher", map[string]interface{}{
+				logger.Fatal("failed to connect to rabbitmq", map[string]interface{}{
 					"error": err.Error(),
 				})
 			}
-			backends = append(backends, redisStreamPub)
-		}
+			defer rabbitmqConn.Close()
+			logger.Info("connected to rabbitmq", map[string]interface{}{
+				"host":  cfg.Rabbit.Host,
+				"port":  cfg.Rabbit.Port,
+				"user":  cfg.Rabbit.User,
+				"vhost": cfg.Rabbit.Vhost,
+			})
 
-		// Kafka backend for all events
-		// Use the existing connection if available (created earlier in main.go)
-		if cfg.EventPublisher.Kafka.Enabled {
-			if kafkaConn == nil {
-				logger.Fatal("kafka connection is nil but kafka is enabled", nil)
-			}
-			kafkaPub := publisher.NewKafkaPublisherWithConn(
-				kafkaConn,
-				cfg.EventPublisher.Kafka.Topic,
-				cfg.Instance.Name,
-			)
-			backends = append(backends, kafkaPub)
-		}
-
-		// RabbitMQ backend for all events
-		// Use the existing connection if available (created earlier in main.go)
-		if cfg.EventPublisher.RabbitMQ.Enabled {
-			if rabbitmqConn == nil {
-				logger.Fatal("rabbitmq connection is nil but rabbitmq is enabled", nil)
-			}
-			rabbitPub := publisher.NewRabbitMQPublisher(
+			eventRabbitPublisher := event.NewRabbitmqPublisher(
 				rabbitmqConn,
-				publisher.RabbitMQPublisherConfig{
-					Source:           cfg.Instance.Name,
+				event.RabbitmqPublisherConfig{
 					Exchange:         cfg.EventPublisher.RabbitMQ.Exchange,
-					ExchangeType:     cfg.EventPublisher.RabbitMQ.ExchangeType,
 					RoutingKeyPrefix: cfg.EventPublisher.RabbitMQ.RoutingKeyPrefix,
-					Durable:          cfg.EventPublisher.RabbitMQ.Durable,
 					ConfirmTimeout:   cfg.EventPublisher.RabbitMQ.ConfirmTimeout,
 					MaxRetries:       cfg.EventPublisher.RabbitMQ.MaxRetries,
 					RetryInterval:    cfg.EventPublisher.RabbitMQ.RetryInterval,
-					QueueName:        cfg.EventPublisher.RabbitMQ.QueueName,
-					QueueDurable:     cfg.EventPublisher.RabbitMQ.QueueDurable,
-					QueueAutoDelete:  cfg.EventPublisher.RabbitMQ.QueueAutoDelete,
-					QueueExclusive:   cfg.EventPublisher.RabbitMQ.QueueExclusive,
-					QueueEnabled:     cfg.EventPublisher.RabbitMQ.QueueEnabled,
 				},
+				iMon.Logger,
+				iMon.Tracer,
 			)
-			// Setup infrastructure (exchange and optionally queue)
-			if err := rabbitPub.SetupInfrastructure(); err != nil {
-				logger.Fatal("failed to setup rabbitmq infrastructure", map[string]interface{}{
-					"error":    err.Error(),
-					"exchange": cfg.EventPublisher.RabbitMQ.Exchange,
-				})
-			}
-			backends = append(backends, rabbitPub)
+			backendsPublisher = append(backendsPublisher, eventRabbitPublisher)
 		}
 
-		// HTTP backend for all events
-		if cfg.EventPublisher.HTTP.Enabled {
-			backends = append(backends, publisher.NewHTTPPublisher(
-				publisher.HttpPublisherConfig{
-					Endpoint: cfg.EventPublisher.HTTP.URL,
-					Source:   cfg.Instance.Name,
-					Timeout:  cfg.EventPublisher.HTTP.Timeout,
-				},
-			))
-		}
-
-		// Combine backends and wrap with async
-		if len(backends) > 0 {
-			multiBackend, err := publisher.NewMultiPublisher(logger, backends...)
-			if err != nil {
-				logger.Fatal("failed to create multi publisher", map[string]interface{}{
-					"error": err.Error(),
-				})
-			}
-			eventPublisher = publisher.NewAsyncPublisher(multiBackend, publisher.AsyncPublisherConfig{
-				WorkerCount:   cfg.EventPublisher.WorkerCount,
-				QueueSize:     cfg.EventPublisher.QueueSize,
-				BatchSize:     cfg.EventPublisher.BatchSize,
-				BatchTimeout:  cfg.EventPublisher.BatchTimeout,
-				MaxRetries:    cfg.EventPublisher.MaxRetries,
-				RetryInterval: cfg.EventPublisher.RetryInterval,
-			})
+		if len(backendsPublisher) == 1 {
+			eventPublisher = backendsPublisher[0]
+		} else if len(backendsPublisher) > 1 {
+			eventPublisher = event.NewMultiEventPublisher(
+				iMon.Logger,
+				iMon.Tracer,
+				backendsPublisher...,
+			)
 		}
 	}
 
 	// Default to no-op if no publishers configured
 	if eventPublisher == nil {
-		eventPublisher = publisher.NewNoOpPublisher()
+		eventPublisher = event.NewNoOpPublisher()
 	}
-
 	// Close publisher on shutdown
 	defer eventPublisher.Close()
+
+	// create executor
+	exc := executor.NewServiceExecutor(iMon.Logger, iMon.Tracer)
 
 	// initialize observer
 	// TODO: change to real observer after implemented
@@ -289,6 +220,7 @@ func main() {
 		eventPublisher,
 		uidGen,
 		resolverProvider,
+		exc,
 		permissionObserver,
 	)
 	groupService := service.NewGroupService(
@@ -297,6 +229,7 @@ func main() {
 		eventPublisher,
 		uidGen,
 		resolverProvider,
+		exc,
 		groupObserver,
 		groupPermissionObserver,
 	)
@@ -306,6 +239,7 @@ func main() {
 		eventPublisher,
 		uidGen,
 		resolverProvider,
+		exc,
 		roleObserver,
 		rolePermissionObserver,
 	)
@@ -313,11 +247,13 @@ func main() {
 		uow,
 		repoProvider,
 		eventPublisher,
+		exc,
 		subjectObserver,
 	)
 	accessService := service.NewAccessService(
 		repoProvider,
 		eventPublisher,
+		exc,
 		accessObserver,
 	)
 

@@ -7,6 +7,29 @@
 # We use config section at interface level to customize output directory per interface
 
 packages:
+  # Service ports - mocks/service/
+  github.com/adityakw90/service-access/internal/core/port/service:
+    config:
+      with-expecter: true
+      outpkg: mocks
+      filename: "mock_{{.InterfaceName}}.go"
+    interfaces:
+      AccessService:
+        config:
+          dir: mocks/service
+      GroupService:
+        config:
+          dir: mocks/service
+      PermissionService:
+        config:
+          dir: mocks/service
+      RoleService:
+        config:
+          dir: mocks/service
+      SubjectService:
+        config:
+          dir: mocks/service
+
   # Repository ports - mocks/repository/
   github.com/adityakw90/service-access/internal/core/port/repository:
     config:
@@ -33,17 +56,6 @@ packages:
         config:
           dir: mocks/repository
 
-  # Security ports - mocks/security/
-  github.com/adityakw90/service-access/internal/core/port/security:
-    config:
-      with-expecter: true
-      outpkg: mocks
-      filename: "mock_{{.InterfaceName}}.go"
-    interfaces:
-      UIDGenerator:
-        config:
-          dir: mocks/security
-
   # Resolver ports - mocks/resolver/
   github.com/adityakw90/service-access/internal/core/port/resolver:
     config:
@@ -67,6 +79,17 @@ packages:
         config:
           dir: mocks/resolver
 
+  # Security ports - mocks/security/
+  github.com/adityakw90/service-access/internal/core/port/security:
+    config:
+      with-expecter: true
+      outpkg: mocks
+      filename: "mock_{{.InterfaceName}}.go"
+    interfaces:
+      UIDGenerator:
+        config:
+          dir: mocks/security
+
   # Event ports - mocks/event/
   github.com/adityakw90/service-access/internal/core/port/event:
     config:
@@ -78,25 +101,24 @@ packages:
         config:
           dir: mocks/event
 
-  # Service ports - mocks/service/
-  github.com/adityakw90/service-access/internal/core/port/service:
+  # Executor ports - mocks/executor/
+  github.com/adityakw90/service-access/internal/core/port/executor:
     config:
       with-expecter: true
       outpkg: mocks
       filename: "mock_{{.InterfaceName}}.go"
     interfaces:
-      AccessService:
+      Executor:
         config:
-          dir: mocks/service
-      GroupService:
+          dir: mocks/executor
+
+  # Observer ports - mocks/observer/
+  github.com/adityakw90/service-access/internal/core/port/observer:
+    config:
+      with-expecter: true
+      outpkg: mocks
+      filename: "mock_{{.InterfaceName}}.go"
+    interfaces:
+      ServiceObserver:
         config:
-          dir: mocks/service
-      PermissionService:
-        config:
-          dir: mocks/service
-      RoleService:
-        config:
-          dir: mocks/service
-      SubjectService:
-        config:
-          dir: mocks/service
+          dir: mocks/observer

@@ -7,8 +7,9 @@ import (
 	"time"
 
 	"github.com/adityakw90/go-monitoring"
+	"github.com/adityakw90/service-access/internal/adapter/event"
+	adapterexecutor "github.com/adityakw90/service-access/internal/adapter/executor"
 	adapterobserver "github.com/adityakw90/service-access/internal/adapter/observer"
-	"github.com/adityakw90/service-access/internal/adapter/publisher"
 	"github.com/adityakw90/service-access/internal/adapter/repository"
 	"github.com/adityakw90/service-access/internal/adapter/resolver"
 	adaptersecurity "github.com/adityakw90/service-access/internal/adapter/security"
@@ -102,7 +103,10 @@ func SetupTestServices(t *testing.T, ctx context.Context) (*TestServices, error)
 	uidGenerator := adaptersecurity.NewUIDGenerator()
 
 	// Create event publishers (no-op for tests)
-	eventPublisher := publisher.NewNoOpPublisher()
+	eventPublisher := event.NewNoOpPublisher()
+
+	// Create executor (no-op for tests)
+	exc := adapterexecutor.NewServiceExecutor(monitoring.Logger, monitoring.Tracer)
 
 	// Initialize observers (no-op for tests)
 	permissionObserver := adapterobserver.NewNoopObserver[signal.SignalPermission]()
@@ -120,6 +124,7 @@ func SetupTestServices(t *testing.T, ctx context.Context) (*TestServices, error)
 		eventPublisher,
 		uidGenerator,
 		resolverProvider,
+		exc,
 		permissionObserver,
 	)
 
@@ -129,6 +134,7 @@ func SetupTestServices(t *testing.T, ctx context.Context) (*TestServices, error)
 		eventPublisher,
 		uidGenerator,
 		resolverProvider,
+		exc,
 		groupObserver,
 		groupPermissionObserver,
 	)
@@ -139,6 +145,7 @@ func SetupTestServices(t *testing.T, ctx context.Context) (*TestServices, error)
 		eventPublisher,
 		uidGenerator,
 		resolverProvider,
+		exc,
 		roleObserver,
 		rolePermissionObserver,
 	)
@@ -147,12 +154,14 @@ func SetupTestServices(t *testing.T, ctx context.Context) (*TestServices, error)
 		uow,
 		repoProvider,
 		eventPublisher,
+		exc,
 		subjectObserver,
 	)
 
 	accessService := service.NewAccessService(
 		repoProvider,
 		eventPublisher,
+		exc,
 		accessObserver,
 	)
 
