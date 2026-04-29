@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ["1.25.5", "1.25.6", "1.25.7"]
+
+    services:
+      redis:
+        image: redis:8.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: service_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      rabbitmq:
+        image: rabbitmq:4.2.3-management-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: rabbit
+          RABBITMQ_DEFAULT_PASS: password
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics check_port_connectivity"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache-dependency-path: go.sum
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Checkout service-access-db
+        uses: actions/checkout@v6
+        with:
+          repository: adityakw90/service-access-db
+          path: service-access-db
+
+      - name: Run Migrations
+        working-directory: service-access-db
+        run: |
+          echo "DATABASE_URL=jdbc:postgresql://localhost:5432/service_db" > .env
+          echo "DATABASE_USER=postgres" >> .env
+          echo "DATABASE_PASSWORD=postgres" >> .env
+          make build
+          make update
+
+      - name: Run tests
+        env:
+          DATABASE_USER: postgres
+          DATABASE_PASSWORD: postgres
+          DATABASE_HOST: localhost
+          DATABASE_PORT: 5432
+          DATABASE_NAME: service_db
+        run: make test-cover
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v5
+        with:
+          file: ./coverage.txt
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}

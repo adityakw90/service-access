@@ -1,0 +1,13 @@
+package resolver
+
+import (
+	"context"
+
+	"github.com/adityakw90/service-access/internal/core/domain/param"
+)
+
+type RoleResolver interface {
+	IDsByUIDs(ctx context.Context, uids []string) (map[string]int64, error)
+	UIDsByIDs(ctx context.Context, ids []int64) (map[int64]string, error)
+	Invalidate(ctx context.Context, opts ...param.InvalidateOpt) error
+}

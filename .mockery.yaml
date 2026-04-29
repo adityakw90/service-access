@@ -1,0 +1,124 @@
+# Mockery configuration for generating test mocks
+# This file configures mockery to generate all port mocks into mocks/ directory
+# with a mirrored subdirectory structure matching the port organization.
+
+# Use the packages configuration format (required for mockery v3+)
+# Note: mockery preserves module path structure in packages mode
+# We use config section at interface level to customize output directory per interface
+
+packages:
+  # Service ports - mocks/service/
+  github.com/adityakw90/service-access/internal/core/port/service:
+    config:
+      with-expecter: true
+      outpkg: mocks
+      filename: "mock_{{.InterfaceName}}.go"
+    interfaces:
+      AccessService:
+        config:
+          dir: mocks/service
+      GroupService:
+        config:
+          dir: mocks/service
+      PermissionService:
+        config:
+          dir: mocks/service
+      RoleService:
+        config:
+          dir: mocks/service
+      SubjectService:
+        config:
+          dir: mocks/service
+
+  # Repository ports - mocks/repository/
+  github.com/adityakw90/service-access/internal/core/port/repository:
+    config:
+      with-expecter: true
+      outpkg: mocks
+      filename: "mock_{{.InterfaceName}}.go"
+    interfaces:
+      GroupRepository:
+        config:
+          dir: mocks/repository
+      PermissionRepository:
+        config:
+          dir: mocks/repository
+      RoleRepository:
+        config:
+          dir: mocks/repository
+      SubjectRepository:
+        config:
+          dir: mocks/repository
+      RepositoryProvider:
+        config:
+          dir: mocks/repository
+      UnitOfWork:
+        config:
+          dir: mocks/repository
+
+  # Resolver ports - mocks/resolver/
+  github.com/adityakw90/service-access/internal/core/port/resolver:
+    config:
+      with-expecter: true
+      outpkg: mocks
+      filename: "mock_{{.InterfaceName}}.go"
+    interfaces:
+      GroupResolver:
+        config:
+          dir: mocks/resolver
+      PermissionResolver:
+        config:
+          dir: mocks/resolver
+      RoleResolver:
+        config:
+          dir: mocks/resolver
+      GroupPermissionResolver:
+        config:
+          dir: mocks/resolver
+      ResolverProvider:
+        config:
+          dir: mocks/resolver
+
+  # Security ports - mocks/security/
+  github.com/adityakw90/service-access/internal/core/port/security:
+    config:
+      with-expecter: true
+      outpkg: mocks
+      filename: "mock_{{.InterfaceName}}.go"
+    interfaces:
+      UIDGenerator:
+        config:
+          dir: mocks/security
+
+  # Event ports - mocks/event/
+  github.com/adityakw90/service-access/internal/core/port/event:
+    config:
+      with-expecter: true
+      outpkg: mocks
+      filename: "mock_{{.InterfaceName}}.go"
+    interfaces:
+      EventPublisher:
+        config:
+          dir: mocks/event
+
+  # Executor ports - mocks/executor/
+  github.com/adityakw90/service-access/internal/core/port/executor:
+    config:
+      with-expecter: true
+      outpkg: mocks
+      filename: "mock_{{.InterfaceName}}.go"
+    interfaces:
+      Executor:
+        config:
+          dir: mocks/executor
+
+  # Observer ports - mocks/observer/
+  github.com/adityakw90/service-access/internal/core/port/observer:
+    config:
+      with-expecter: true
+      outpkg: mocks
+      filename: "mock_{{.InterfaceName}}.go"
+    interfaces:
+      ServiceObserver:
+        config:
+          dir: mocks/observer

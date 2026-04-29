@@ -1,0 +1,243 @@
+package resolver
+
+import (
+	"context"
+	"errors"
+	"strconv"
+	"time"
+
+	monitoring "github.com/adityakw90/go-monitoring"
+	domainerrors "github.com/adityakw90/service-access/internal/core/domain/errors"
+	"github.com/adityakw90/service-access/internal/core/domain/param"
+	portResolver "github.com/adityakw90/service-access/internal/core/port/resolver"
+	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+)
+
+type roleResolver struct {
+	db                 PostgrePool
+	redisClient        *redis.Client
+	redisPrefix        string
+	redisCacheDuration time.Duration
+	logger             monitoring.Logger
+	tracer             monitoring.Tracer
+}
+
+type roleIdentity struct {
+	id  int64
+	uid string
+}
+
+func NewRoleResolver(
+	db PostgrePool,
+	redisClient *redis.Client,
+	redisPrefix string,
+	redisCacheDuration time.Duration,
+	logger monitoring.Logger,
+	tracer monitoring.Tracer,
+) portResolver.RoleResolver {
+	return &roleResolver{
+		db:                 db,
+		redisClient:        redisClient,
+		redisPrefix:        redisPrefix,
+		redisCacheDuration: redisCacheDuration,
+		logger:             logger,
+		tracer:             tracer,
+	}
+}
+
+func (r *roleResolver) IDsByUIDs(ctx context.Context, uids []string) (map[string]int64, error) {
+	newCtx, resvSpan := r.tracer.StartSpan(ctx, "roleResolver.IDsByUIDs")
+	defer resvSpan.End()
+
+	result, err := mapperID(
+		newCtx,
+		r.logger,
+		r.redisClient,
+		uids,
+		func(res string) int64 {
+			d, _ := strconv.ParseInt(res, 10, 64)
+			return d
+		},
+		func(uid string) string {
+			return r.redisPrefix + ":" + uid + ":id"
+		},
+		func(uid string) (*roleIdentity, error) {
+			return r.fetchIDFromDB(newCtx, uid)
+		},
+		func(role *roleIdentity) int64 {
+			return role.id
+		},
+		r.redisCacheDuration,
+	)
+	if err != nil {
+		if errors.Is(err, domainerrors.ErrRoleNotFound) {
+			r.logger.Debug("Failed", map[string]interface{}{
+				"error.message": err.Error(),
+			})
+		} else {
+			r.logger.Error("error", map[string]interface{}{
+				"error.message": err.Error(),
+			})
+		}
+		resvSpan.AddEvent("Error", trace.WithAttributes(
+			attribute.String("error.message", err.Error()),
+		))
+		return nil, err
+	}
+
+	resvSpan.AddEvent("success", trace.WithAttributes(
+		attribute.StringSlice("roleUID", uids),
+	))
+
+	return result, nil
+}
+
+func (r *roleResolver) UIDsByIDs(ctx context.Context, ids []int64) (map[int64]string, error) {
+	newCtx, resvSpan := r.tracer.StartSpan(ctx, "roleResolver.UIDsByIDs")
+	defer resvSpan.End()
+
+	result, err := mapperID(
+		newCtx,
+		r.logger,
+		r.redisClient,
+		ids,
+		func(res string) string { return res },
+		func(id int64) string {
+			return r.redisPrefix + ":id:" + strconv.FormatInt(id, 10) + ":uid"
+		},
+		func(id int64) (*roleIdentity, error) {
+			return r.fetchUIDFromDB(newCtx, id)
+		},
+		func(role *roleIdentity) string {
+			return role.uid
+		},
+		r.redisCacheDuration,
+	)
+	if err != nil {
+		if errors.Is(err, domainerrors.ErrRoleNotFound) {
+			r.logger.Debug("Failed", map[string]interface{}{
+				"error.message": err.Error(),
+			})
+		} else {
+			r.logger.Error("error", map[string]interface{}{
+				"error.message": err.Error(),
+			})
+		}
+		resvSpan.AddEvent("Error", trace.WithAttributes(
+			attribute.String("error.message", err.Error()),
+		))
+		return nil, err
+	}
+
+	resvSpan.AddEvent("success", trace.WithAttributes(
+		attribute.Int64Slice("roleID", ids),
+	))
+
+	return result, nil
+}
+
+func (r *roleResolver) fetchIDFromDB(ctx context.Context, uid string) (*roleIdentity, error) {
+	var iden roleIdentity
+
+	rows, err := r.db.Query(ctx,
+		`SELECT id, uid FROM "role" WHERE uid=$1`, uid,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		err := rows.Scan(&iden.id, &iden.uid)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if iden.id == 0 {
+		return nil, domainerrors.ErrRoleNotFound
+	}
+
+	return &iden, nil
+}
+
+func (r *roleResolver) fetchUIDFromDB(ctx context.Context, id int64) (*roleIdentity, error) {
+	var iden roleIdentity
+
+	rows, err := r.db.Query(ctx,
+		`SELECT id, uid FROM "role" WHERE id=$1`, id,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		err := rows.Scan(&iden.id, &iden.uid)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if iden.id == 0 {
+		return nil, domainerrors.ErrRoleNotFound
+	}
+
+	return &iden, nil
+}
+
+func (r *roleResolver) Invalidate(ctx context.Context, opts ...param.InvalidateOpt) error {
+	// Parse options
+	options := &param.InvalidateOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	if len(options.UIDs) == 0 && len(options.IDs) == 0 {
+		return nil
+	}
+
+	// Build all keys to delete - both forward (uid->id) and reverse (id->uid) mappings
+	keysToDelete := make([]string, 0, (len(options.UIDs)+len(options.IDs))*2)
+
+	// Process UIDs - delete forward mapping and look up reverse mapping
+	for _, uid := range options.UIDs {
+		uidKey := r.redisPrefix + ":" + uid + ":id"
+		keysToDelete = append(keysToDelete, uidKey)
+
+		// Try to get the ID from cache to build the reverse key
+		idStr, err := r.redisClient.Get(ctx, uidKey).Result()
+		if err == nil && idStr != "" {
+			// ID exists in cache, also delete the reverse mapping key
+			idKey := r.redisPrefix + ":id:" + idStr + ":uid"
+			keysToDelete = append(keysToDelete, idKey)
+		}
+		// If ID not in cache or GET failed, that's okay - the reverse key either
+		// doesn't exist or will expire naturally
+	}
+
+	// Process IDs - delete reverse mapping and look up forward mapping
+	for _, id := range options.IDs {
+		idStr := strconv.FormatInt(id, 10)
+		idKey := r.redisPrefix + ":id:" + idStr + ":uid"
+		keysToDelete = append(keysToDelete, idKey)
+
+		// Try to get the UID from cache to build the forward key
+		uidStr, err := r.redisClient.Get(ctx, idKey).Result()
+		if err == nil && uidStr != "" {
+			// UID exists in cache, also delete the forward mapping key
+			uidKey := r.redisPrefix + ":" + uidStr + ":id"
+			keysToDelete = append(keysToDelete, uidKey)
+		}
+		// If UID not in cache or GET failed, that's okay - the forward key either
+		// doesn't exist or will expire naturally
+	}
+
+	if len(keysToDelete) == 0 {
+		return nil
+	}
+
+	return r.redisClient.Del(ctx, keysToDelete...).Err()
+}

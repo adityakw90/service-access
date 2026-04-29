@@ -1,0 +1,68 @@
+.PHONY: test test-cover test-clean build run help verbose mocks
+
+# Default target
+.DEFAULT_GOAL := help
+
+# Verbose target (used as: make test verbose)
+verbose:
+	@:
+
+# Generate mocks using mockery
+mocks:
+	@echo "Generating mocks..."
+	@rm -rf ./mocks
+	@mockery --config .mockery.yaml
+
+# Test (usage: make test or make test verbose)
+test:
+	@if echo "$(MAKECMDGOALS)" | grep -q "verbose"; then \
+		echo "Running tests with verbose output..."; \
+		go test -v ./...; \
+	else \
+		echo "Running tests..."; \
+		go test ./...; \
+	fi
+
+# Test with coverage
+test-cover:
+	@echo "Running tests with coverage..."
+	@if echo "$(MAKECMDGOALS)" | grep -q "verbose"; then \
+		go test -v -race -covermode=atomic -coverprofile=coverage.txt ./...; \
+	else \
+		go test -race -covermode=atomic -coverprofile=coverage.txt ./...; \
+	fi
+
+# Clean test cache and coverage files
+test-clean:
+	@echo "Cleaning test cache and coverage files..."
+	@go clean -testcache
+	@rm -f coverage.txt
+	@echo "Clean complete"
+
+build:
+	@echo "Building the application..."
+	@GOOS=linux GOARCH=amd64 go build -o bin/app ./cmd/...
+
+lint:
+	@echo "Linting the application..."
+	@golangci-lint run
+
+fmt:
+	@echo "Formatting the application..."
+	@golangci-lint fmt
+
+run:
+	@echo "Running the application..."
+	@go run cmd/main.go
+
+# Help target
+help:
+	@echo "Available targets:"
+	@echo "  mocks                - Generate mocks using mockery"
+	@echo "  test [verbose]       - Run all tests (add verbose for verbose output)"
+	@echo "  test-cover [verbose] - Run tests with coverage (add verbose for verbose output)"
+	@echo "  test-clean           - Clean test cache and coverage files"
+	@echo "  bench [verbose]      - Run all benchmarks (add verbose for verbose output)"
+	@echo "  build                - Build the application"
+	@echo "  run                  - Run the application"
+	@echo "  help                 - Show this help message"
