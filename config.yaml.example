@@ -1,0 +1,89 @@
+# Service Access Configuration Example
+# Copy this file to config.yaml or /etc/service-access/config.yaml and update with your values
+
+app:
+  code: SAC
+  name: Service Access
+  env: production
+  debug: false
+  ip: 0.0.0.0
+  port: 50051
+
+instance:
+  host: localhost
+  name: service-access
+
+database:
+  host: localhost
+  port: 5432
+  user: your_db_user
+  password: your_db_password
+  name: service_access
+  sslmode: disable
+  timezone: UTC
+  min_conns: 1
+  min_idle_conns: 0
+  max_conns: 10
+  max_conn_idle_time: 5m
+  max_conn_lifetime: 1h
+  max_conn_lifetime_jitter: 1m
+  health_check_period: 1m
+  query_exec_mode: cache_describe
+
+redis:
+  host: localhost
+  port: 6379
+  user: ""
+  password: your_redis_password
+  db: 0
+  pool_size: 10
+  pool_timeout: 5s
+  connection_idle_min: 10
+
+rabbitmq:
+  host: localhost
+  port: 5672
+  user: your_rabbitmq_user
+  password: your_rabbitmq_password
+  vhost: /
+  reconnect_interval: 1s
+  reconnect_max_attempts: 0
+
+event_publisher:
+  enabled: false
+  http:
+    enabled: false
+    url: ""
+    timeout: 5s
+  rabbitmq:
+    enabled: false
+    exchange: access-service
+    routing_key_prefix: access-service
+    confirm_timeout: 30s
+    max_retries: 5
+    retry_interval: 1s
+
+monitoring:
+  service_name: service-access
+  environment: production
+  logger:
+    level: info
+  tracer:
+    provider: otlp
+    provider_host: localhost
+    provider_port: 4317
+    sample_ratio: 1
+    insecure: true
+  metric:
+    provider: otlp
+    provider_host: localhost
+    provider_port: 4317
+    insecure: true
+
+observer:
+  group: true
+  role: true
+  permission: true
+  subject: true
+  access: true
+
