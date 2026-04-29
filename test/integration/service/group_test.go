@@ -11,6 +11,7 @@ import (
 	"github.com/adityakw90/service-access/internal/adapter/repository"
 	adapterResolver "github.com/adityakw90/service-access/internal/adapter/resolver"
 	"github.com/adityakw90/service-access/internal/adapter/security"
+	"github.com/adityakw90/service-access/internal/infra"
 	"github.com/adityakw90/service-access/internal/core/domain/param"
 	"github.com/adityakw90/service-access/internal/core/domain/signal"
 	"github.com/adityakw90/service-access/internal/core/service"
@@ -45,7 +46,7 @@ func TestIntegration_GroupService_Create(t *testing.T) {
 	resolverProvider := adapterResolver.NewResolverProvider(db, redisClient, "service-access", 5*time.Minute, nil, nil)
 
 	// Create executor (no-op for tests)
-	exc := adapterexecutor.NewServiceExecutor(nil, nil)
+	exc := adapterexecutor.NewServiceExecutor(infra.NewNoopLogger(), infra.NewNoopTracer())
 
 	// Create noop observer
 	groupObserver := observer.NewNoopObserver[signal.SignalGroup]()
